@@ -17,9 +17,10 @@ const MAX_TRANSCRIPT_MESSAGES = 30;
 export class CodexCliClient implements ReplyClient {
     public async generateReply(input: GenerateReplyInput): Promise<GenerateReplyResult> {
         const transcript = parseConversationState(input.conversationState);
-        const nextTranscript = trimTranscript([...transcript, {role: "user", content: input.text}]);
-        const prompt = buildPrompt(nextTranscript);
-        const text = await runCodexExec(prompt);
+        const userMessage = input.text || input.imageFilePath ? input.text || "請描述呢張圖，並按我需要幫我分析。" : "";
+        const nextTranscript = trimTranscript([...transcript, {role: "user", content: userMessage}]);
+        const prompt = buildPrompt(nextTranscript, Boolean(input.imageFilePath));
+        const text = await runCodexExec(prompt, input.imageFilePath ?? null);
         const updatedTranscript = trimTranscript([...nextTranscript, {role: "assistant", content: text}]);
 
         return {
@@ -64,15 +65,25 @@ function trimTranscript(transcript: TranscriptMessage[]): TranscriptMessage[] {
     return transcript.slice(-MAX_TRANSCRIPT_MESSAGES);
 }
 
-function buildPrompt(transcript: TranscriptMessage[]): string {
+function buildPrompt(transcript: TranscriptMessage[], hasImage: boolean): string {
     const lines = transcript.map(function formatTranscriptMessage(message: TranscriptMessage, index: number): string {
         return `${index + 1}. ${message.role}: ${message.content}`;
     });
 
-    return [SYSTEM_PROMPT, "", "Conversation so far:", ...lines, "", "Reply only with the assistant message for the latest user input."].join("\n");
+    return [
+        SYSTEM_PROMPT,
+        "",
+        hasImage ? "The latest user message includes an attached image." : "",
+        "Conversation so far:",
+        ...lines,
+        "",
+        "Reply only with the assistant message for the latest user input.",
+    ]
+        .filter(Boolean)
+        .join("\n");
 }
 
-async function runCodexExec(prompt: string): Promise<string> {
+async function runCodexExec(prompt: string, imageFilePath: string | null): Promise<string> {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "telegram-codex-"));
     const outputPath = path.join(tempDir, "reply.txt");
 
@@ -80,7 +91,15 @@ async function runCodexExec(prompt: string): Promise<string> {
         const stderrChunks: string[] = [];
 
         await new Promise<void>(function execute(resolve, reject) {
-            const child = spawn("codex", ["exec", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox", "--color", "never", "--output-last-message", outputPath, "-"], {
+            const args = ["exec", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox", "--color", "never", "--output-last-message", outputPath];
+
+            if (imageFilePath) {
+                args.push("--image", imageFilePath);
+            }
+
+            args.push("-");
+
+            const child = spawn("codex", args, {
                 cwd: process.cwd(),
                 stdio: ["pipe", "ignore", "pipe"],
             });

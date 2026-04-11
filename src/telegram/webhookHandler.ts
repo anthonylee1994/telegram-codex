@@ -1,10 +1,13 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+
 import type {ConversationService} from "../conversation/conversationService.js";
 import {ChatRateLimiter} from "../conversation/rateLimiter.js";
 import type {Logger} from "../types/services.js";
 import type {TelegramService} from "./telegramService.js";
 import {parseIncomingTelegramMessage} from "./updateParser.js";
 
-const UNSUPPORTED_MESSAGE = "而家只支援文字訊息，圖、檔案、語音住先未得。";
+const UNSUPPORTED_MESSAGE = "而家只支援文字同圖片訊息，檔案、語音住先未得。";
 const RATE_LIMIT_MESSAGE = "你打得太快，等一陣再試。";
 const GENERIC_ERROR_MESSAGE = "我而家有啲塞車，遲啲再試過。";
 const UNAUTHORIZED_MESSAGE = "呢個 bot 暫時只限指定用戶使用。";
@@ -21,7 +24,7 @@ export class TelegramWebhookHandler {
     public async handle(update: unknown): Promise<void> {
         const message = parseIncomingTelegramMessage(update);
 
-        if (!message || !message.text) {
+        if (!message || (!message.text && !message.imageFileId)) {
             await this.replyUnsupported(update);
             return;
         }
@@ -51,7 +54,20 @@ export class TelegramWebhookHandler {
         }
 
         try {
-            const reply = await this.telegramService.withTypingStatus(message.chatId, async () => this.conversationService.reply(message));
+            const reply = await this.telegramService.withTypingStatus(message.chatId, async () => {
+                const imageFilePath = message.imageFileId ? await this.telegramService.downloadFileToTemp(message.imageFileId) : null;
+
+                try {
+                    return await this.conversationService.reply({
+                        ...message,
+                        imageFilePath,
+                    });
+                } finally {
+                    if (imageFilePath) {
+                        await fs.rm(path.dirname(imageFilePath), {recursive: true, force: true});
+                    }
+                }
+            });
             await this.telegramService.sendMessage(message.chatId, reply);
             await this.conversationService.markProcessed(message.updateId, message.chatId, message.messageId);
         } catch (error) {

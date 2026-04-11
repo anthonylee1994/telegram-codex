@@ -6,6 +6,8 @@ export interface ChatSession {
 
 export interface IncomingTelegramMessage {
     chatId: string;
+    imageFileId: string | null;
+    imageFilePath?: string | null;
     messageId: number;
     text: string;
     userId: string;
@@ -16,6 +18,7 @@ export interface GenerateReplyInput {
     chatId: string;
     text: string;
     conversationState: string | null;
+    imageFilePath?: string | null;
 }
 
 export interface GenerateReplyResult {

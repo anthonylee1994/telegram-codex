@@ -70,6 +70,7 @@ describe("ConversationService", () => {
 
         const reply = await service.reply({
             chatId: "chat-1",
+            imageFileId: null,
             messageId: 10,
             text: "hello",
             userId: "234392020",
@@ -81,6 +82,7 @@ describe("ConversationService", () => {
             chatId: "chat-1",
             text: "hello",
             conversationState: "state-old",
+            imageFilePath: null,
         });
     });
 
@@ -103,6 +105,7 @@ describe("ConversationService", () => {
 
         await service.reply({
             chatId: "chat-1",
+            imageFileId: null,
             messageId: 10,
             text: "hello",
             userId: "234392020",
@@ -113,6 +116,7 @@ describe("ConversationService", () => {
             chatId: "chat-1",
             text: "hello",
             conversationState: null,
+            imageFilePath: null,
         });
     });
 });

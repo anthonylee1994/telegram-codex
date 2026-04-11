@@ -1,4 +1,7 @@
 import {Bot} from "grammy";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 
 import type {Logger} from "../types/services.js";
 
@@ -12,6 +15,30 @@ export class TelegramService {
         private readonly logger: Logger
     ) {
         this.bot = new Bot(token);
+    }
+
+    public async downloadFileToTemp(fileId: string): Promise<string> {
+        const file = await this.bot.api.getFile(fileId);
+
+        if (!file.file_path) {
+            throw new Error("Telegram file did not include a file path.");
+        }
+
+        const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "telegram-codex-file-"));
+        const fileName = path.basename(file.file_path);
+        const outputPath = path.join(tempDir, fileName);
+        const fileUrl = `https://api.telegram.org/file/bot${this.bot.token}/${file.file_path}`;
+        const response = await fetch(fileUrl);
+
+        if (!response.ok) {
+            throw new Error(`Failed to download Telegram file: ${response.status} ${response.statusText}`);
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+
+        await fs.writeFile(outputPath, new Uint8Array(arrayBuffer));
+
+        return outputPath;
     }
 
     public async sendMessage(chatId: string, text: string): Promise<void> {

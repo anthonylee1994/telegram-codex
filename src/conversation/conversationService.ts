@@ -26,6 +26,7 @@ export class ConversationService {
             chatId: message.chatId,
             text: message.text,
             conversationState: session?.conversationState ?? null,
+            imageFilePath: message.imageFilePath ?? null,
         });
 
         await this.sessionRepository.upsert({
