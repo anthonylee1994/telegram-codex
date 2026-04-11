@@ -2,6 +2,20 @@
 
 用 Codex CLI 做回覆、用 SQLite 存 session memory 嘅 Telegram bot backend。
 
+## 支援內容
+
+而家支援：
+
+- 文字訊息
+- 單張 Telegram 圖片
+- 圖片 caption
+
+而家未支援：
+
+- 多張圖同一個 message 一齊分析
+- document 類型圖片 upload
+- 語音、檔案、影片
+
 ## 本地設定
 
 1. 將 `.env.example` 複製做 `.env`
