@@ -80,7 +80,7 @@ async function runCodexExec(prompt: string): Promise<string> {
         const stderrChunks: string[] = [];
 
         await new Promise<void>(function execute(resolve, reject) {
-            const child = spawn("codex", ["exec", "--skip-git-repo-check", "--sandbox", "read-only", "--color", "never", "--output-last-message", outputPath, "-"], {
+            const child = spawn("codex", ["exec", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox", "--color", "never", "--output-last-message", outputPath, "-"], {
                 cwd: process.cwd(),
                 stdio: ["pipe", "ignore", "pipe"],
             });
