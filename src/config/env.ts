@@ -13,14 +13,15 @@ const envSchema = z.object({
     TELEGRAM_WEBHOOK_SECRET: z.string().min(1),
     ALLOWED_TELEGRAM_USER_IDS: z
         .string()
-        .min(1)
+        .optional()
         .transform(value =>
             value
-                .split(",")
-                .map(item => item.trim())
-                .filter(Boolean)
-        )
-        .refine(value => value.length > 0, "Must include at least one Telegram user id"),
+                ? value
+                      .split(",")
+                      .map(item => item.trim())
+                      .filter(Boolean)
+                : []
+        ),
     SQLITE_DB_PATH: z.string().min(1).default("./data/app.db"),
     SESSION_TTL_DAYS: z.coerce.number().int().positive().default(7),
     RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(10000),

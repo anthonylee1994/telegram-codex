@@ -36,9 +36,10 @@
 
 1. 將 `.env.example` 複製做 `.env`
 2. 用 BotFather 開一個 bot，填返 `TELEGRAM_BOT_TOKEN`
-3. 填好 `BASE_URL`、`TELEGRAM_WEBHOOK_SECRET` 同 `ALLOWED_TELEGRAM_USER_IDS`（多個 id 用逗號分隔）
-4. 確保部機可以用現有 `~/.codex/config.toml` 同 `~/.codex/auth.json` 跑到 `codex exec`
-5. 安裝 dependencies：
+3. 填好 `BASE_URL` 同 `TELEGRAM_WEBHOOK_SECRET`
+4. 如要限制指定 Telegram user id，先再設 `ALLOWED_TELEGRAM_USER_IDS`（多個 id 用逗號分隔）；留空就代表全部人都用得
+5. 確保部機可以用現有 `~/.codex/config.toml` 同 `~/.codex/auth.json` 跑到 `codex exec`
+6. 安裝 dependencies：
 
 ```bash
 pnpm install
@@ -155,7 +156,7 @@ dokku config:set telegram-codex \
   BASE_URL=https://telegram-codex.on99.app \
   TELEGRAM_BOT_TOKEN=replace-me \
   TELEGRAM_WEBHOOK_SECRET=replace-me \
-  ALLOWED_TELEGRAM_USER_IDS=234392020 \
+  ALLOWED_TELEGRAM_USER_IDS= \
   SQLITE_DB_PATH=/app/data/app.db \
   SESSION_TTL_DAYS=7 \
   RATE_LIMIT_WINDOW_MS=10000 \
@@ -166,7 +167,8 @@ dokku config:set telegram-codex \
 
 - `BASE_URL` 一定要係 `https://telegram-codex.on99.app`
 - 唔好加 `/telegram/webhook`
-- `ALLOWED_TELEGRAM_USER_IDS` 支援多個 id，用逗號分隔
+- `ALLOWED_TELEGRAM_USER_IDS` 留空代表全部人都用得
+- 如果有設，支援多個 id，用逗號分隔
 - app 喺 container 入面會 listen `3000`，但對外應該由 Dokku proxy 去 `80/443`
 
 ### 5. 加 Dokku git remote

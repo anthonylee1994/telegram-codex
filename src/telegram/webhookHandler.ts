@@ -29,7 +29,7 @@ export class TelegramWebhookHandler {
             return;
         }
 
-        if (!this.allowedTelegramUserIds.includes(message.userId)) {
+        if (this.allowedTelegramUserIds.length > 0 && !this.allowedTelegramUserIds.includes(message.userId)) {
             this.logger.warn("Rejected unauthorized Telegram user", {
                 chatId: message.chatId,
                 userId: message.userId,
