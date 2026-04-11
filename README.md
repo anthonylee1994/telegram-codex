@@ -2,6 +2,22 @@
 
 用 Codex CLI 做回覆、用 SQLite 存 session memory 嘅 Telegram bot backend。
 
+## 點解整呢個 app
+
+呢個 app 主要係解決一個好實際嘅問題：
+
+- 我有 Codex 可以用
+- 但我冇 OpenAI API key
+
+所以唔係直接 call OpenAI API，而係改做由 Telegram bot 收訊息，再喺 server 入面 call `codex exec` 去做回覆。
+
+咁做嘅目的係：
+
+- 將 Codex 變成一個自己隨時用到嘅 Telegram bot
+- 唔使另外處理 OpenAI API key
+- 保留對話記錄同基本 session memory
+- 可以喺 server / Dokku 長期跑
+
 ## 支援內容
 
 而家支援：
