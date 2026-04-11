@@ -73,16 +73,18 @@ dokku storage:mount telegram-codex /var/lib/dokku/data/storage/telegram-codex/co
 
 ### 3. 將 Codex 認證檔放上 server
 
-你一定要將以下兩個 file 放入 Dokku storage mount：
+你一定要將以下 file 放入 Dokku storage mount：
 
 - `config.toml`
 - `auth.json`
+- `AGENTS.md`（如果你想將本機 `~/.codex/AGENTS.md` 一齊 sync 入 container）
 
 喺你本機跑：
 
 ```bash
 scp ~/.codex/config.toml dokku@your-server:/tmp/config.toml
 scp ~/.codex/auth.json dokku@your-server:/tmp/auth.json
+scp ~/.codex/AGENTS.md dokku@your-server:/tmp/AGENTS.md
 ```
 
 之後 SSH 入 server，再搬去正確位置：
@@ -90,6 +92,7 @@ scp ~/.codex/auth.json dokku@your-server:/tmp/auth.json
 ```bash
 sudo mv /tmp/config.toml /var/lib/dokku/data/storage/telegram-codex/codex/config.toml
 sudo mv /tmp/auth.json /var/lib/dokku/data/storage/telegram-codex/codex/auth.json
+sudo mv /tmp/AGENTS.md /var/lib/dokku/data/storage/telegram-codex/codex/AGENTS.md
 sudo chown -R dokku:dokku /var/lib/dokku/data/storage/telegram-codex
 ```
 
@@ -98,6 +101,7 @@ sudo chown -R dokku:dokku /var/lib/dokku/data/storage/telegram-codex
 ```bash
 /var/lib/dokku/data/storage/telegram-codex/codex/config.toml
 /var/lib/dokku/data/storage/telegram-codex/codex/auth.json
+/var/lib/dokku/data/storage/telegram-codex/codex/AGENTS.md
 ```
 
 入到 container 入面之後，會對應成：
@@ -105,7 +109,10 @@ sudo chown -R dokku:dokku /var/lib/dokku/data/storage/telegram-codex
 ```bash
 /root/.codex/config.toml
 /root/.codex/auth.json
+/root/.codex/AGENTS.md
 ```
+
+因為而家 mount 係成個 `/root/.codex`，所以如果你想 sync `AGENTS.md`，唔使改 application code，放返入同一個 storage folder 就得。
 
 ### 4. 設 app config
 
@@ -195,6 +202,7 @@ cat /root/.codex/config.toml
 
 - `/root/.codex/config.toml`
 - `/root/.codex/auth.json`
+- `/root/.codex/AGENTS.md`（如果你有 sync）
 
 ### 10. 確認 webhook 狀態
 
