@@ -33,12 +33,6 @@ pnpm format
 pnpm test
 ```
 
-## Docker
-
-```bash
-docker compose up --build
-```
-
 ## Dokku deploy
 
 Assumptions:
