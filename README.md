@@ -1,30 +1,34 @@
 # telegram-codex
 
-Telegram bot backend using Codex CLI with SQLite session memory.
+用 Codex CLI 做回覆、用 SQLite 存 session memory 嘅 Telegram bot backend。
 
-## Local setup
+## 本地設定
 
-1. Copy `.env.example` to `.env`.
-2. Create a bot with BotFather and fill `TELEGRAM_BOT_TOKEN`.
-3. Fill `BASE_URL`, `TELEGRAM_WEBHOOK_SECRET`, and `ALLOWED_TELEGRAM_USER_IDS` (comma-separated).
-4. Make sure the machine can run `codex exec` using your existing `~/.codex/config.toml` and `~/.codex/auth.json`.
-5. Install dependencies with `pnpm install`.
+1. 將 `.env.example` 複製做 `.env`
+2. 用 BotFather 開一個 bot，填返 `TELEGRAM_BOT_TOKEN`
+3. 填好 `BASE_URL`、`TELEGRAM_WEBHOOK_SECRET` 同 `ALLOWED_TELEGRAM_USER_IDS`（多個 id 用逗號分隔）
+4. 確保部機可以用現有 `~/.codex/config.toml` 同 `~/.codex/auth.json` 跑到 `codex exec`
+5. 安裝 dependencies：
 
-## Local run
+```bash
+pnpm install
+```
+
+## 本地開發
 
 ```bash
 pnpm dev
 ```
 
-## Set webhook
+## 設定 webhook
 
-`pnpm set-webhook` always uses `BASE_URL` from `.env`, so make sure `BASE_URL` is already set correctly before running it.
+`pnpm set-webhook` 會直接讀 `.env` 入面嘅 `BASE_URL`，所以你跑之前要先確認 `BASE_URL` 係啱。
 
 ```bash
 pnpm set-webhook
 ```
 
-## Checks
+## 檢查指令
 
 ```bash
 pnpm type-check
@@ -33,31 +37,31 @@ pnpm format
 pnpm test
 ```
 
-## Dokku deploy
+## Dokku 部署
 
-Assumptions:
+以下假設：
 
-- Dokku app name: `telegram-codex`
-- Domain: `telegram-codex.on99.app`
-- Dokku server user: `dokku`
+- Dokku app 名叫 `telegram-codex`
+- Domain 係 `telegram-codex.on99.app`
+- Dokku server user 係 `dokku`
 
-### 1. Create the app
+### 1. 建 app
 
-Run on the Dokku server:
+喺 Dokku server 跑：
 
 ```bash
 dokku apps:create telegram-codex
 dokku domains:set telegram-codex telegram-codex.on99.app
 ```
 
-### 2. Prepare persistent storage
+### 2. 準備 persistent storage
 
-This project needs two persistent mounts:
+呢個 project 需要兩個 persistent mount：
 
-- `/app/data` for SQLite
-- `/root/.codex` for `codex exec` auth/config
+- `/app/data`：俾 SQLite 用
+- `/root/.codex`：俾 `codex exec` 讀 auth/config 用
 
-Run on the Dokku server:
+喺 Dokku server 跑：
 
 ```bash
 sudo mkdir -p /var/lib/dokku/data/storage/telegram-codex/data
@@ -67,21 +71,21 @@ dokku storage:mount telegram-codex /var/lib/dokku/data/storage/telegram-codex/da
 dokku storage:mount telegram-codex /var/lib/dokku/data/storage/telegram-codex/codex:/root/.codex
 ```
 
-### 3. Copy Codex auth files onto the server
+### 3. 將 Codex 認證檔放上 server
 
-You must put these two files into the Dokku storage mount:
+你一定要將以下兩個 file 放入 Dokku storage mount：
 
 - `config.toml`
 - `auth.json`
 
-From your local machine:
+喺你本機跑：
 
 ```bash
 scp ~/.codex/config.toml dokku@your-server:/tmp/config.toml
 scp ~/.codex/auth.json dokku@your-server:/tmp/auth.json
 ```
 
-Then SSH into the server and move them into place:
+之後 SSH 入 server，再搬去正確位置：
 
 ```bash
 sudo mv /tmp/config.toml /var/lib/dokku/data/storage/telegram-codex/codex/config.toml
@@ -89,23 +93,23 @@ sudo mv /tmp/auth.json /var/lib/dokku/data/storage/telegram-codex/codex/auth.jso
 sudo chown -R dokku:dokku /var/lib/dokku/data/storage/telegram-codex
 ```
 
-Expected final paths on the server:
+最後喺 server 上面應該會有：
 
 ```bash
 /var/lib/dokku/data/storage/telegram-codex/codex/config.toml
 /var/lib/dokku/data/storage/telegram-codex/codex/auth.json
 ```
 
-Inside the container they will appear as:
+入到 container 入面之後，會對應成：
 
 ```bash
 /root/.codex/config.toml
 /root/.codex/auth.json
 ```
 
-### 4. Set app config
+### 4. 設 app config
 
-Run on the Dokku server:
+喺 Dokku server 跑：
 
 ```bash
 dokku config:set telegram-codex \
@@ -121,21 +125,21 @@ dokku config:set telegram-codex \
   RATE_LIMIT_MAX_MESSAGES=5
 ```
 
-Notes:
+注意：
 
-- `BASE_URL` must be exactly `https://telegram-codex.on99.app`
-- Do not append `/telegram/webhook`
-- `ALLOWED_TELEGRAM_USER_IDS` supports multiple ids separated by commas
+- `BASE_URL` 一定要係 `https://telegram-codex.on99.app`
+- 唔好加 `/telegram/webhook`
+- `ALLOWED_TELEGRAM_USER_IDS` 支援多個 id，用逗號分隔
 
-### 5. Add Dokku git remote
+### 5. 加 Dokku git remote
 
-Run on your local machine:
+喺你本機跑：
 
 ```bash
 git remote add dokku dokku@your-server:telegram-codex
 ```
 
-If the remote already exists:
+如果已經有 remote，就改返 URL：
 
 ```bash
 git remote set-url dokku dokku@your-server:telegram-codex
@@ -143,43 +147,43 @@ git remote set-url dokku dokku@your-server:telegram-codex
 
 ### 6. Deploy
 
-Run on your local machine:
+喺你本機跑：
 
 ```bash
 git push dokku main
 ```
 
-If your branch is not `main`, push the current branch explicitly:
+如果你而家唔係 `main` branch，就直接推目前 branch 去 Dokku 嘅 `main`：
 
 ```bash
 git push dokku HEAD:main
 ```
 
-### 7. Set the Telegram webhook
+### 7. 設定 Telegram webhook
 
-After deployment finishes, run on the Dokku server:
+deploy 完之後，喺 Dokku server 跑：
 
 ```bash
 dokku run telegram-codex node dist/scripts/setWebhook.js
 ```
 
-That command uses `BASE_URL` from Dokku config, so it will register:
+呢條 command 會用 Dokku config 入面嘅 `BASE_URL`，所以最後會註冊成：
 
 ```bash
 https://telegram-codex.on99.app/telegram/webhook
 ```
 
-### 8. Check logs
+### 8. 睇 log
 
-Run on the Dokku server:
+喺 Dokku server 跑：
 
 ```bash
 dokku logs telegram-codex -t
 ```
 
-### 9. Verify files inside the running container
+### 9. 確認 running container 入面有冇 `.codex` 檔案
 
-If `codex exec` fails after deploy, check whether the auth files are actually mounted:
+如果 deploy 完之後 `codex exec` 失敗，先查 mount 有冇真係入到 container：
 
 ```bash
 dokku enter telegram-codex web
@@ -187,35 +191,35 @@ ls -la /root/.codex
 cat /root/.codex/config.toml
 ```
 
-You should see both:
+你應該要見到：
 
 - `/root/.codex/config.toml`
 - `/root/.codex/auth.json`
 
-### 10. Verify webhook status
+### 10. 確認 webhook 狀態
 
-Run from anywhere after deploy:
+deploy 完之後，任何地方都可以跑：
 
 ```bash
 curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getWebhookInfo"
 ```
 
-You want to see:
+你要見到：
 
-- `url` is `https://telegram-codex.on99.app/telegram/webhook`
-- no recent `last_error_message`
+- `url` 係 `https://telegram-codex.on99.app/telegram/webhook`
+- 最近冇 `last_error_message`
 
-## Common problems
+## 常見問題
 
 ### `bad webhook: An HTTPS URL must be provided for webhook`
 
-Your `BASE_URL` is wrong. Fix it to:
+即係你個 `BASE_URL` 錯咗。改返做：
 
 ```bash
 https://telegram-codex.on99.app
 ```
 
-Then rerun:
+之後再跑：
 
 ```bash
 dokku config:set telegram-codex BASE_URL=https://telegram-codex.on99.app
@@ -224,13 +228,13 @@ dokku run telegram-codex node dist/scripts/setWebhook.js
 
 ### `Rejected Telegram webhook request with invalid secret`
 
-Usually one of these:
+通常係以下其中一樣：
 
-- `TELEGRAM_WEBHOOK_SECRET` changed but webhook was not re-registered
-- app restarted with a different env value
-- Telegram is still calling an old deployment
+- `TELEGRAM_WEBHOOK_SECRET` 改過，但 webhook 未重新註冊
+- app restart 之後食咗另一個 env value
+- Telegram 仲打緊舊 deployment
 
-Fix:
+修法：
 
 ```bash
 dokku config:set telegram-codex TELEGRAM_WEBHOOK_SECRET=your-secret
@@ -238,16 +242,16 @@ dokku ps:rebuild telegram-codex
 dokku run telegram-codex node dist/scripts/setWebhook.js
 ```
 
-### `codex exec` fails in production
+### production 上面 `codex exec` 失敗
 
-Usually one of these:
+通常係以下其中一樣：
 
-- `/root/.codex/config.toml` is missing
-- `/root/.codex/auth.json` is missing
-- mount path is wrong
-- auth file contents are invalid
+- `/root/.codex/config.toml` 唔存在
+- `/root/.codex/auth.json` 唔存在
+- mount path 錯咗
+- auth file 內容唔啱
 
-Check:
+可以咁查：
 
 ```bash
 dokku enter telegram-codex web
