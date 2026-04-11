@@ -172,7 +172,7 @@ git push dokku HEAD:main
 deploy 完之後，喺 Dokku server 跑：
 
 ```bash
-dokku run telegram-codex node dist/scripts/setWebhook.js
+dokku run telegram-codex node dist/src/scripts/setWebhook.js
 ```
 
 呢條 command 會用 Dokku config 入面嘅 `BASE_URL`，所以最後會註冊成：
@@ -302,7 +302,7 @@ https://telegram-codex.on99.app
 
 ```bash
 dokku config:set telegram-codex BASE_URL=https://telegram-codex.on99.app
-dokku run telegram-codex node dist/scripts/setWebhook.js
+dokku run telegram-codex node dist/src/scripts/setWebhook.js
 ```
 
 ### `Rejected Telegram webhook request with invalid secret`
@@ -318,7 +318,7 @@ dokku run telegram-codex node dist/scripts/setWebhook.js
 ```bash
 dokku config:set telegram-codex TELEGRAM_WEBHOOK_SECRET=your-secret
 dokku ps:rebuild telegram-codex
-dokku run telegram-codex node dist/scripts/setWebhook.js
+dokku run telegram-codex node dist/src/scripts/setWebhook.js
 ```
 
 ### deploy 完顯示 `http://telegram-codex.on99.app:3000`
