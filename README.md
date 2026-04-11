@@ -137,6 +137,7 @@ dokku config:set telegram-codex \
 - `BASE_URL` 一定要係 `https://telegram-codex.on99.app`
 - 唔好加 `/telegram/webhook`
 - `ALLOWED_TELEGRAM_USER_IDS` 支援多個 id，用逗號分隔
+- app 喺 container 入面會 listen `3000`，但對外應該由 Dokku proxy 去 `80/443`
 
 ### 5. 加 Dokku git remote
 
@@ -180,7 +181,36 @@ dokku run telegram-codex node dist/scripts/setWebhook.js
 https://telegram-codex.on99.app/telegram/webhook
 ```
 
-### 8. 睇 log
+### 8. 確認對外 port 係 80/443
+
+如果 deploy 完 Dokku 顯示類似：
+
+```bash
+http://telegram-codex.on99.app:3000
+```
+
+即係對外 port mapping 未整理好。喺 Dokku server 跑：
+
+```bash
+dokku ports:report telegram-codex
+dokku ports:set telegram-codex http:80:3000 https:443:3000
+```
+
+之後再確認：
+
+```bash
+dokku ports:report telegram-codex
+```
+
+正常你應該係對外用：
+
+```bash
+https://telegram-codex.on99.app
+```
+
+唔係 `:3000`。
+
+### 9. 睇 log
 
 喺 Dokku server 跑：
 
@@ -188,7 +218,50 @@ https://telegram-codex.on99.app/telegram/webhook
 dokku logs telegram-codex -t
 ```
 
-### 9. 確認 running container 入面有冇 `.codex` 檔案
+### 10. 加 Let’s Encrypt
+
+如果你個 Dokku server 係用標準 `nginx-vhosts` flow，可以用官方 `dokku-letsencrypt` plugin。
+
+先喺 Dokku server 安裝 plugin：
+
+```bash
+sudo dokku plugin:install https://github.com/dokku/dokku-letsencrypt.git
+```
+
+設全域 email：
+
+```bash
+dokku letsencrypt:set --global email your-email@example.com
+```
+
+幫 app 開 Let’s Encrypt：
+
+```bash
+dokku letsencrypt:enable telegram-codex
+```
+
+加埋自動續期 cron：
+
+```bash
+dokku letsencrypt:cron-job --add
+```
+
+之後可以再確認證書狀態：
+
+```bash
+dokku letsencrypt:ls
+```
+
+注意：
+
+- DNS 一定要已經指去你部 server
+- `dokku domains:set telegram-codex telegram-codex.on99.app` 要先設好
+- `http:80:3000` 同 `https:443:3000` port mapping 要先設好
+- `BASE_URL` 仍然應該係 `https://telegram-codex.on99.app`
+
+如果你個 Dokku server 唔係用標準 `nginx-vhosts`，而係用其他 proxy plugin，例如 `openresty`，Let’s Encrypt 設定方法會唔同，要跟返你當前 proxy plugin 嘅官方文件。
+
+### 11. 確認 running container 入面有冇 `.codex` 檔案
 
 如果 deploy 完之後 `codex exec` 失敗，先查 mount 有冇真係入到 container：
 
@@ -204,7 +277,7 @@ cat /root/.codex/config.toml
 - `/root/.codex/auth.json`
 - `/root/.codex/AGENTS.md`（如果你有 sync）
 
-### 10. 確認 webhook 狀態
+### 12. 確認 webhook 狀態
 
 deploy 完之後，任何地方都可以跑：
 
@@ -248,6 +321,40 @@ dokku run telegram-codex node dist/scripts/setWebhook.js
 dokku config:set telegram-codex TELEGRAM_WEBHOOK_SECRET=your-secret
 dokku ps:rebuild telegram-codex
 dokku run telegram-codex node dist/scripts/setWebhook.js
+```
+
+### deploy 完顯示 `http://telegram-codex.on99.app:3000`
+
+呢個通常唔係 app code 問題，係 Dokku 對外 port mapping 未設好。
+
+喺 Dokku server 跑：
+
+```bash
+dokku ports:set telegram-codex http:80:3000 https:443:3000
+dokku ports:report telegram-codex
+```
+
+之後你對外應該只用：
+
+```bash
+https://telegram-codex.on99.app
+```
+
+### Let’s Encrypt 開唔到
+
+通常係以下其中一樣：
+
+- DNS 未生效
+- domain 未綁好去 app
+- `80/443 -> 3000` port mapping 未設好
+- server 用緊唔同 proxy plugin，但你照搬咗 `dokku-letsencrypt` 做法
+
+可以先查：
+
+```bash
+dokku domains:report telegram-codex
+dokku ports:report telegram-codex
+dokku letsencrypt:ls
 ```
 
 ### production 上面 `codex exec` 失敗
