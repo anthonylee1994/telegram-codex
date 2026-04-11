@@ -2,6 +2,8 @@
 
 用 Codex CLI 做回覆、用 SQLite 存 session memory 嘅 Telegram bot backend。
 
+Demo：https://t.me/On99AppBot
+
 ## 點解整呢個 app
 
 呢個 app 主要係解決一個好實際嘅問題：
