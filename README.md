@@ -218,38 +218,37 @@ https://telegram-codex.on99.app
 dokku logs telegram-codex -t
 ```
 
-### 10. 加 Let’s Encrypt
+### 10. 加自訂 TLS certificate
 
-如果你個 Dokku server 係用標準 `nginx-vhosts` flow，可以用官方 `dokku-letsencrypt` plugin。
-
-先喺 Dokku server 安裝 plugin：
+你而家唔係用 Let’s Encrypt，而係喺 server 嘅 `~/certs` 有一個 tarball：
 
 ```bash
-sudo dokku plugin:install https://github.com/dokku/dokku-letsencrypt.git
+~/certs/on99.app.tar
 ```
 
-設全域 email：
+入面有：
+
+- `on99.app.crt`
+- `on99.app.key`
+
+Dokku 官方 `certs:add` 支援直接由 tarball stdin 匯入，所以喺 Dokku server 跑：
 
 ```bash
-dokku letsencrypt:set --global email your-email@example.com
+cd ~/certs
+dokku certs:add telegram-codex < on99.app.tar
 ```
 
-幫 app 開 Let’s Encrypt：
+之後確認證書狀態：
 
 ```bash
-dokku letsencrypt:enable telegram-codex
+dokku certs:report telegram-codex
 ```
 
-加埋自動續期 cron：
+如果之後你換咗新 cert，可以再用：
 
 ```bash
-dokku letsencrypt:cron-job --add
-```
-
-之後可以再確認證書狀態：
-
-```bash
-dokku letsencrypt:ls
+cd ~/certs
+dokku certs:update telegram-codex < on99.app.tar
 ```
 
 注意：
@@ -258,8 +257,7 @@ dokku letsencrypt:ls
 - `dokku domains:set telegram-codex telegram-codex.on99.app` 要先設好
 - `http:80:3000` 同 `https:443:3000` port mapping 要先設好
 - `BASE_URL` 仍然應該係 `https://telegram-codex.on99.app`
-
-如果你個 Dokku server 唔係用標準 `nginx-vhosts`，而係用其他 proxy plugin，例如 `openresty`，Let’s Encrypt 設定方法會唔同，要跟返你當前 proxy plugin 嘅官方文件。
+- 如果你個 `.crt` 仲有 CA bundle，要先將 cert 同 bundle 合併成一個 `.crt` 再入 tar
 
 ### 11. 確認 running container 入面有冇 `.codex` 檔案
 
@@ -340,21 +338,21 @@ dokku ports:report telegram-codex
 https://telegram-codex.on99.app
 ```
 
-### Let’s Encrypt 開唔到
+### 自訂 TLS cert 加唔到
 
 通常係以下其中一樣：
 
-- DNS 未生效
-- domain 未綁好去 app
+- tar 入面冇 `.crt` / `.key`
+- cert 同 domain 唔匹配
 - `80/443 -> 3000` port mapping 未設好
-- server 用緊唔同 proxy plugin，但你照搬咗 `dokku-letsencrypt` 做法
+- `domains:set` 未設好
 
 可以先查：
 
 ```bash
 dokku domains:report telegram-codex
 dokku ports:report telegram-codex
-dokku letsencrypt:ls
+dokku certs:report telegram-codex
 ```
 
 ### production 上面 `codex exec` 失敗
