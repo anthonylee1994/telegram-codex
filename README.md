@@ -113,6 +113,7 @@ DI 主要分兩類：
 - pnpm `>=10`
 - 本機或 server 可以直接跑 `codex exec`
 - `~/.codex/config.toml` 同 `~/.codex/auth.json` 已配置好
+- 本機最好用 repo 根目錄 [` .codex-version `] 所指定嗰個 Codex CLI 版本
 
 ## 環境變數
 
@@ -194,7 +195,7 @@ Docker image 會：
 
 - build TypeScript output
 - install production dependencies
-- install `@openai/codex`
+- install `.codex-version` 指定嘅 `@openai/codex`
 - 建立 `/app/data` 同 `/root/.codex`
 
 ```bash
@@ -284,6 +285,7 @@ dokku logs telegram-codex -t
 ## 備註
 
 - app 依賴本機或 server 已登入嘅 Codex CLI，唔係 OpenAI API key flow
+- Docker 會跟 `.codex-version` 安裝固定 Codex CLI 版本，建議你本機都跟返同一版
 - SQLite path 會喺 startup 時自動建立 folder
 - logger 用官方 Nest `ConsoleLogger` 做底層實作，並加咗 app-specific wrapper 同 scoped context
 

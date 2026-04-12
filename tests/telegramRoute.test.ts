@@ -80,4 +80,19 @@ describe("TelegramController", () => {
         expect(response.body).toEqual({ok: true});
         expect(webhookHandler.handle).toHaveBeenCalledWith(update);
     });
+
+    it("returns 500 when webhook handling throws", async () => {
+        const webhookHandler = {
+            handle: vi.fn().mockRejectedValue(new Error("boom")),
+        };
+        const controller = new TelegramController(webhookHandler as unknown as TelegramWebhookHandler, logger, {
+            TELEGRAM_WEBHOOK_SECRET: "expected-secret",
+        } as never);
+        const response = createMockResponse({});
+
+        await controller.handleWebhook("expected-secret", response as never);
+
+        expect(response.statusCode).toBe(500);
+        expect(response.body).toEqual({ok: false});
+    });
 });

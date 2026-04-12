@@ -37,7 +37,7 @@ export class TelegramController {
             this.logger.error("Unexpected webhook route failure", {
                 error: error instanceof Error ? error.message : "unknown error",
             });
-            response.status(200).json({ok: true});
+            response.status(500).json({ok: false});
         }
     }
 }

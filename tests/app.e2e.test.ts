@@ -157,6 +157,46 @@ describe("AppModule e2e", () => {
         expect(webhookHandler.handle).not.toHaveBeenCalled();
         expect(logger.warn).toHaveBeenCalled();
     });
+
+    it("returns 500 when webhook handler fails", async () => {
+        const webhookHandler = {
+            handle: vi.fn().mockRejectedValue(new Error("boom")),
+        };
+        const logger: Logger = {
+            info: vi.fn(),
+            warn: vi.fn(),
+            error: vi.fn(),
+        };
+        const moduleRef = await Test.createTestingModule({
+            imports: [AppModule],
+        })
+            .overrideProvider(APP_ENV)
+            .useValue(createEnv())
+            .overrideProvider(LOGGER)
+            .useValue(logger)
+            .overrideProvider(TelegramWebhookHandler)
+            .useValue(webhookHandler)
+            .compile();
+
+        app = moduleRef.createNestApplication();
+        await app.init();
+
+        await expect(
+            invokeHttpRequest({
+                method: "POST",
+                url: "/telegram/webhook",
+                headers: {
+                    "x-telegram-bot-api-secret-token": "expected-secret",
+                },
+                body: {},
+            })
+        ).resolves.toEqual({
+            statusCode: 500,
+            body: {ok: false},
+        });
+
+        expect(logger.error).toHaveBeenCalled();
+    });
 });
 
 interface MockRequest {

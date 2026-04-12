@@ -29,10 +29,13 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
+COPY .codex-version /tmp/.codex-version
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates git \
-    && npm install -g @openai/codex@0.120.0 \
+    && npm install -g @openai/codex@"$(cat /tmp/.codex-version)" \
     && mkdir -p /root/.codex /app/data \
+    && rm -f /tmp/.codex-version \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app/package.json ./package.json
