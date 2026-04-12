@@ -15,6 +15,8 @@ const UNSUPPORTED_MESSAGE = "而家只支援文字同圖片訊息，仲未支援
 const RATE_LIMIT_MESSAGE = "你打得太快，等一陣再試。";
 const GENERIC_ERROR_MESSAGE = "我而家有啲塞車，遲啲再試過。";
 const UNAUTHORIZED_MESSAGE = "呢個 bot 暫時只限指定用戶使用。";
+const NEW_SESSION_MESSAGE = "已經開咗個新 session，你可以重新開始。";
+const START_MESSAGE = ["歡迎用 On99 Bot。", "", "直接 send 文字或者圖片畀我就得。", "想重新開過個 session，就打 `/new`。"].join("\n");
 
 @Injectable()
 export class TelegramWebhookHandler {
@@ -63,6 +65,19 @@ export class TelegramWebhookHandler {
                 userId: message.userId,
             });
             await this.telegramService.sendMessage(message.chatId, UNAUTHORIZED_MESSAGE);
+            await this.conversationService.markProcessed(message.updateId, message.chatId, message.messageId);
+            return;
+        }
+
+        if (this.isNewSessionCommand(message.text)) {
+            await this.conversationService.resetSession(message.chatId);
+            await this.telegramService.sendMessage(message.chatId, NEW_SESSION_MESSAGE);
+            await this.conversationService.markProcessed(message.updateId, message.chatId, message.messageId);
+            return;
+        }
+
+        if (this.isStartCommand(message.text)) {
+            await this.telegramService.sendMessage(message.chatId, START_MESSAGE);
             await this.conversationService.markProcessed(message.updateId, message.chatId, message.messageId);
             return;
         }
@@ -122,5 +137,13 @@ export class TelegramWebhookHandler {
         }
 
         await this.telegramService.sendMessage(String(maybeChatId), UNSUPPORTED_MESSAGE);
+    }
+
+    private isNewSessionCommand(text: string): boolean {
+        return /^\/new(?:@[\w_]+)?$/u.test(text);
+    }
+
+    private isStartCommand(text: string): boolean {
+        return /^\/start(?:@[\w_]+)?$/u.test(text);
     }
 }

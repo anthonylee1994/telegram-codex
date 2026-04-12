@@ -42,6 +42,11 @@ export class ConversationService {
         });
     }
 
+    public async resetSession(chatId: string): Promise<void> {
+        await this.sessionRepository.delete(chatId);
+        this.logger.info("Reset chat session", {chatId});
+    }
+
     public async generateReply(message: IncomingTelegramMessage): Promise<GenerateReplyResult> {
         const session = await this.loadActiveSession(message.chatId);
         const result = await this.replyClient.generateReply({
