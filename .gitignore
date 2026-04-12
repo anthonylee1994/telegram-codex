@@ -4,3 +4,4 @@ dist
 coverage
 data/*.db
 data/*.db-*
+.pnpm-store
