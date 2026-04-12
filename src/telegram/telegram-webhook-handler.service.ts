@@ -41,21 +41,29 @@ export class TelegramWebhookHandler {
             return;
         }
 
+        const processedUpdate = await this.conversationService.getProcessedUpdate(message.updateId);
+
+        if (processedUpdate?.sentAt) {
+            this.logger.info("Ignored duplicate update", {
+                updateId: message.updateId,
+            });
+            return;
+        }
+
+        if (processedUpdate?.replyText && processedUpdate.conversationState) {
+            await this.telegramService.sendMessage(message.chatId, processedUpdate.replyText);
+            await this.conversationService.persistConversationState(message.chatId, processedUpdate.conversationState);
+            await this.conversationService.markProcessed(message.updateId, message.chatId, message.messageId);
+            return;
+        }
+
         if (this.allowedTelegramUserIds.length > 0 && !this.allowedTelegramUserIds.includes(message.userId)) {
             this.logger.warn("Rejected unauthorized Telegram user", {
                 chatId: message.chatId,
                 userId: message.userId,
             });
             await this.telegramService.sendMessage(message.chatId, UNAUTHORIZED_MESSAGE);
-            return;
-        }
-
-        const alreadyProcessed = await this.conversationService.hasProcessedUpdate(message.updateId);
-
-        if (alreadyProcessed) {
-            this.logger.info("Ignored duplicate update", {
-                updateId: message.updateId,
-            });
+            await this.conversationService.markProcessed(message.updateId, message.chatId, message.messageId);
             return;
         }
 
@@ -65,12 +73,14 @@ export class TelegramWebhookHandler {
             return;
         }
 
+        let hasPendingReply = false;
+
         try {
             const reply = await this.telegramService.withTypingStatus(message.chatId, async () => {
                 const imageFilePath = message.imageFileId ? await this.telegramService.downloadFileToTemp(message.imageFileId) : null;
 
                 try {
-                    return await this.conversationService.reply({
+                    return await this.conversationService.generateReply({
                         ...message,
                         imageFilePath,
                     });
@@ -80,7 +90,10 @@ export class TelegramWebhookHandler {
                     }
                 }
             });
-            await this.telegramService.sendMessage(message.chatId, reply);
+            await this.conversationService.savePendingReply(message.updateId, message.chatId, message.messageId, reply);
+            hasPendingReply = true;
+            await this.telegramService.sendMessage(message.chatId, reply.text);
+            await this.conversationService.persistConversationState(message.chatId, reply.conversationState);
             await this.conversationService.markProcessed(message.updateId, message.chatId, message.messageId);
         } catch (error) {
             this.logger.error("Failed to handle Telegram update", {
@@ -88,6 +101,11 @@ export class TelegramWebhookHandler {
                 updateId: message.updateId,
                 chatId: message.chatId,
             });
+
+            if (hasPendingReply) {
+                throw error;
+            }
+
             await this.telegramService.sendMessage(message.chatId, GENERIC_ERROR_MESSAGE);
         }
     }

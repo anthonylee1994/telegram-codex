@@ -3,12 +3,21 @@ import Database from "better-sqlite3";
 import {APP_ENV} from "../config/tokens.js";
 import type {AppEnv} from "../config/env.js";
 import type {ProcessedUpdateRepository, SessionRepository} from "../config/service.types.js";
-import type {ChatSession} from "../conversation/conversation.types.js";
+import type {ChatSession, ProcessedUpdate} from "../conversation/conversation.types.js";
 
 interface SessionRow {
     chat_id: string;
     last_response_id: string | null;
     updated_at: number;
+}
+
+interface ProcessedUpdateRow {
+    chat_id: string;
+    conversation_state: string | null;
+    message_id: number;
+    reply_text: string | null;
+    sent_at: number | null;
+    update_id: number;
 }
 
 @Injectable()
@@ -53,21 +62,56 @@ export class SqliteStorage implements SessionRepository, ProcessedUpdateReposito
         this.db.prepare("DELETE FROM chat_sessions WHERE chat_id = ?").run(chatId);
     }
 
-    public async hasProcessed(updateId: number): Promise<boolean> {
-        const row = this.db.prepare("SELECT 1 FROM processed_updates WHERE update_id = ? LIMIT 1").get(updateId) as {1: number} | undefined;
+    public async getByUpdateId(updateId: number): Promise<ProcessedUpdate | null> {
+        const row = this.db.prepare("SELECT update_id, chat_id, message_id, reply_text, conversation_state, sent_at FROM processed_updates WHERE update_id = ? LIMIT 1").get(updateId) as
+            | ProcessedUpdateRow
+            | undefined;
 
-        return Boolean(row);
+        if (!row) {
+            return null;
+        }
+
+        return {
+            chatId: row.chat_id,
+            conversationState: row.conversation_state,
+            messageId: row.message_id,
+            replyText: row.reply_text,
+            sentAt: row.sent_at,
+            updateId: row.update_id,
+        };
+    }
+
+    public async savePendingReply(updateId: number, chatId: string, messageId: number, replyText: string, conversationState: string): Promise<void> {
+        this.db
+            .prepare(
+                `
+          INSERT INTO processed_updates (update_id, chat_id, message_id, processed_at, reply_text, conversation_state, sent_at)
+          VALUES (?, ?, ?, ?, ?, ?, NULL)
+          ON CONFLICT(update_id) DO UPDATE SET
+            chat_id = excluded.chat_id,
+            message_id = excluded.message_id,
+            processed_at = excluded.processed_at,
+            reply_text = excluded.reply_text,
+            conversation_state = excluded.conversation_state
+        `
+            )
+            .run(updateId, chatId, messageId, Date.now(), replyText, conversationState);
     }
 
     public async markProcessed(updateId: number, chatId: string, messageId: number): Promise<void> {
         this.db
             .prepare(
                 `
-          INSERT OR IGNORE INTO processed_updates (update_id, chat_id, message_id, processed_at)
-          VALUES (?, ?, ?, ?)
+          INSERT INTO processed_updates (update_id, chat_id, message_id, processed_at, sent_at)
+          VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT(update_id) DO UPDATE SET
+            chat_id = excluded.chat_id,
+            message_id = excluded.message_id,
+            processed_at = excluded.processed_at,
+            sent_at = excluded.sent_at
         `
             )
-            .run(updateId, chatId, messageId, Date.now());
+            .run(updateId, chatId, messageId, Date.now(), Date.now());
     }
 
     private migrate(): void {
@@ -82,8 +126,30 @@ export class SqliteStorage implements SessionRepository, ProcessedUpdateReposito
         update_id INTEGER PRIMARY KEY,
         chat_id TEXT NOT NULL,
         message_id INTEGER NOT NULL,
-        processed_at INTEGER NOT NULL
+        processed_at INTEGER NOT NULL,
+        reply_text TEXT,
+        conversation_state TEXT,
+        sent_at INTEGER
       );
     `);
+
+        const columns = this.db.prepare("PRAGMA table_info(processed_updates)").all() as Array<{name: string}>;
+        const columnNames = new Set(
+            columns.map(function mapColumn(column: {name: string}): string {
+                return column.name;
+            })
+        );
+
+        if (!columnNames.has("reply_text")) {
+            this.db.exec("ALTER TABLE processed_updates ADD COLUMN reply_text TEXT");
+        }
+
+        if (!columnNames.has("conversation_state")) {
+            this.db.exec("ALTER TABLE processed_updates ADD COLUMN conversation_state TEXT");
+        }
+
+        if (!columnNames.has("sent_at")) {
+            this.db.exec("ALTER TABLE processed_updates ADD COLUMN sent_at INTEGER");
+        }
     }
 }

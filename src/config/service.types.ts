@@ -1,4 +1,4 @@
-import type {ChatSession, GenerateReplyInput, GenerateReplyResult} from "../conversation/conversation.types.js";
+import type {ChatSession, GenerateReplyInput, GenerateReplyResult, ProcessedUpdate} from "../conversation/conversation.types.js";
 
 export interface Logger {
     info(message: string, context?: Record<string, unknown>): void;
@@ -13,7 +13,8 @@ export interface SessionRepository {
 }
 
 export interface ProcessedUpdateRepository {
-    hasProcessed(updateId: number): Promise<boolean>;
+    getByUpdateId(updateId: number): Promise<ProcessedUpdate | null>;
+    savePendingReply(updateId: number, chatId: string, messageId: number, replyText: string, conversationState: string): Promise<void>;
     markProcessed(updateId: number, chatId: string, messageId: number): Promise<void>;
 }
 

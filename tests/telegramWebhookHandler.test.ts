@@ -1,9 +1,12 @@
 import {beforeEach, describe, expect, it, vi} from "vitest";
 
 import {ConversationService} from "../src/conversation/conversation.service.js";
+import {ChatRateLimiter} from "../src/conversation/rate-limiter.service.js";
+import {TelegramUpdateParser} from "../src/telegram/telegram-update-parser.service.js";
+import {TelegramWebhookHandler} from "../src/telegram/telegram-webhook-handler.service.js";
 import type {AppEnv} from "../src/config/env.js";
 import type {Logger, ProcessedUpdateRepository, ReplyClient, SessionRepository} from "../src/config/service.types.js";
-import type {ChatSession, GenerateReplyResult, ProcessedUpdate} from "../src/conversation/conversation.types.js";
+import type {ChatSession, ProcessedUpdate} from "../src/conversation/conversation.types.js";
 
 class InMemorySessionRepository implements SessionRepository {
     private readonly store = new Map<string, ChatSession>();
@@ -68,7 +71,7 @@ function createEnv(overrides?: Partial<AppEnv>): AppEnv {
     };
 }
 
-describe("ConversationService", () => {
+describe("TelegramWebhookHandler", () => {
     const logger: Logger = {
         info: vi.fn(),
         warn: vi.fn(),
@@ -80,79 +83,53 @@ describe("ConversationService", () => {
     let replyClient: ReplyClient;
 
     beforeEach(() => {
-        vi.useRealTimers();
         sessionRepository = new InMemorySessionRepository();
         processedUpdateRepository = new InMemoryProcessedUpdateRepository();
         replyClient = {
-            generateReply: vi.fn<ReplyClient["generateReply"]>(),
+            generateReply: vi.fn<ReplyClient["generateReply"]>().mockResolvedValue({
+                conversationState: "state-1",
+                text: "reply-1",
+            }),
         };
     });
 
-    it("passes through conversation state for an active session", async () => {
-        await sessionRepository.upsert({
-            chatId: "chat-1",
-            conversationState: "state-old",
-            updatedAt: Date.now(),
-        });
-
-        const generateReplyResult: GenerateReplyResult = {
-            conversationState: "state-new",
-            text: "reply",
+    it("re-sends a persisted pending reply without regenerating it", async () => {
+        const conversationService = new ConversationService(sessionRepository, processedUpdateRepository, replyClient, logger, createEnv());
+        const telegramService = {
+            downloadFileToTemp: vi.fn(),
+            sendMessage: vi.fn().mockRejectedValueOnce(new Error("telegram send failed")).mockResolvedValueOnce(undefined),
+            withTypingStatus: vi.fn(async function withTypingStatus<T>(_chatId: string, action: () => Promise<T>): Promise<T> {
+                return action();
+            }),
+        };
+        const handler = new TelegramWebhookHandler(conversationService, telegramService as never, new ChatRateLimiter(createEnv()), new TelegramUpdateParser(), logger, createEnv());
+        const update = {
+            update_id: 1,
+            message: {
+                from: {
+                    id: 234392020,
+                },
+                message_id: 2,
+                text: "hello",
+                chat: {
+                    id: 3,
+                },
+            },
         };
 
-        vi.mocked(replyClient.generateReply).mockResolvedValue(generateReplyResult);
+        await expect(handler.handle(update)).rejects.toThrow("telegram send failed");
+        await expect(handler.handle(update)).resolves.toBeUndefined();
 
-        const service = new ConversationService(sessionRepository, processedUpdateRepository, replyClient, logger, createEnv({SESSION_TTL_DAYS: 60_000 / (24 * 60 * 60 * 1000)}));
-
-        const reply = await service.generateReply({
-            chatId: "chat-1",
-            imageFileId: null,
-            messageId: 10,
-            text: "hello",
-            userId: "234392020",
-            updateId: 100,
+        expect(replyClient.generateReply).toHaveBeenCalledTimes(1);
+        expect(telegramService.sendMessage).toHaveBeenNthCalledWith(1, "3", "reply-1");
+        expect(telegramService.sendMessage).toHaveBeenNthCalledWith(2, "3", "reply-1");
+        await expect(sessionRepository.getByChatId("3")).resolves.toMatchObject({
+            chatId: "3",
+            conversationState: "state-1",
         });
-
-        expect(reply).toEqual(generateReplyResult);
-        expect(replyClient.generateReply).toHaveBeenCalledWith({
-            chatId: "chat-1",
-            text: "hello",
-            conversationState: "state-old",
-            imageFilePath: null,
-        });
-    });
-
-    it("resets expired sessions before generating a reply", async () => {
-        vi.useFakeTimers();
-        vi.setSystemTime(new Date("2026-04-11T00:00:00.000Z"));
-
-        await sessionRepository.upsert({
-            chatId: "chat-1",
-            conversationState: "state-old",
-            updatedAt: Date.now() - 100_000,
-        });
-
-        vi.mocked(replyClient.generateReply).mockResolvedValue({
-            conversationState: "state-new",
-            text: "new reply",
-        });
-
-        const service = new ConversationService(sessionRepository, processedUpdateRepository, replyClient, logger, createEnv({SESSION_TTL_DAYS: 1_000 / (24 * 60 * 60 * 1000)}));
-
-        await service.generateReply({
-            chatId: "chat-1",
-            imageFileId: null,
-            messageId: 10,
-            text: "hello",
-            userId: "234392020",
-            updateId: 100,
-        });
-
-        expect(replyClient.generateReply).toHaveBeenCalledWith({
-            chatId: "chat-1",
-            text: "hello",
-            conversationState: null,
-            imageFilePath: null,
+        await expect(processedUpdateRepository.getByUpdateId(1)).resolves.toMatchObject({
+            replyText: "reply-1",
+            sentAt: expect.any(Number),
         });
     });
 });

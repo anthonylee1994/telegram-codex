@@ -4,7 +4,7 @@ import {APP_ENV, LOGGER, PROCESSED_UPDATE_REPOSITORY, REPLY_CLIENT, SESSION_REPO
 import {SYSTEM_PROMPT} from "./prompts.js";
 import type {AppEnv} from "../config/env.js";
 import type {Logger, ProcessedUpdateRepository, ReplyClient, SessionRepository} from "../config/service.types.js";
-import type {ChatSession, IncomingTelegramMessage} from "./conversation.types.js";
+import type {ChatSession, GenerateReplyResult, IncomingTelegramMessage, ProcessedUpdate} from "./conversation.types.js";
 
 @Injectable()
 export class ConversationService {
@@ -22,15 +22,27 @@ export class ConversationService {
         this.sessionTtlMs = env.SESSION_TTL_DAYS * 24 * 60 * 60 * 1000;
     }
 
-    public async hasProcessedUpdate(updateId: number): Promise<boolean> {
-        return this.processedUpdateRepository.hasProcessed(updateId);
+    public async getProcessedUpdate(updateId: number): Promise<ProcessedUpdate | null> {
+        return this.processedUpdateRepository.getByUpdateId(updateId);
     }
 
     public async markProcessed(updateId: number, chatId: string, messageId: number): Promise<void> {
         await this.processedUpdateRepository.markProcessed(updateId, chatId, messageId);
     }
 
-    public async reply(message: IncomingTelegramMessage): Promise<string> {
+    public async savePendingReply(updateId: number, chatId: string, messageId: number, result: GenerateReplyResult): Promise<void> {
+        await this.processedUpdateRepository.savePendingReply(updateId, chatId, messageId, result.text, result.conversationState);
+    }
+
+    public async persistConversationState(chatId: string, conversationState: string): Promise<void> {
+        await this.sessionRepository.upsert({
+            chatId,
+            conversationState,
+            updatedAt: Date.now(),
+        });
+    }
+
+    public async generateReply(message: IncomingTelegramMessage): Promise<GenerateReplyResult> {
         const session = await this.loadActiveSession(message.chatId);
         const result = await this.replyClient.generateReply({
             chatId: message.chatId,
@@ -39,17 +51,11 @@ export class ConversationService {
             imageFilePath: message.imageFilePath ?? null,
         });
 
-        await this.sessionRepository.upsert({
-            chatId: message.chatId,
-            conversationState: result.conversationState,
-            updatedAt: Date.now(),
-        });
-
         this.logger.info("Generated assistant reply", {
             chatId: message.chatId,
         });
 
-        return result.text;
+        return result;
     }
 
     public getSystemPrompt(): string {
