@@ -210,7 +210,7 @@ dokku logs telegram-codex -t
 
 - app 依賴本機或 server 已登入嘅 Codex CLI，唔係 OpenAI API key flow
 - SQLite path 會喺 startup 時自動建立 folder
-- logger 用官方 Nest `ConsoleLogger`，輸出係 JSON 格式
+- logger 用官方 Nest `ConsoleLogger` 做底層實作，並加咗 app-specific wrapper 同 scoped context
 
 Dokku 官方 `certs:add` 支援直接由 tarball stdin 匯入，所以喺 Dokku server 跑：
 
