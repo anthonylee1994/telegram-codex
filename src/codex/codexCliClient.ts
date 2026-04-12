@@ -12,7 +12,7 @@ interface TranscriptMessage {
     content: string;
 }
 
-const MAX_TRANSCRIPT_MESSAGES = 30;
+const MAX_TRANSCRIPT_MESSAGES = 100;
 
 export class CodexCliClient implements ReplyClient {
     public async generateReply(input: GenerateReplyInput): Promise<GenerateReplyResult> {
