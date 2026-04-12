@@ -1,4 +1,4 @@
-import type {ChatSession, GenerateReplyInput, GenerateReplyResult} from "./conversation.js";
+import type {ChatSession, GenerateReplyInput, GenerateReplyResult} from "../conversation/conversation.types.js";
 
 export interface Logger {
     info(message: string, context?: Record<string, unknown>): void;

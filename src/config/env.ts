@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-
 import dotenv from "dotenv";
 import {z} from "zod";
 
@@ -8,7 +7,7 @@ dotenv.config();
 
 const envSchema = z.object({
     PORT: z.coerce.number().int().positive().default(3000),
-    BASE_URL: z.string().url(),
+    BASE_URL: z.url(),
     TELEGRAM_BOT_TOKEN: z.string().min(1),
     TELEGRAM_WEBHOOK_SECRET: z.string().min(1),
     ALLOWED_TELEGRAM_USER_IDS: z

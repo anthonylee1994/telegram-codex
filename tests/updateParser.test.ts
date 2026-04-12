@@ -1,10 +1,12 @@
 import {describe, expect, it} from "vitest";
 
-import {parseIncomingTelegramMessage} from "../src/telegram/updateParser.js";
+import {TelegramUpdateParser} from "../src/telegram/telegram-update-parser.service.js";
 
-describe("parseIncomingTelegramMessage", () => {
+describe("TelegramUpdateParser", () => {
+    const parser = new TelegramUpdateParser();
+
     it("parses sender user id from Telegram message", () => {
-        const parsed = parseIncomingTelegramMessage({
+        const parsed = parser.parseIncomingTelegramMessage({
             update_id: 1,
             message: {
                 from: {
@@ -29,7 +31,7 @@ describe("parseIncomingTelegramMessage", () => {
     });
 
     it("parses Telegram photo message with caption", () => {
-        const parsed = parseIncomingTelegramMessage({
+        const parsed = parser.parseIncomingTelegramMessage({
             update_id: 1,
             message: {
                 from: {

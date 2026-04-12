@@ -1,7 +1,10 @@
+import {Inject, Injectable} from "@nestjs/common";
 import Database from "better-sqlite3";
 
-import type {ChatSession} from "../types/conversation.js";
-import type {ProcessedUpdateRepository, SessionRepository} from "../types/services.js";
+import type {AppEnv} from "../config/env.js";
+import type {ProcessedUpdateRepository, SessionRepository} from "../config/service.types.js";
+import {APP_ENV} from "../config/tokens.js";
+import type {ChatSession} from "../conversation/conversation.types.js";
 
 interface SessionRow {
     chat_id: string;
@@ -9,11 +12,12 @@ interface SessionRow {
     updated_at: number;
 }
 
+@Injectable()
 export class SqliteStorage implements SessionRepository, ProcessedUpdateRepository {
     private readonly db: Database.Database;
 
-    public constructor(databasePath: string) {
-        this.db = new Database(databasePath);
+    public constructor(@Inject(APP_ENV) env: AppEnv) {
+        this.db = new Database(env.SQLITE_DB_PATH);
         this.db.pragma("journal_mode = WAL");
         this.migrate();
     }

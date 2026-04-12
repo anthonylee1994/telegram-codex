@@ -1,16 +1,28 @@
-import type {ChatSession, IncomingTelegramMessage} from "../types/conversation.js";
-import type {Logger, ProcessedUpdateRepository, ReplyClient, SessionRepository} from "../types/services.js";
+import {Inject, Injectable} from "@nestjs/common";
+
+import type {AppEnv} from "../config/env.js";
+import {createScopedLogger} from "../config/logger.js";
+import type {Logger, ProcessedUpdateRepository, ReplyClient, SessionRepository} from "../config/service.types.js";
+import {APP_ENV, LOGGER, PROCESSED_UPDATE_REPOSITORY, REPLY_CLIENT, SESSION_REPOSITORY} from "../config/tokens.js";
+import type {ChatSession, IncomingTelegramMessage} from "./conversation.types.js";
 
 import {SYSTEM_PROMPT} from "./prompts.js";
 
+@Injectable()
 export class ConversationService {
+    private readonly sessionTtlMs: number;
+    private readonly logger: Logger;
+
     public constructor(
-        private readonly sessionRepository: SessionRepository,
-        private readonly processedUpdateRepository: ProcessedUpdateRepository,
-        private readonly replyClient: ReplyClient,
-        private readonly logger: Logger,
-        private readonly sessionTtlMs: number
-    ) {}
+        @Inject(SESSION_REPOSITORY) private readonly sessionRepository: SessionRepository,
+        @Inject(PROCESSED_UPDATE_REPOSITORY) private readonly processedUpdateRepository: ProcessedUpdateRepository,
+        @Inject(REPLY_CLIENT) private readonly replyClient: ReplyClient,
+        @Inject(LOGGER) logger: Logger,
+        @Inject(APP_ENV) env: AppEnv
+    ) {
+        this.logger = createScopedLogger(logger, ConversationService.name);
+        this.sessionTtlMs = env.SESSION_TTL_DAYS * 24 * 60 * 60 * 1000;
+    }
 
     public async hasProcessedUpdate(updateId: number): Promise<boolean> {
         return this.processedUpdateRepository.hasProcessed(updateId);

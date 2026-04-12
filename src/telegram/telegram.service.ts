@@ -1,20 +1,24 @@
+import {Inject, Injectable} from "@nestjs/common";
 import {Bot} from "grammy";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import type {Logger} from "../types/services.js";
+import type {AppEnv} from "../config/env.js";
+import {createScopedLogger} from "../config/logger.js";
+import type {Logger} from "../config/service.types.js";
+import {APP_ENV, LOGGER} from "../config/tokens.js";
 
 const TYPING_INTERVAL_MS = 4_000;
 
+@Injectable()
 export class TelegramService {
     private readonly bot: Bot;
+    private readonly logger: Logger;
 
-    public constructor(
-        token: string,
-        private readonly logger: Logger
-    ) {
-        this.bot = new Bot(token);
+    public constructor(@Inject(APP_ENV) env: AppEnv, @Inject(LOGGER) logger: Logger) {
+        this.bot = new Bot(env.TELEGRAM_BOT_TOKEN);
+        this.logger = createScopedLogger(logger, TelegramService.name);
     }
 
     public async downloadFileToTemp(fileId: string): Promise<string> {

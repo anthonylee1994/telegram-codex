@@ -1,67 +1,97 @@
 # telegram-codex
 
-用 Codex CLI 做回覆、用 SQLite 存 session memory 嘅 Telegram bot backend。
+用 Telegram webhook 收訊息，之後喺 server 入面跑 `codex exec` 做回覆；對話狀態用 SQLite 存，HTTP layer 用 NestJS。
 
 Demo：https://t.me/On99AppBot
 
-## 點解整呢個 app
+## 功能
 
-呢個 app 主要係解決一個好實際嘅問題：
+- 支援 Telegram 文字訊息
+- 支援單張圖片同 caption
+- 有 session memory
+- 有 duplicate update 保護
+- 有簡單 rate limit
+- 可限制指定 Telegram user id
 
-- 我有 Codex 可以用
-- 但我冇 OpenAI API key
+未支援：
 
-所以唔係直接 call OpenAI API，而係改做由 Telegram bot 收訊息，再喺 server 入面 call `codex exec` 去做回覆。
+- 多圖 message 一齊分析
+- document 類型圖片
+- 語音、影片、其他檔案
 
-咁做嘅目的係：
+## 架構
 
-- 將 Codex 變成一個自己隨時用到嘅 Telegram bot
-- 唔使另外處理 OpenAI API key
-- 保留對話記錄同基本 session memory
-- 可以喺 server / Dokku 長期跑
+- `src/server.ts`
+  Nest app bootstrap
+- `src/telegram`
+  Telegram controller、webhook handler、message parser、Telegram API wrapper
+- `src/conversation`
+  對話流程、prompt、rate limiter、conversation types
+- `src/storage`
+  SQLite storage
+- `src/config`
+  env、logger、DI token、shared service contracts
 
-## 支援內容
+## 需求
 
-而家支援：
+- Node.js `>=22`
+- pnpm `>=10`
+- 本機或 server 可以直接跑 `codex exec`
+- `~/.codex/config.toml` 同 `~/.codex/auth.json` 已配置好
 
-- 文字訊息
-- 單張 Telegram 圖片
-- 圖片 caption
+## 環境變數
 
-而家未支援：
-
-- 多張圖同一個 message 一齊分析
-- document 類型圖片 upload
-- 語音、檔案、影片
+| 變數                        | 用途                                | 預設值          |
+| --------------------------- | ----------------------------------- | --------------- |
+| `PORT`                      | HTTP port                           | `3000`          |
+| `BASE_URL`                  | 對外 base URL，用嚟註冊 webhook     | 無              |
+| `TELEGRAM_BOT_TOKEN`        | Telegram bot token                  | 無              |
+| `TELEGRAM_WEBHOOK_SECRET`   | Telegram webhook secret header      | 無              |
+| `ALLOWED_TELEGRAM_USER_IDS` | 限定可用 Telegram user id，逗號分隔 | 空              |
+| `SQLITE_DB_PATH`            | SQLite database path                | `./data/app.db` |
+| `SESSION_TTL_DAYS`          | session 過期日數                    | `7`             |
+| `RATE_LIMIT_WINDOW_MS`      | rate limit window                   | `10000`         |
+| `RATE_LIMIT_MAX_MESSAGES`   | window 內最多幾多訊息               | `5`             |
 
 ## 本地設定
 
-1. 將 `.env.example` 複製做 `.env`
-2. 用 BotFather 開一個 bot，填返 `TELEGRAM_BOT_TOKEN`
-3. 填好 `BASE_URL` 同 `TELEGRAM_WEBHOOK_SECRET`
-4. 如要限制指定 Telegram user id，先再設 `ALLOWED_TELEGRAM_USER_IDS`（多個 id 用逗號分隔）；留空就代表全部人都用得
-5. 確保部機可以用現有 `~/.codex/config.toml` 同 `~/.codex/auth.json` 跑到 `codex exec`
-6. 安裝 dependencies：
+1. 複製 `.env.example` 做 `.env`
+2. 填好 `TELEGRAM_BOT_TOKEN`
+3. 填好 `BASE_URL`，例如 `https://your-domain.com`
+4. 填好 `TELEGRAM_WEBHOOK_SECRET`
+5. 如有需要再設 `ALLOWED_TELEGRAM_USER_IDS`
+6. 安裝依賴
 
 ```bash
 pnpm install
 ```
 
-## 本地開發
+## 開發
 
 ```bash
 pnpm dev
 ```
 
-## 設定 webhook
+server 會 listen `PORT`，主要 endpoint：
 
-`pnpm set-webhook` 會直接讀 `.env` 入面嘅 `BASE_URL`，所以你跑之前要先確認 `BASE_URL` 係啱。
+- `GET /health`
+- `POST /telegram/webhook`
+
+## 註冊 Telegram webhook
 
 ```bash
 pnpm set-webhook
 ```
 
-## 檢查指令
+佢會將 webhook 設成：
+
+```text
+${BASE_URL}/telegram/webhook
+```
+
+所以 `BASE_URL` 唔好自己加 `/telegram/webhook`。
+
+## 檢查
 
 ```bash
 pnpm type-check
@@ -70,17 +100,46 @@ pnpm format
 pnpm test
 ```
 
+## Build 同 run
+
+```bash
+pnpm build
+pnpm start
+```
+
+build output 會去 `dist/`，production entry 係：
+
+```text
+dist/src/server.js
+```
+
+## Docker
+
+Docker image 會：
+
+- build TypeScript output
+- install production dependencies
+- install `@openai/codex`
+- 建立 `/app/data` 同 `/root/.codex`
+
+```bash
+docker build -t telegram-codex .
+docker run --rm -p 3000:3000 \
+  -e PORT=3000 \
+  -e BASE_URL=https://your-domain.com \
+  -e TELEGRAM_BOT_TOKEN=replace-me \
+  -e TELEGRAM_WEBHOOK_SECRET=replace-me \
+  -e SQLITE_DB_PATH=/app/data/app.db \
+  -v $(pwd)/data:/app/data \
+  -v $HOME/.codex:/root/.codex \
+  telegram-codex
+```
+
 ## Dokku 部署
 
-以下假設：
+假設 app 叫 `telegram-codex`。
 
-- Dokku app 名叫 `telegram-codex`
-- Domain 係 `telegram-codex.on99.app`
-- Dokku server user 係 `dokku`
-
-### 1. 建 app
-
-喺 Dokku server 跑：
+### 1. 建 app 同 domain
 
 ```bash
 dokku apps:create telegram-codex
@@ -89,12 +148,10 @@ dokku domains:set telegram-codex telegram-codex.on99.app
 
 ### 2. 準備 persistent storage
 
-呢個 project 需要兩個 persistent mount：
+需要 mount：
 
-- `/app/data`：俾 SQLite 用
-- `/root/.codex`：俾 `codex exec` 讀 auth/config 用
-
-喺 Dokku server 跑：
+- `/app/data`
+- `/root/.codex`
 
 ```bash
 sudo mkdir -p /var/lib/dokku/data/storage/telegram-codex/data
@@ -104,52 +161,16 @@ dokku storage:mount telegram-codex /var/lib/dokku/data/storage/telegram-codex/da
 dokku storage:mount telegram-codex /var/lib/dokku/data/storage/telegram-codex/codex:/root/.codex
 ```
 
-### 3. 將 Codex 認證檔放上 server
+### 3. 放入 Codex 認證
 
-你一定要將以下 file 放入 Dokku storage mount：
+最少要有：
 
-- `config.toml`
-- `auth.json`
-- `AGENTS.md`（如果你想將本機 `~/.codex/AGENTS.md` 一齊 sync 入 container）
+- `/root/.codex/config.toml`
+- `/root/.codex/auth.json`
 
-喺你本機跑：
+如果你要 container 都食到額外 `AGENTS.md`，可以一齊 mount 埋。
 
-```bash
-scp ~/.codex/config.toml dokku@your-server:/tmp/config.toml
-scp ~/.codex/auth.json dokku@your-server:/tmp/auth.json
-scp ~/.codex/AGENTS.md dokku@your-server:/tmp/AGENTS.md
-```
-
-之後 SSH 入 server，再搬去正確位置：
-
-```bash
-sudo mv /tmp/config.toml /var/lib/dokku/data/storage/telegram-codex/codex/config.toml
-sudo mv /tmp/auth.json /var/lib/dokku/data/storage/telegram-codex/codex/auth.json
-sudo mv /tmp/AGENTS.md /var/lib/dokku/data/storage/telegram-codex/codex/AGENTS.md
-sudo chown -R dokku:dokku /var/lib/dokku/data/storage/telegram-codex
-```
-
-最後喺 server 上面應該會有：
-
-```bash
-/var/lib/dokku/data/storage/telegram-codex/codex/config.toml
-/var/lib/dokku/data/storage/telegram-codex/codex/auth.json
-/var/lib/dokku/data/storage/telegram-codex/codex/AGENTS.md
-```
-
-入到 container 入面之後，會對應成：
-
-```bash
-/root/.codex/config.toml
-/root/.codex/auth.json
-/root/.codex/AGENTS.md
-```
-
-因為而家 mount 係成個 `/root/.codex`，所以如果你想 sync `AGENTS.md`，唔使改 application code，放返入同一個 storage folder 就得。
-
-### 4. 設 app config
-
-喺 Dokku server 跑：
+### 4. 設定 env
 
 ```bash
 dokku config:set telegram-codex \
@@ -165,105 +186,31 @@ dokku config:set telegram-codex \
   RATE_LIMIT_MAX_MESSAGES=5
 ```
 
-注意：
-
-- `BASE_URL` 一定要係 `https://telegram-codex.on99.app`
-- 唔好加 `/telegram/webhook`
-- `ALLOWED_TELEGRAM_USER_IDS` 留空代表全部人都用得
-- 如果有設，支援多個 id，用逗號分隔
-- app 喺 container 入面會 listen `3000`，但對外應該由 Dokku proxy 去 `80/443`
-
-### 5. 加 Dokku git remote
-
-喺你本機跑：
-
-```bash
-git remote add dokku dokku@your-server:telegram-codex
-```
-
-如果已經有 remote，就改返 URL：
-
-```bash
-git remote set-url dokku dokku@your-server:telegram-codex
-```
-
-### 6. Deploy
-
-喺你本機跑：
-
-```bash
-git push dokku main
-```
-
-如果你而家唔係 `main` branch，就直接推目前 branch 去 Dokku 嘅 `main`：
+### 5. Deploy
 
 ```bash
 git push dokku HEAD:main
 ```
 
-### 7. 設定 Telegram webhook
+### 6. 註冊 webhook
 
-deploy 完之後，喺 Dokku server 跑：
-
-```bash
-dokku run telegram-codex node dist/src/scripts/setWebhook.js
-```
-
-呢條 command 會用 Dokku config 入面嘅 `BASE_URL`，所以最後會註冊成：
+deploy 完之後：
 
 ```bash
-https://telegram-codex.on99.app/telegram/webhook
+dokku run telegram-codex node dist/src/scripts/set-webhook.js
 ```
 
-### 8. 確認對外 port 係 80/443
-
-如果 deploy 完 Dokku 顯示類似：
-
-```bash
-http://telegram-codex.on99.app:3000
-```
-
-即係對外 port mapping 未整理好。喺 Dokku server 跑：
-
-```bash
-dokku ports:report telegram-codex
-dokku ports:set telegram-codex http:80:3000 https:443:3000
-```
-
-之後再確認：
-
-```bash
-dokku ports:report telegram-codex
-```
-
-正常你應該係對外用：
-
-```bash
-https://telegram-codex.on99.app
-```
-
-唔係 `:3000`。
-
-### 9. 睇 log
-
-喺 Dokku server 跑：
+### 7. 睇 log
 
 ```bash
 dokku logs telegram-codex -t
 ```
 
-### 10. 加自訂 TLS certificate
+## 備註
 
-你而家唔係用 Let’s Encrypt，而係喺 server 嘅 `~/certs` 有一個 tarball：
-
-```bash
-~/certs/on99.app.tar
-```
-
-入面有：
-
-- `on99.app.crt`
-- `on99.app.key`
+- app 依賴本機或 server 已登入嘅 Codex CLI，唔係 OpenAI API key flow
+- SQLite path 會喺 startup 時自動建立 folder
+- logger 用官方 Nest `ConsoleLogger`，輸出係 JSON 格式
 
 Dokku 官方 `certs:add` 支援直接由 tarball stdin 匯入，所以喺 Dokku server 跑：
 

@@ -1,22 +1,24 @@
 import {describe, expect, it, vi} from "vitest";
 
-import {createTelegramWebhookRoute} from "../src/routes/telegramRoute.js";
-import type {Logger} from "../src/types/services.js";
-
-interface MockRequest {
-    body: unknown;
-    header(name: string): string | undefined;
-}
+import type {Logger} from "../src/config/service.types.js";
+import {TelegramController} from "../src/telegram/telegram.controller.js";
+import {TelegramWebhookHandler} from "../src/telegram/telegram-webhook-handler.service.js";
 
 interface MockResponse {
+    req: {
+        body: unknown;
+    };
     status(code: number): MockResponse;
     json(payload: unknown): MockResponse;
     statusCode?: number;
     body?: unknown;
 }
 
-function createMockResponse(): MockResponse {
+function createMockResponse(body: unknown): MockResponse {
     return {
+        req: {
+            body,
+        },
         statusCode: undefined,
         body: undefined,
         status(code: number) {
@@ -30,7 +32,7 @@ function createMockResponse(): MockResponse {
     };
 }
 
-describe("telegram webhook route", () => {
+describe("TelegramController", () => {
     const logger: Logger = {
         info: vi.fn(),
         warn: vi.fn(),
@@ -41,18 +43,15 @@ describe("telegram webhook route", () => {
         const webhookHandler = {
             handle: vi.fn(),
         };
+        const controller = new TelegramController(webhookHandler as unknown as TelegramWebhookHandler, logger, {
+            TELEGRAM_WEBHOOK_SECRET: "expected-secret",
+        } as never);
+        const response = createMockResponse({});
 
-        const route = createTelegramWebhookRoute(webhookHandler as never, logger, "expected-secret");
-        const response = createMockResponse();
-
-        const request = {
-            body: {},
-            header: vi.fn().mockReturnValue("wrong-secret"),
-        } satisfies MockRequest;
-
-        await route(request as never, response as never);
+        await controller.handleWebhook("wrong-secret", response as never);
 
         expect(response.statusCode).toBe(401);
+        expect(response.body).toEqual({ok: false});
         expect(webhookHandler.handle).not.toHaveBeenCalled();
     });
 
@@ -70,18 +69,15 @@ describe("telegram webhook route", () => {
         const webhookHandler = {
             handle: vi.fn().mockResolvedValue(undefined),
         };
+        const controller = new TelegramController(webhookHandler as unknown as TelegramWebhookHandler, logger, {
+            TELEGRAM_WEBHOOK_SECRET: "expected-secret",
+        } as never);
+        const response = createMockResponse(update);
 
-        const route = createTelegramWebhookRoute(webhookHandler as never, logger, "expected-secret");
-        const response = createMockResponse();
-
-        const request = {
-            body: update,
-            header: vi.fn().mockReturnValue("expected-secret"),
-        } satisfies MockRequest;
-
-        await route(request as never, response as never);
+        await controller.handleWebhook("expected-secret", response as never);
 
         expect(response.statusCode).toBe(200);
+        expect(response.body).toEqual({ok: true});
         expect(webhookHandler.handle).toHaveBeenCalledWith(update);
     });
 });
