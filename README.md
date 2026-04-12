@@ -19,18 +19,93 @@ Demo：https://t.me/On99AppBot
 - document 類型圖片
 - 語音、影片、其他檔案
 
-## 架構
+## NestJS 架構
 
-- `src/server.ts`
-  Nest app bootstrap
-- `src/telegram`
-  Telegram controller、webhook handler、message parser、Telegram API wrapper
-- `src/conversation`
-  對話流程、prompt、rate limiter、conversation types
-- `src/storage`
-  SQLite storage
-- `src/config`
-  env、logger、DI token、shared service contracts
+```text
+src/
+├── server.ts
+│   └── app bootstrap
+│       - NestFactory.create(AppModule)
+│       - 接上 AppLogger
+│       - 讀 APP_ENV
+│       - listen PORT
+├── app.module.ts
+│   └── root module
+│       ├── imports ConfigModule
+│       ├── imports HealthModule
+│       └── imports TelegramModule
+├── config/
+│   ├── config.module.ts
+│   │   └── global providers
+│   │       ├── APP_ENV
+│   │       ├── AppLogger
+│   │       └── LOGGER -> AppLogger
+│   ├── env.ts
+│   │   └── env parse 同 validation
+│   ├── logger.ts
+│   │   └── Nest ConsoleLogger wrapper + scoped logger
+│   ├── tokens.ts
+│   │   └── DI tokens
+│   └── service.types.ts
+│       └── shared service contracts
+├── health/
+│   ├── health.module.ts
+│   └── health.controller.ts
+│       └── GET /health
+├── telegram/
+│   ├── telegram.module.ts
+│   │   └── Telegram flow module
+│   │       ├── TelegramController
+│   │       ├── TelegramWebhookHandler
+│   │       ├── TelegramUpdateParser
+│   │       ├── TelegramService
+│   │       └── ChatRateLimiter
+│   ├── telegram.controller.ts
+│   │   └── POST /telegram/webhook
+│   ├── telegram-webhook-handler.service.ts
+│   │   └── webhook 主流程
+│   │       - 驗證訊息格式
+│   │       - 檢查 allowed users
+│   │       - 檢查 duplicate update
+│   │       - rate limit
+│   │       - call ConversationService
+│   ├── telegram-update-parser.service.ts
+│   │   └── Telegram update -> IncomingTelegramMessage
+│   └── telegram.service.ts
+│       └── Telegram Bot API wrapper
+├── conversation/
+│   ├── conversation.module.ts
+│   │   └── conversation module
+│   │       ├── ConversationService
+│   │       ├── CodexCliClient
+│   │       └── REPLY_CLIENT -> CodexCliClient
+│   ├── conversation.service.ts
+│   │   └── session memory + reply orchestration
+│   ├── rate-limiter.service.ts
+│   │   └── in-memory chat rate limiter
+│   ├── prompts.ts
+│   │   └── system prompt
+│   └── conversation.types.ts
+│       └── conversation domain types
+├── storage/
+│   ├── storage.module.ts
+│   │   └── persistence module
+│   │       ├── SqliteStorage
+│   │       ├── SESSION_REPOSITORY -> SqliteStorage
+│   │       └── PROCESSED_UPDATE_REPOSITORY -> SqliteStorage
+│   └── sqlite.service.ts
+│       └── SQLite implementation
+└── scripts/
+    └── set-webhook.ts
+        └── 用 AppModule context 註冊 Telegram webhook
+```
+
+DI 主要分兩類：
+
+- class provider：例如 `TelegramService`、`ConversationService`
+- token provider：例如 `APP_ENV`、`LOGGER`、`SESSION_REPOSITORY`、`PROCESSED_UPDATE_REPOSITORY`、`REPLY_CLIENT`
+
+咁做係為咗將 implementation 同 contract 分開，尤其係 env、logger、repository 呢類唔適合直接靠 TypeScript interface inject 嘅依賴。
 
 ## 需求
 
@@ -211,52 +286,6 @@ dokku logs telegram-codex -t
 - app 依賴本機或 server 已登入嘅 Codex CLI，唔係 OpenAI API key flow
 - SQLite path 會喺 startup 時自動建立 folder
 - logger 用官方 Nest `ConsoleLogger` 做底層實作，並加咗 app-specific wrapper 同 scoped context
-
-Dokku 官方 `certs:add` 支援直接由 tarball stdin 匯入，所以喺 Dokku server 跑：
-
-```bash
-cd ~/certs
-dokku certs:add telegram-codex < on99.app.tar
-```
-
-之後確認證書狀態：
-
-```bash
-dokku certs:report telegram-codex
-```
-
-如果之後你換咗新 cert，可以再用：
-
-```bash
-cd ~/certs
-dokku certs:update telegram-codex < on99.app.tar
-```
-
-注意：
-
-- DNS 一定要已經指去你部 server
-- `dokku domains:set telegram-codex telegram-codex.on99.app` 要先設好
-- `http:80:3000` 同 `https:443:3000` port mapping 要先設好
-- `BASE_URL` 仍然應該係 `https://telegram-codex.on99.app`
-- 如果你個 `.crt` 仲有 CA bundle，要先將 cert 同 bundle 合併成一個 `.crt` 再入 tar
-
-### 11. 確認 running container 入面有冇 `.codex` 檔案
-
-如果 deploy 完之後 `codex exec` 失敗，先查 mount 有冇真係入到 container：
-
-```bash
-dokku enter telegram-codex web
-ls -la /root/.codex
-cat /root/.codex/config.toml
-```
-
-你應該要見到：
-
-- `/root/.codex/config.toml`
-- `/root/.codex/auth.json`
-- `/root/.codex/AGENTS.md`（如果你有 sync）
-
-### 12. 確認 webhook 狀態
 
 deploy 完之後，任何地方都可以跑：
 
