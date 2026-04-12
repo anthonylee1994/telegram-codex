@@ -11,7 +11,7 @@ import {TelegramService} from "./telegram.service.js";
 import type {AppEnv} from "../config/env.js";
 import type {Logger} from "../config/service.types.js";
 
-const UNSUPPORTED_MESSAGE = "而家只支援文字同圖片訊息，檔案、語音住先未得。";
+const UNSUPPORTED_MESSAGE = "而家只支援文字同圖片訊息，仲未支援檔案、語音。";
 const RATE_LIMIT_MESSAGE = "你打得太快，等一陣再試。";
 const GENERIC_ERROR_MESSAGE = "我而家有啲塞車，遲啲再試過。";
 const UNAUTHORIZED_MESSAGE = "呢個 bot 暫時只限指定用戶使用。";
