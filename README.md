@@ -24,6 +24,8 @@ Demo：https://t.me/On99AppBot
 
 - 支援 Telegram 文字訊息
 - 支援單張圖片同 caption
+- 支援 `/start` 顯示 welcome / help message
+- 支援 `/new` 重開當前 chat session
 - 有 session memory
 - 有 duplicate update 保護
 - 有簡單 rate limit
@@ -168,6 +170,13 @@ server 會 listen `PORT`，主要 endpoint：
 
 - `GET /health`
 - `POST /telegram/webhook`
+
+## Telegram commands
+
+- `/start`：顯示 welcome / help message
+- `/new`：清除當前 chat 嘅 session memory，下一句重新開始
+
+平時直接 send 文字或者圖片畀 bot 就得，唔需要 command。
 
 ## 註冊 Telegram webhook
 
