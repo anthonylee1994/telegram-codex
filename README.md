@@ -4,6 +4,22 @@
 
 Demo：https://t.me/On99AppBot
 
+## 點解會寫呢個 project
+
+呢個 project 係由一個幾實際嘅需求出發：
+
+- 我想隨時隨地用 Codex 幫手
+- 但唔想另外砌一套 OpenAI API key flow
+- 我又想保留基本對話記錄，而唔係每次都由零開始
+
+所以最後就寫咗呢個 app，將 Codex CLI 包成一個 Telegram bot backend：
+
+- Telegram 負責做最順手嘅輸入入口
+- server 負責收 webhook、做 session memory、控 rate limit
+- `codex exec` 負責真正生成回覆
+
+簡單講，呢個 project 係想將「本機用緊嘅 Codex CLI」變成一個可以長期運行、自己日常真係會用到嘅 bot，而唔係淨係做 demo。
+
 ## 功能
 
 - 支援 Telegram 文字訊息
