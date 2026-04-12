@@ -1,8 +1,8 @@
 import {describe, expect, it, vi} from "vitest";
 
-import type {Logger} from "../src/config/service.types.js";
 import {TelegramController} from "../src/telegram/telegram.controller.js";
 import {TelegramWebhookHandler} from "../src/telegram/telegram-webhook-handler.service.js";
+import type {Logger} from "../src/config/service.types.js";
 
 interface MockResponse {
     req: {

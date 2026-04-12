@@ -1,10 +1,10 @@
 import "reflect-metadata";
 import {NestFactory} from "@nestjs/core";
 import {AppModule} from "./app.module.js";
-import type {AppEnv} from "./config/env.js";
 import {AppLogger, createScopedLogger} from "./config/logger.js";
-import type {Logger} from "./config/service.types.js";
 import {APP_ENV, LOGGER} from "./config/tokens.js";
+import type {AppEnv} from "./config/env.js";
+import type {Logger} from "./config/service.types.js";
 
 export async function bootstrap(): Promise<void> {
     const app = await NestFactory.create(AppModule, {

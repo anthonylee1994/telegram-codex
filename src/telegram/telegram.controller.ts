@@ -1,11 +1,10 @@
 import {Controller, Headers, Inject, Post, Res} from "@nestjs/common";
-import type {Response} from "express";
-
-import type {AppEnv} from "../config/env.js";
 import {createScopedLogger} from "../config/logger.js";
-import type {Logger} from "../config/service.types.js";
 import {APP_ENV, LOGGER} from "../config/tokens.js";
 import {TelegramWebhookHandler} from "./telegram-webhook-handler.service.js";
+import type {Response} from "express";
+import type {AppEnv} from "../config/env.js";
+import type {Logger} from "../config/service.types.js";
 
 @Controller("telegram")
 export class TelegramController {

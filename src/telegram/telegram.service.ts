@@ -4,10 +4,10 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import type {AppEnv} from "../config/env.js";
 import {createScopedLogger} from "../config/logger.js";
-import type {Logger} from "../config/service.types.js";
 import {APP_ENV, LOGGER} from "../config/tokens.js";
+import type {AppEnv} from "../config/env.js";
+import type {Logger} from "../config/service.types.js";
 
 const TYPING_INTERVAL_MS = 4_000;
 

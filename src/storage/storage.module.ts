@@ -1,5 +1,4 @@
 import {Module} from "@nestjs/common";
-
 import {PROCESSED_UPDATE_REPOSITORY, SESSION_REPOSITORY} from "../config/tokens.js";
 import {SqliteStorage} from "./sqlite.service.js";
 

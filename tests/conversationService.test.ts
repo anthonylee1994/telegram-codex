@@ -1,8 +1,8 @@
 import {beforeEach, describe, expect, it, vi} from "vitest";
 
+import {ConversationService} from "../src/conversation/conversation.service.js";
 import type {AppEnv} from "../src/config/env.js";
 import type {Logger, ProcessedUpdateRepository, ReplyClient, SessionRepository} from "../src/config/service.types.js";
-import {ConversationService} from "../src/conversation/conversation.service.js";
 import type {ChatSession, GenerateReplyResult} from "../src/conversation/conversation.types.js";
 
 class InMemorySessionRepository implements SessionRepository {

@@ -2,14 +2,14 @@ import {Inject, Injectable} from "@nestjs/common";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import type {AppEnv} from "../config/env.js";
 import {createScopedLogger} from "../config/logger.js";
-import type {Logger} from "../config/service.types.js";
 import {APP_ENV, LOGGER} from "../config/tokens.js";
 import {ConversationService} from "../conversation/conversation.service.js";
 import {ChatRateLimiter} from "../conversation/rate-limiter.service.js";
 import {TelegramUpdateParser} from "./telegram-update-parser.service.js";
 import {TelegramService} from "./telegram.service.js";
+import type {AppEnv} from "../config/env.js";
+import type {Logger} from "../config/service.types.js";
 
 const UNSUPPORTED_MESSAGE = "而家只支援文字同圖片訊息，檔案、語音住先未得。";
 const RATE_LIMIT_MESSAGE = "你打得太快，等一陣再試。";

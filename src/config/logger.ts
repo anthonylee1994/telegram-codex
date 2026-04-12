@@ -1,6 +1,5 @@
 import {ConsoleLogger, Injectable} from "@nestjs/common";
 import type {LoggerService, LogLevel} from "@nestjs/common";
-
 import type {Logger} from "./service.types.js";
 
 @Injectable()

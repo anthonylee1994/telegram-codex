@@ -1,5 +1,4 @@
 import {Injectable} from "@nestjs/common";
-
 import type {IncomingTelegramMessage} from "../conversation/conversation.types.js";
 
 interface TelegramPhotoSize {

@@ -1,12 +1,10 @@
 import {Inject, Injectable} from "@nestjs/common";
-
-import type {AppEnv} from "../config/env.js";
 import {createScopedLogger} from "../config/logger.js";
-import type {Logger, ProcessedUpdateRepository, ReplyClient, SessionRepository} from "../config/service.types.js";
 import {APP_ENV, LOGGER, PROCESSED_UPDATE_REPOSITORY, REPLY_CLIENT, SESSION_REPOSITORY} from "../config/tokens.js";
-import type {ChatSession, IncomingTelegramMessage} from "./conversation.types.js";
-
 import {SYSTEM_PROMPT} from "./prompts.js";
+import type {AppEnv} from "../config/env.js";
+import type {Logger, ProcessedUpdateRepository, ReplyClient, SessionRepository} from "../config/service.types.js";
+import type {ChatSession, IncomingTelegramMessage} from "./conversation.types.js";
 
 @Injectable()
 export class ConversationService {

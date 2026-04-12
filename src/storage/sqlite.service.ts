@@ -1,9 +1,8 @@
 import {Inject, Injectable} from "@nestjs/common";
 import Database from "better-sqlite3";
-
+import {APP_ENV} from "../config/tokens.js";
 import type {AppEnv} from "../config/env.js";
 import type {ProcessedUpdateRepository, SessionRepository} from "../config/service.types.js";
-import {APP_ENV} from "../config/tokens.js";
 import type {ChatSession} from "../conversation/conversation.types.js";
 
 interface SessionRow {

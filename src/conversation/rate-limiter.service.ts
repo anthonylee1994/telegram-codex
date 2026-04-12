@@ -1,7 +1,6 @@
 import {Inject, Injectable} from "@nestjs/common";
-
-import type {AppEnv} from "../config/env.js";
 import {APP_ENV} from "../config/tokens.js";
+import type {AppEnv} from "../config/env.js";
 
 @Injectable()
 export class ChatRateLimiter {

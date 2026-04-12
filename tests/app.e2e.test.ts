@@ -1,12 +1,12 @@
-import type {INestApplication} from "@nestjs/common";
 import {Test} from "@nestjs/testing";
 import {afterEach, describe, expect, it, vi} from "vitest";
 
 import {AppModule} from "../src/app.module.js";
-import type {AppEnv} from "../src/config/env.js";
-import type {Logger} from "../src/config/service.types.js";
 import {APP_ENV, LOGGER} from "../src/config/tokens.js";
 import {TelegramWebhookHandler} from "../src/telegram/telegram-webhook-handler.service.js";
+import type {INestApplication} from "@nestjs/common";
+import type {AppEnv} from "../src/config/env.js";
+import type {Logger} from "../src/config/service.types.js";
 
 function createEnv(overrides?: Partial<AppEnv>): AppEnv {
     return {
