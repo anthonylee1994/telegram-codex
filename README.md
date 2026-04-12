@@ -339,7 +339,7 @@ https://telegram-codex.on99.app
 
 ```bash
 dokku config:set telegram-codex BASE_URL=https://telegram-codex.on99.app
-dokku run telegram-codex node dist/src/scripts/setWebhook.js
+dokku run telegram-codex node dist/src/scripts/set-webhook.js
 ```
 
 ### `Rejected Telegram webhook request with invalid secret`
@@ -355,7 +355,7 @@ dokku run telegram-codex node dist/src/scripts/setWebhook.js
 ```bash
 dokku config:set telegram-codex TELEGRAM_WEBHOOK_SECRET=your-secret
 dokku ps:rebuild telegram-codex
-dokku run telegram-codex node dist/src/scripts/setWebhook.js
+dokku run telegram-codex node dist/src/scripts/set-webhook.js
 ```
 
 ### deploy 完顯示 `http://telegram-codex.on99.app:3000`
