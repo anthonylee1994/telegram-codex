@@ -4,7 +4,7 @@ require "tmpdir"
 
 class CodexCliClient
   MAX_TRANSCRIPT_MESSAGES = 100
-  DEFAULT_SANDBOX_MODE = "workspace-write"
+  DEFAULT_SANDBOX_MODE = "danger-full-access"
 
   def generate_reply(chat_id:, text:, conversation_state:, image_file_path:)
     transcript = parse_conversation_state(conversation_state)
