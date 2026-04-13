@@ -171,12 +171,6 @@ bundle exec rubocop
 bundle exec rspec
 ```
 
-如果你仲想順手整理 Markdown / Dockerfile，可以另外跑：
-
-```bash
-prettier --write README.md .env.example Dockerfile .gitignore .dockerignore
-```
-
 ## Docker
 
 Docker image 會：
