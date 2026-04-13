@@ -3,7 +3,7 @@
 require 'fileutils'
 
 class TelegramWebhookHandler
-  GENERIC_ERROR_MESSAGE = '我而家有啲塞車，遲啲再試過。'
+  GENERIC_ERROR_MESSAGE = '我要休息一陣，遲啲叫醒我。'
   NEW_SESSION_MESSAGE = '已經開咗個新 session，你可以重新開始。'
   RATE_LIMIT_MESSAGE = '你打得太快，等一陣再試。'
   START_MESSAGE = [
