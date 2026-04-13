@@ -66,7 +66,22 @@ spec/
 └── ...
 ```
 
-主要 flow：
+呢個 repo 其實幾刻意咁保持薄 controller、厚 service：
+
+- controller 只處理 HTTP request / response
+- parser 專心將 Telegram payload 轉成 app 可以用嘅格式
+- service 負責業務邏輯
+- model 只做 persistence，唔塞太多 business rule
+
+咁做嘅好處係：
+
+- webhook flow 容易測試
+- `codex exec` integration 唔會同 HTTP 層綁死
+- SQLite / Telegram / Codex 三個依賴點都分得比較開
+
+## Request Flow
+
+由 Telegram 打入嚟，到 bot 回覆，用緊以下條 path：
 
 - `POST /telegram/webhook` 驗證 `X-Telegram-Bot-Api-Secret-Token`
 - `TelegramUpdateParser` 將 Telegram payload 轉成 app message
@@ -74,6 +89,170 @@ spec/
 - `ConversationService` 管 session TTL，同 `CodexCliClient` 串 `codex exec`
 - `ChatSession` / `ProcessedUpdate` 用 SQLite 存狀態
 - `rake telegram:set_webhook` 取代原本 script
+
+拆開少少講：
+
+1. Telegram webhook 打入 Rails。
+2. `TelegramWebhooksController` 先驗證 secret token。
+3. 驗證通過後，controller 將 payload 交畀 `TelegramWebhookHandler`。
+4. handler 會：
+   - parse 文字 / 圖片 message
+   - 檢查係咪 duplicate update
+   - 檢查係咪 pending reply replay
+   - 檢查 allowed users
+   - 處理 `/start` 同 `/new`
+   - 做 chat-level rate limit
+5. 真正要生成回覆時，handler 會 call `ConversationService`。
+6. `ConversationService` 先攞返目前 chat 嘅 session state，再 call `CodexCliClient`。
+7. `CodexCliClient` 用 transcript + system prompt 組 prompt，然後同步跑 `codex exec`。
+8. 回覆生成後，handler 會 send 番 Telegram，並將新 session state 寫返 SQLite。
+
+## 主要檔案點運作
+
+下面呢段係比你開 repo 想快速認路用。
+
+### HTTP 層
+
+- [`application_controller.rb`](app/controllers/application_controller.rb)
+  - Rails API base controller，而家冇塞 logic，純粹做入口底座。
+
+- [`health_controller.rb`](app/controllers/health_controller.rb)
+  - 提供 `GET /health`。
+  - 主要比 load balancer、Dokku、自己 curl check service 仲生勾勾。
+
+- [`telegram_webhooks_controller.rb`](app/controllers/telegram_webhooks_controller.rb)
+  - Telegram webhook 真入口。
+  - 只做三件事：驗 secret、call handler、將結果轉成 HTTP status。
+  - 呢層刻意唔做重業務邏輯，因為 webhook flow 測試會乾淨好多。
+
+### Model / Persistence
+
+- [`chat_session.rb`](app/models/chat_session.rb)
+  - 每個 Telegram chat 一條 row。
+  - 存 `last_response_id` 同 `updated_at`。
+  - 作用係畀下次 `codex exec` 知道上一輪對話狀態。
+  - `/new` 會清走目前 chat 嘅 session。
+  - session 過期唔係靠 cron，而係下次個 chat 再講嘢時 lazy cleanup。
+
+- [`processed_update.rb`](app/models/processed_update.rb)
+  - 用 Telegram `update_id` 做主鍵。
+  - 主要係防 duplicate webhook，仲有 pending reply replay。
+  - 如果 reply 已生成但 send Telegram 失敗，下次 Telegram resend 同一個 update，app 可以直接補送，唔使再 call 一次 Codex。
+
+### Service 層
+
+- [`app_config.rb`](app/services/app_config.rb)
+  - 將 ENV parse 成 app 用嘅 config object。
+  - 同時會確保 SQLite directory 存在。
+  - 呢層等你唔使到處直接 `ENV.fetch`。
+
+- [`telegram_update_parser.rb`](app/services/telegram_update_parser.rb)
+  - 將 Telegram 原始 payload 轉成 app 內部用嘅 hash。
+  - 支援文字訊息同單張圖片訊息。
+  - 圖片會揀 Telegram `photo` array 裏面最大嗰張。
+
+- [`chat_rate_limiter.rb`](app/services/chat_rate_limiter.rb)
+  - in-memory rate limiter。
+  - 粒度係 `chat_id`，唔係 global。
+  - 適合單機、小流量 bot；如果之後多 instances，就要改成 shared store。
+
+- [`telegram_client.rb`](app/services/telegram_client.rb)
+  - 包住 Telegram Bot API。
+  - 主要做：
+    - send message
+    - send typing action
+    - download image 到 temp file
+    - set webhook
+  - 仲會順手做 Telegram HTML formatting，令 code block / inline code 顯示得正常啲。
+
+- [`conversation_service.rb`](app/services/conversation_service.rb)
+  - 對話層 orchestration。
+  - 主要責任：
+    - 讀寫 `ChatSession`
+    - 讀寫 `ProcessedUpdate`
+    - 判斷 session TTL
+    - call `CodexCliClient`
+    - opportunistic prune 舊 `ProcessedUpdate`
+  - 如果你想搵「個 bot 記憶點樣管理」，通常由呢個 file 開始睇最啱。
+
+- [`codex_cli_client.rb`](app/services/codex_cli_client.rb)
+  - 真正同 `codex exec` 接軌嗰層。
+  - 佢會：
+    - parse 上次 conversation state
+    - 同 system prompt 拼埋做 prompt
+    - 如果有圖就加 `--image`
+    - 讀返 `codex exec --output-last-message` 生成嘅最後訊息
+  - 呢層係同步 call，唔係 background job。
+
+- [`telegram_webhook_handler.rb`](app/services/telegram_webhook_handler.rb)
+  - 成個 bot flow 最核心嘅 file。
+  - 大部分 Telegram 行為都喺呢度：
+    - unsupported message fallback
+    - duplicate ignore
+    - pending reply replay
+    - unauthorized user reject
+    - `/start`
+    - `/new`
+    - rate limit
+    - typing indicator
+    - 圖片 download + cleanup
+    - generic error fallback
+
+### Config / Tasks
+
+- [`routes.rb`](config/routes.rb)
+  - 只 expose 兩個 endpoint：
+    - `GET /health`
+    - `POST /telegram/webhook`
+
+- [`database.yml`](config/database.yml)
+  - 三個 environment 都用 SQLite。
+  - 預設 path 由 `SQLITE_DB_PATH` 控。
+
+- [`telegram.rake`](lib/tasks/telegram.rake)
+  - `bundle exec rake telegram:set_webhook`
+  - 用而家 ENV 裏面個 `BASE_URL` 直接註冊 Telegram webhook。
+
+- [`auto_annotate_models.rake`](lib/tasks/auto_annotate_models.rake)
+  - 同 schema comments / annotate model 有關。
+  - 純粹係維護工具，唔影響 runtime。
+
+### Tests
+
+- [`app_spec.rb`](spec/requests/app_spec.rb)
+  - 驗 HTTP 層：`/health` 同 webhook secret 驗證。
+
+- [`conversation_service_spec.rb`](spec/services/conversation_service_spec.rb)
+  - 驗 session TTL、reply generation input、processed update prune。
+
+- [`telegram_update_parser_spec.rb`](spec/services/telegram_update_parser_spec.rb)
+  - 驗 Telegram payload parsing。
+
+- [`telegram_webhook_handler_spec.rb`](spec/services/telegram_webhook_handler_spec.rb)
+  - 驗 pending reply replay 呢種最易出事嘅邊界情況。
+
+## 資料點存
+
+SQLite 而家主要得兩張表：
+
+- `chat_sessions`
+  - 每個 chat 一條 session state
+  - 用嚟保留對話上下文
+
+- `processed_updates`
+  - 每個 Telegram `update_id` 一條處理記錄
+  - 用嚟防 duplicate，同埋保留 pending reply replay 所需資料
+
+實際 lifecycle 係：
+
+- `ChatSession`
+  - `/new` 會清
+  - 過咗 `SESSION_TTL_DAYS` 會喺下次用到嗰個 chat 時被清
+
+- `ProcessedUpdate`
+  - reply send 成功後會保留
+  - `ConversationService` 會 opportunistic 清走已送出而且夠舊嘅 records
+  - 唔需要額外 cron job 都可以慢慢瘦身
 
 ## 需求
 
@@ -134,6 +313,60 @@ bundle exec rails server -p 3000
 - `/new`：清除當前 chat 嘅 session memory，下一句重新開始
 
 平時直接 send 文字或者圖片畀 bot 就得，唔需要 command。
+
+## 常見 debug 方法
+
+想 trace 某個 chat／update，通常會用以下幾招：
+
+### 1. 用 Rails console 睇資料
+
+```bash
+bundle exec rails console
+```
+
+```ruby
+ChatSession.find_by(chat_id: "123456")
+ProcessedUpdate.find_by(update_id: 123456789)
+ProcessedUpdate.order(update_id: :desc).limit(20)
+```
+
+### 2. 本地打 health check
+
+```bash
+curl -i http://localhost:3000/health
+```
+
+### 3. 手動重設目前 chat session
+
+喺 Telegram 對 bot 打：
+
+```text
+/new
+```
+
+如果你懷疑 memory / context 搞亂咗，呢個最快。
+
+### 4. 重新 set webhook
+
+如果你改咗 domain、換咗 tunnel、或者 deploy 去新 host：
+
+```bash
+bundle exec rake telegram:set_webhook
+```
+
+### 5. 睇 Docker / Dokku logs
+
+Docker：
+
+```bash
+docker logs <container-id>
+```
+
+Dokku：
+
+```bash
+dokku logs telegram-codex -t
+```
 
 ## 註冊 Telegram webhook
 
