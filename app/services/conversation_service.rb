@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
 class ConversationService
+  PROCESSED_UPDATE_PRUNE_INTERVAL_MS = 6 * 60 * 60 * 1000
+  PROCESSED_UPDATE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
+
   SYSTEM_PROMPT = <<~PROMPT.strip
     你係一個 Telegram AI 助手。
     除非用戶明確要求用其他語言，否則一律用廣東話回覆。
@@ -15,6 +18,22 @@ class ConversationService
 
   def initialize(reply_client: CodexCliClient.new)
     @reply_client = reply_client
+  end
+
+  class << self
+    attr_accessor :last_processed_update_prune_at
+
+    def reset_prune_state!
+      prune_mutex.synchronize do
+        @last_processed_update_prune_at = nil
+      end
+    end
+
+    private
+
+    def prune_mutex
+      @prune_mutex ||= Mutex.new
+    end
   end
 
   def get_processed_update(update_id)
@@ -56,6 +75,7 @@ class ConversationService
   end
 
   def generate_reply(message)
+    prune_processed_updates_if_needed
     session = load_active_session(message.fetch(:chat_id))
 
     result = @reply_client.generate_reply(
@@ -74,6 +94,20 @@ class ConversationService
   end
 
   private
+
+  def prune_processed_updates_if_needed
+    now = current_time_ms
+
+    self.class.send(:prune_mutex).synchronize do
+      last_pruned_at = self.class.send(:last_processed_update_prune_at)
+      return if last_pruned_at && (now - last_pruned_at) < PROCESSED_UPDATE_PRUNE_INTERVAL_MS
+
+      cutoff = now - PROCESSED_UPDATE_RETENTION_MS
+      deleted_count = ProcessedUpdate.where.not(sent_at: nil).where('processed_at < ?', cutoff).delete_all
+      self.class.send(:last_processed_update_prune_at=, now)
+      Rails.logger.info("Pruned processed updates count=#{deleted_count} cutoff=#{cutoff}")
+    end
+  end
 
   def load_active_session(chat_id)
     session = ChatSession.find_by(chat_id: chat_id)
