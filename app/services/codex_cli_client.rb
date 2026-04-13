@@ -4,6 +4,7 @@ require "tmpdir"
 
 class CodexCliClient
   MAX_TRANSCRIPT_MESSAGES = 100
+  DEFAULT_SANDBOX_MODE = "danger-full-access"
 
   def generate_reply(chat_id:, text:, conversation_state:, image_file_path:)
     transcript = parse_conversation_state(conversation_state)
@@ -64,10 +65,12 @@ class CodexCliClient
   def run_codex_exec(prompt, image_file_path)
     Dir.mktmpdir("telegram-codex-") do |dir|
       output_path = File.join(dir, "reply.txt")
+      sandbox_mode = ENV.fetch("CODEX_SANDBOX_MODE", DEFAULT_SANDBOX_MODE)
       command = [
         "codex",
         "exec",
         "--skip-git-repo-check",
+        "--sandbox", sandbox_mode,
         "--color", "never",
         "--output-last-message", output_path
       ]
