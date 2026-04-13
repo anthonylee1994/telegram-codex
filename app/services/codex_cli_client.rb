@@ -68,7 +68,6 @@ class CodexCliClient
         "codex",
         "exec",
         "--skip-git-repo-check",
-        "--dangerously-bypass-approvals-and-sandbox",
         "--color", "never",
         "--output-last-message", output_path
       ]
