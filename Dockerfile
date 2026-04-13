@@ -1,47 +1,45 @@
-FROM node:24-bookworm-slim AS base
+# syntax=docker/dockerfile:1
 
-WORKDIR /app
+ARG RUBY_VERSION=4.0.2
 
-ENV PNPM_HOME=/pnpm
-ENV PATH=$PNPM_HOME:$PATH
+FROM ruby:${RUBY_VERSION}-slim AS base
 
-RUN corepack enable
+WORKDIR /rails
+
+ENV RAILS_ENV=production \
+    BUNDLE_DEPLOYMENT=1 \
+    BUNDLE_PATH=/usr/local/bundle \
+    BUNDLE_WITHOUT=development:test
 
 FROM base AS build
 
-ENV CI=true
+COPY .codex-version /tmp/.codex-version
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 make g++ \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y build-essential ca-certificates curl git libsqlite3-dev libyaml-dev nodejs npm pkg-config sqlite3 && \
+    npm install -g @openai/codex@"$(cat /tmp/.codex-version)" && \
+    rm -rf /var/lib/apt/lists/* /tmp/.codex-version
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN pnpm install --frozen-lockfile
+COPY Gemfile Gemfile.lock ./
+RUN bundle install
 
 COPY . .
-RUN pnpm build
-RUN pnpm prune --prod
 
-FROM node:24-bookworm-slim AS runtime
-
-WORKDIR /app
-
-ENV NODE_ENV=production
-ENV PORT=3000
+FROM base AS runtime
 
 COPY .codex-version /tmp/.codex-version
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates git \
-    && npm install -g @openai/codex@"$(cat /tmp/.codex-version)" \
-    && mkdir -p /root/.codex /app/data \
-    && rm -f /tmp/.codex-version \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y ca-certificates git nodejs npm sqlite3 && \
+    npm install -g @openai/codex@"$(cat /tmp/.codex-version)" && \
+    mkdir -p /rails/data /root/.codex && \
+    rm -rf /var/lib/apt/lists/* /tmp/.codex-version
 
-COPY --from=build /app/package.json ./package.json
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
+COPY --from=build /usr/local/bundle /usr/local/bundle
+COPY --from=build /rails /rails
+
+ENTRYPOINT ["/rails/bin/docker-entrypoint"]
 
 EXPOSE 3000
 
-CMD ["node", "dist/src/server.js"]
+CMD ["./bin/rails", "server", "-b", "0.0.0.0", "-p", "3000"]

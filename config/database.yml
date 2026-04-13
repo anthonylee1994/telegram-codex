@@ -1,0 +1,16 @@
+default: &default
+  adapter: sqlite3
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS", 5) %>
+  timeout: 5000
+
+development:
+  <<: *default
+  database: <%= ENV.fetch("SQLITE_DB_PATH", "./data/app.db") %>
+
+test:
+  <<: *default
+  database: <%= ENV.fetch("SQLITE_DB_PATH", "./data/test.db") %>
+
+production:
+  <<: *default
+  database: <%= ENV.fetch("SQLITE_DB_PATH", "./data/app.db") %>
