@@ -37,6 +37,7 @@ RUN apt-get update -qq && \
 
 COPY --from=build /usr/local/bundle /usr/local/bundle
 COPY --from=build /rails /rails
+RUN chmod +x /rails/bin/docker-entrypoint
 
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]
 

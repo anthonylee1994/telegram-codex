@@ -17,3 +17,6 @@ group :development, :test do
   gem 'rubocop-performance', require: false
   gem 'rubocop-rails', require: false
 end
+
+gem 'annotate', '~> 2.6'
+gem 'pry-rails'

@@ -1,3 +1,16 @@
+# == Schema Information
+#
+# Table name: chat_sessions
+#
+#  chat_id          :text             primary key
+#  last_response_id :text
+#  updated_at       :integer          not null
+#
+# Indexes
+#
+#  index_chat_sessions_on_chat_id  (chat_id) UNIQUE
+#
+
 # frozen_string_literal: true
 
 class ChatSession < ApplicationRecord
