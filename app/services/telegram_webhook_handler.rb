@@ -64,6 +64,7 @@ class TelegramWebhookHandler
     end
 
     if start_command?(message.fetch(:text))
+      @conversation_service.reset_session(message.fetch(:chat_id))
       @telegram_client.send_message(message.fetch(:chat_id), START_MESSAGE)
       @conversation_service.mark_processed(message.fetch(:update_id), message.fetch(:chat_id), message.fetch(:message_id))
       return
