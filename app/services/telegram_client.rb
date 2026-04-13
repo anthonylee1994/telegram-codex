@@ -1,11 +1,9 @@
-# frozen_string_literal: true
-
-require 'cgi'
-require 'json'
-require 'net/http'
-require 'tempfile'
-require 'tmpdir'
-require 'uri'
+require "cgi"
+require "json"
+require "net/http"
+require "tempfile"
+require "tmpdir"
+require "uri"
 
 class TelegramClient
   TYPING_INTERVAL_SECONDS = 4
@@ -16,8 +14,8 @@ class TelegramClient
 
   def download_file_to_temp(file_id)
     file = get_file(file_id)
-    file_path = file.fetch('file_path')
-    temp_dir = Dir.mktmpdir('telegram-codex-file-')
+    file_path = file.fetch("file_path")
+    temp_dir = Dir.mktmpdir("telegram-codex-file-")
     output_path = File.join(temp_dir, File.basename(file_path))
     response = Net::HTTP.get_response(URI("https://api.telegram.org/file/bot#{@bot_token}/#{file_path}"))
     raise "Failed to download Telegram file: #{response.code} #{response.message}" unless response.is_a?(Net::HTTPSuccess)
@@ -27,11 +25,11 @@ class TelegramClient
   end
 
   def send_message(chat_id, text)
-    post_form('sendMessage', chat_id: chat_id, text: format_telegram_message(text), parse_mode: 'HTML')
+    post_form("sendMessage", chat_id: chat_id, text: format_telegram_message(text), parse_mode: "HTML")
   end
 
   def send_chat_action(chat_id, action)
-    post_form('sendChatAction', chat_id: chat_id, action: action)
+    post_form("sendChatAction", chat_id: chat_id, action: action)
   end
 
   def with_typing_status(chat_id)
@@ -39,7 +37,7 @@ class TelegramClient
     thread = Thread.new do
       until stop
         begin
-          send_chat_action(chat_id, 'typing')
+          send_chat_action(chat_id, "typing")
         rescue StandardError
           nil
         end
@@ -55,10 +53,10 @@ class TelegramClient
 
   def set_webhook(url, secret_token)
     post_form(
-      'setWebhook',
+      "setWebhook",
       url: url,
       secret_token: secret_token,
-      allowed_updates: JSON.generate(['message'])
+      allowed_updates: JSON.generate([ "message" ])
     )
 
     Rails.logger.info("Telegram webhook configured url=#{url}")
@@ -71,9 +69,9 @@ class TelegramClient
     raise "Telegram getFile failed: #{response.code} #{response.message}" unless response.is_a?(Net::HTTPSuccess)
 
     payload = JSON.parse(response.body)
-    raise 'Telegram getFile did not include a file path.' unless payload['ok'] && payload.dig('result', 'file_path').present?
+    raise "Telegram getFile did not include a file path." unless payload["ok"] && payload.dig("result", "file_path").present?
 
-    payload.fetch('result')
+    payload.fetch("result")
   end
 
   def post_form(method_name, params)
@@ -82,9 +80,9 @@ class TelegramClient
     raise "Telegram #{method_name} failed: #{response.code} #{response.message}" unless response.is_a?(Net::HTTPSuccess)
 
     payload = JSON.parse(response.body)
-    raise "Telegram #{method_name} returned ok=false" unless payload['ok']
+    raise "Telegram #{method_name} returned ok=false" unless payload["ok"]
 
-    payload['result']
+    payload["result"]
   end
 
   def api_base

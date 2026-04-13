@@ -1,19 +1,17 @@
-# frozen_string_literal: true
-
-require 'fileutils'
+require "fileutils"
 
 class TelegramWebhookHandler
-  GENERIC_ERROR_MESSAGE = '我要休息一陣，遲啲叫醒我。'
-  NEW_SESSION_MESSAGE = '已經開咗個新 session，你可以重新開始。'
-  RATE_LIMIT_MESSAGE = '你打得太快，等一陣再試。'
+  GENERIC_ERROR_MESSAGE = "我要休息一陣，遲啲叫醒我。"
+  NEW_SESSION_MESSAGE = "已經開咗個新 session，你可以重新開始。"
+  RATE_LIMIT_MESSAGE = "你打得太快，等一陣再試。"
   START_MESSAGE = [
-    '您好，我係您嘅 AI 助手。',
-    '',
-    '直接 send 文字或者圖片畀我就得。',
-    '想重新開過個 session，就打 `/new`。'
+    "您好，我係您嘅 AI 助手。",
+    "",
+    "直接 send 文字或者圖片畀我就得。",
+    "想重新開過個 session，就打 `/new`。"
   ].join("\n").freeze
-  UNAUTHORIZED_MESSAGE = '呢個 bot 暫時只限指定用戶使用。'
-  UNSUPPORTED_MESSAGE = '而家只支援文字同圖片訊息，仲未支援檔案、語音。'
+  UNAUTHORIZED_MESSAGE = "呢個 bot 暫時只限指定用戶使用。"
+  UNSUPPORTED_MESSAGE = "而家只支援文字同圖片訊息，仲未支援檔案、語音。"
 
   def initialize(
     conversation_service: ConversationService.new,
@@ -110,7 +108,7 @@ class TelegramWebhookHandler
   def reply_unsupported(update)
     return unless update.is_a?(Hash)
 
-    chat_id = update.dig('message', 'chat', 'id')
+    chat_id = update.dig("message", "chat", "id")
     return if chat_id.nil?
 
     @telegram_client.send_message(chat_id.to_s, UNSUPPORTED_MESSAGE)

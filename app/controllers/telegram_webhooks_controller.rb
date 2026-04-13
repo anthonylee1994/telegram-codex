@@ -1,9 +1,7 @@
-# frozen_string_literal: true
-
 class TelegramWebhooksController < ApplicationController
   def create
-    if request.headers['X-Telegram-Bot-Api-Secret-Token'] != AppConfig.fetch.telegram_webhook_secret
-      Rails.logger.warn('Rejected Telegram webhook with invalid secret')
+    if request.headers["X-Telegram-Bot-Api-Secret-Token"] != AppConfig.fetch.telegram_webhook_secret
+      Rails.logger.warn("Rejected Telegram webhook with invalid secret")
       render json: { ok: false }, status: :unauthorized
       return
     end
@@ -18,7 +16,7 @@ class TelegramWebhooksController < ApplicationController
   private
 
   def parsed_raw_body
-    JSON.parse(request.raw_post.presence || '{}')
+    JSON.parse(request.raw_post.presence || "{}")
   rescue JSON::ParserError
     {}
   end

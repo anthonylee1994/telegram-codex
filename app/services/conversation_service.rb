@@ -1,5 +1,3 @@
-# frozen_string_literal: true
-
 class ConversationService
   PROCESSED_UPDATE_PRUNE_INTERVAL_MS = 6 * 60 * 60 * 1000
   PROCESSED_UPDATE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
@@ -103,7 +101,7 @@ class ConversationService
       return if last_pruned_at && (now - last_pruned_at) < PROCESSED_UPDATE_PRUNE_INTERVAL_MS
 
       cutoff = now - PROCESSED_UPDATE_RETENTION_MS
-      deleted_count = ProcessedUpdate.where.not(sent_at: nil).where('processed_at < ?', cutoff).delete_all
+      deleted_count = ProcessedUpdate.where.not(sent_at: nil).where("processed_at < ?", cutoff).delete_all
       self.class.send(:last_processed_update_prune_at=, now)
       Rails.logger.info("Pruned processed updates count=#{deleted_count} cutoff=#{cutoff}")
     end

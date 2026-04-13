@@ -1,6 +1,4 @@
-# frozen_string_literal: true
-
-require 'singleton'
+require "singleton"
 
 class ChatRateLimiter
   include Singleton

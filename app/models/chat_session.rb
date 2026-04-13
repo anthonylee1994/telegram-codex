@@ -11,7 +11,6 @@
 #  index_chat_sessions_on_chat_id  (chat_id) UNIQUE
 #
 
-# frozen_string_literal: true
 
 class ChatSession < ApplicationRecord
   self.primary_key = :chat_id

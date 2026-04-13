@@ -1,5 +1,3 @@
-# frozen_string_literal: true
-
 class CreateProcessedUpdates < ActiveRecord::Migration[8.1]
   def up
     unless table_exists?(:processed_updates)

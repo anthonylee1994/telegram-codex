@@ -15,7 +15,6 @@
 #  index_processed_updates_on_update_id  (update_id) UNIQUE
 #
 
-# frozen_string_literal: true
 
 class ProcessedUpdate < ApplicationRecord
   self.primary_key = :update_id

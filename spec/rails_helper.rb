@@ -1,5 +1,3 @@
-# frozen_string_literal: true
-
 ENV['RAILS_ENV'] ||= 'test'
 ENV['PORT'] ||= '3000'
 ENV['BASE_URL'] ||= 'https://example.com'
@@ -25,7 +23,7 @@ rescue ActiveRecord::PendingMigrationError => e
 end
 
 RSpec.configure do |config|
-  config.fixture_paths = [Rails.root.join('spec/fixtures')]
+  config.fixture_paths = [ Rails.root.join('spec/fixtures') ]
   config.use_transactional_fixtures = true
   config.filter_rails_from_backtrace!
 
