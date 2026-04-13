@@ -16,7 +16,7 @@ const RATE_LIMIT_MESSAGE = "你打得太快，等一陣再試。";
 const GENERIC_ERROR_MESSAGE = "我而家有啲塞車，遲啲再試過。";
 const UNAUTHORIZED_MESSAGE = "呢個 bot 暫時只限指定用戶使用。";
 const NEW_SESSION_MESSAGE = "已經開咗個新 session，你可以重新開始。";
-const START_MESSAGE = ["歡迎用 On99 Bot。", "", "直接 send 文字或者圖片畀我就得。", "想重新開過個 session，就打 `/new`。"].join("\n");
+const START_MESSAGE = ["您好，我係您嘅 AI 助手。", "", "直接 send 文字或者圖片畀我就得。", "想重新開過個 session，就打 `/new`。"].join("\n");
 
 @Injectable()
 export class TelegramWebhookHandler {
