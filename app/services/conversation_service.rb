@@ -56,7 +56,7 @@ class ConversationService
     record.processed_at = now
     record.reply_text = result.fetch(:text)
     record.conversation_state = result.fetch(:conversation_state)
-    record.suggested_replies = nil
+    record.suggested_replies = JSON.generate(Array(result[:suggested_replies]))
     record.sent_at = nil
     record.save!
   end

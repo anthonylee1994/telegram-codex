@@ -1,7 +1,6 @@
 require "fileutils"
 
 class TelegramWebhookHandler
-  CONTINUE_PROMPT_MESSAGE = "你可以直接撳下面繼續。"
   GENERIC_ERROR_MESSAGE = "我要休息一陣，遲啲叫醒我。"
   NEW_SESSION_MESSAGE = "已經開咗個新 session，你可以重新開始。"
   RATE_LIMIT_MESSAGE = "你打得太快，等一陣再試。"
@@ -46,7 +45,11 @@ class TelegramWebhookHandler
 
     if processed_update&.reply_text.present? && processed_update.conversation_state.present?
       answer_callback_query(message)
-      @telegram_client.send_message(message.fetch(:chat_id), processed_update.reply_text)
+      @telegram_client.send_message(
+        message.fetch(:chat_id),
+        processed_update.reply_text,
+        suggested_replies: parse_suggested_replies(processed_update.suggested_replies)
+      )
       @conversation_service.persist_conversation_state(message.fetch(:chat_id), processed_update.conversation_state)
       @conversation_service.mark_processed(message.fetch(:update_id), message.fetch(:chat_id), message.fetch(:message_id))
       return
@@ -91,7 +94,10 @@ class TelegramWebhookHandler
         image_file_path = message[:image_file_id].present? ? @telegram_client.download_file_to_temp(message.fetch(:image_file_id)) : nil
 
         begin
-          @conversation_service.generate_reply(message.merge(image_file_path: image_file_path))
+          generated_reply = @conversation_service.generate_reply(message.merge(image_file_path: image_file_path))
+          suggested_replies = @conversation_service.generate_suggested_replies(generated_reply.fetch(:conversation_state))
+
+          generated_reply.merge(suggested_replies: suggested_replies)
         ensure
           FileUtils.rm_rf(File.dirname(image_file_path)) if image_file_path.present?
         end
@@ -99,10 +105,13 @@ class TelegramWebhookHandler
 
       @conversation_service.save_pending_reply(message.fetch(:update_id), message.fetch(:chat_id), message.fetch(:message_id), reply)
       has_pending_reply = true
-      @telegram_client.send_message(message.fetch(:chat_id), reply.fetch(:text))
+      @telegram_client.send_message(
+        message.fetch(:chat_id),
+        reply.fetch(:text),
+        suggested_replies: reply.fetch(:suggested_replies)
+      )
       @conversation_service.persist_conversation_state(message.fetch(:chat_id), reply.fetch(:conversation_state))
       @conversation_service.mark_processed(message.fetch(:update_id), message.fetch(:chat_id), message.fetch(:message_id))
-      send_suggested_replies(message.fetch(:chat_id), reply.fetch(:conversation_state))
     rescue StandardError => e
       Rails.logger.error(
         "Failed to handle Telegram update update_id=#{message.fetch(:update_id)} chat_id=#{message.fetch(:chat_id)} error=#{e.message}"
@@ -136,23 +145,29 @@ class TelegramWebhookHandler
     text.match?(%r{\A/start(?:@[\w_]+)?\z}u)
   end
 
-  def send_suggested_replies(chat_id, conversation_state)
-    suggested_replies = @telegram_client.with_typing_status(chat_id) do
-      @conversation_service.generate_suggested_replies(conversation_state)
-    end
-
-    return if suggested_replies.blank?
-
-    @telegram_client.send_message(chat_id, CONTINUE_PROMPT_MESSAGE, suggested_replies: suggested_replies)
-  rescue StandardError => e
-    Rails.logger.warn("Failed to send suggested replies chat_id=#{chat_id} error=#{e.message}")
-  end
-
   def answer_callback_query(message)
     return unless message[:inline_callback]
 
     @telegram_client.answer_callback_query(message.fetch(:callback_query_id))
   rescue StandardError => e
     Rails.logger.warn("Failed to answer callback query callback_query_id=#{message[:callback_query_id]} error=#{e.message}")
+  end
+
+  def parse_suggested_replies(raw_suggested_replies)
+    return [] if raw_suggested_replies.blank?
+
+    parsed_replies = JSON.parse(raw_suggested_replies)
+    return [] unless parsed_replies.is_a?(Array)
+
+    parsed_replies.filter_map do |reply|
+      next unless reply.is_a?(String)
+
+      normalized_reply = reply.strip
+      next if normalized_reply.empty?
+
+      normalized_reply
+    end
+  rescue JSON::ParserError
+    []
   end
 end

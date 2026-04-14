@@ -45,6 +45,16 @@ class TelegramClient
     post_form("answerCallbackQuery", callback_query_id: callback_query_id)
   end
 
+  def edit_message_reply_markup(chat_id, message_id, suggested_replies: [])
+    params = {
+      chat_id: chat_id,
+      message_id: message_id
+    }
+    reply_markup = build_reply_markup(suggested_replies)
+    params[:reply_markup] = JSON.generate(reply_markup) if reply_markup.present?
+    post_form("editMessageReplyMarkup", params)
+  end
+
   def with_typing_status(chat_id)
     begin
       send_chat_action(chat_id, "typing")

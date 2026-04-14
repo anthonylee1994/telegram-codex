@@ -62,56 +62,57 @@ RSpec.describe TelegramWebhookHandler do
 
   it 're-sends a persisted pending reply without regenerating it' do
     attempt = 0
+    suggested_replies = [ '下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？' ]
 
     allow(reply_client).to receive(:generate_reply).and_return(
       conversation_state: 'state-1',
       text: 'reply-1'
     )
-    allow(reply_client).to receive(:generate_suggested_replies).and_return([ '下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？' ])
+    allow(reply_client).to receive(:generate_suggested_replies).and_return(suggested_replies)
     allow(telegram_client).to receive(:with_typing_status).and_yield
-    allow(telegram_client).to receive(:send_message).with('3', 'reply-1') do
+    allow(telegram_client).to receive(:send_message).with('3', 'reply-1', suggested_replies: suggested_replies) do
       attempt += 1
       raise StandardError, 'telegram send failed' if attempt == 1
     end
-    allow(telegram_client).to receive(:send_message).with(
-      '3',
-      TelegramWebhookHandler::CONTINUE_PROMPT_MESSAGE,
-      suggested_replies: [ '下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？' ]
-    )
 
     expect { handler.handle(update) }.to raise_error(StandardError, 'telegram send failed')
     expect { handler.handle(update) }.not_to raise_error
 
     expect(reply_client).to have_received(:generate_reply).once
-    expect(telegram_client).to have_received(:send_message).with('3', 'reply-1').twice
+    expect(reply_client).to have_received(:generate_suggested_replies).once
+    expect(telegram_client).to have_received(:send_message).with('3', 'reply-1', suggested_replies: suggested_replies).twice
     expect(ChatSession.find_by(chat_id: '3')&.last_response_id).to eq('state-1')
     expect(ProcessedUpdate.find_by(update_id: 1)&.reply_text).to eq('reply-1')
-    expect(ProcessedUpdate.find_by(update_id: 1)&.suggested_replies).to be_nil
+    expect(JSON.parse(ProcessedUpdate.find_by(update_id: 1)&.suggested_replies)).to eq(suggested_replies)
     expect(ProcessedUpdate.find_by(update_id: 1)&.sent_at).to be_present
   end
 
-  it 'sends the answer first and suggested replies after' do
+  it 'generates reply and suggestions before sending once' do
     call_order = []
+    suggested_replies = [ '下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？' ]
 
     allow(reply_client).to receive(:generate_reply).and_return(
       conversation_state: 'state-1',
       text: 'reply-1'
     )
-    allow(reply_client).to receive(:generate_suggested_replies).and_return([ '下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？' ])
+    allow(reply_client).to receive(:generate_suggested_replies) do
+      call_order << :generate_suggested_replies
+      suggested_replies
+    end
     allow(telegram_client).to receive(:with_typing_status).and_yield
     allow(telegram_client).to receive(:send_message) do |chat_id, text, suggested_replies: []|
-      call_order << [ chat_id, text, suggested_replies ]
+      call_order << [ :send_message, chat_id, text, suggested_replies ]
     end
 
     handler.handle(update)
 
     expect(call_order).to eq([
-      [ '3', 'reply-1', [] ],
-      [ '3', TelegramWebhookHandler::CONTINUE_PROMPT_MESSAGE, [ '下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？' ] ]
+      :generate_suggested_replies,
+      [ :send_message, '3', 'reply-1', suggested_replies ]
     ])
   end
 
-  it 'does not fail the main reply when suggested replies fail' do
+  it 'sends a generic error when suggestions generation fails before sending' do
     allow(reply_client).to receive(:generate_reply).and_return(
       conversation_state: 'state-1',
       text: 'reply-1'
@@ -121,7 +122,8 @@ RSpec.describe TelegramWebhookHandler do
     allow(telegram_client).to receive(:send_message)
 
     expect { handler.handle(update) }.not_to raise_error
-    expect(telegram_client).to have_received(:send_message).with('3', 'reply-1')
+    expect(telegram_client).to have_received(:send_message).with('3', TelegramWebhookHandler::GENERIC_ERROR_MESSAGE)
+    expect(telegram_client).not_to have_received(:send_message).with('3', 'reply-1', any_args)
   end
 
   it 'answers callback queries and treats the button text as a new message' do
