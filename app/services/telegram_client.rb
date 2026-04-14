@@ -55,6 +55,15 @@ class TelegramClient
     post_form("editMessageReplyMarkup", params)
   end
 
+  def clear_message_reply_markup(chat_id, message_id)
+    post_form(
+      "editMessageReplyMarkup",
+      chat_id: chat_id,
+      message_id: message_id,
+      reply_markup: JSON.generate(inline_keyboard: [])
+    )
+  end
+
   def with_typing_status(chat_id)
     begin
       send_chat_action(chat_id, "typing")

@@ -40,11 +40,13 @@ class TelegramWebhookHandler
     if processed_update&.sent_at.present?
       Rails.logger.info("Ignored duplicate update update_id=#{message.fetch(:update_id)}")
       answer_callback_query(message)
+      clear_callback_buttons(message)
       return
     end
 
     if processed_update&.reply_text.present? && processed_update.conversation_state.present?
       answer_callback_query(message)
+      clear_callback_buttons(message)
       @telegram_client.send_message(
         message.fetch(:chat_id),
         processed_update.reply_text,
@@ -57,6 +59,7 @@ class TelegramWebhookHandler
 
     if unauthorized_user?(message.fetch(:user_id))
       answer_callback_query(message)
+      clear_callback_buttons(message)
       Rails.logger.warn("Rejected unauthorized Telegram user chat_id=#{message.fetch(:chat_id)} user_id=#{message.fetch(:user_id)}")
       @telegram_client.send_message(message.fetch(:chat_id), UNAUTHORIZED_MESSAGE)
       @conversation_service.mark_processed(message.fetch(:update_id), message.fetch(:chat_id), message.fetch(:message_id))
@@ -65,6 +68,7 @@ class TelegramWebhookHandler
 
     if new_session_command?(message.fetch(:text))
       answer_callback_query(message)
+      clear_callback_buttons(message)
       @conversation_service.reset_session(message.fetch(:chat_id))
       @telegram_client.send_message(message.fetch(:chat_id), NEW_SESSION_MESSAGE)
       @conversation_service.mark_processed(message.fetch(:update_id), message.fetch(:chat_id), message.fetch(:message_id))
@@ -73,6 +77,7 @@ class TelegramWebhookHandler
 
     if start_command?(message.fetch(:text))
       answer_callback_query(message)
+      clear_callback_buttons(message)
       @conversation_service.reset_session(message.fetch(:chat_id))
       @telegram_client.send_message(message.fetch(:chat_id), START_MESSAGE)
       @conversation_service.mark_processed(message.fetch(:update_id), message.fetch(:chat_id), message.fetch(:message_id))
@@ -81,6 +86,7 @@ class TelegramWebhookHandler
 
     unless @rate_limiter.allow(message.fetch(:chat_id))
       answer_callback_query(message)
+      clear_callback_buttons(message)
       @telegram_client.send_message(message.fetch(:chat_id), RATE_LIMIT_MESSAGE)
       @conversation_service.mark_processed(message.fetch(:update_id), message.fetch(:chat_id), message.fetch(:message_id))
       return
@@ -90,6 +96,7 @@ class TelegramWebhookHandler
 
     begin
       answer_callback_query(message)
+      clear_callback_buttons(message)
       reply = @telegram_client.with_typing_status(message.fetch(:chat_id)) do
         image_file_path = message[:image_file_id].present? ? @telegram_client.download_file_to_temp(message.fetch(:image_file_id)) : nil
 
@@ -151,6 +158,14 @@ class TelegramWebhookHandler
     @telegram_client.answer_callback_query(message.fetch(:callback_query_id))
   rescue StandardError => e
     Rails.logger.warn("Failed to answer callback query callback_query_id=#{message[:callback_query_id]} error=#{e.message}")
+  end
+
+  def clear_callback_buttons(message)
+    return unless message[:inline_callback]
+
+    @telegram_client.clear_message_reply_markup(message.fetch(:chat_id), message.fetch(:message_id))
+  rescue StandardError => e
+    Rails.logger.warn("Failed to clear callback buttons chat_id=#{message[:chat_id]} message_id=#{message[:message_id]} error=#{e.message}")
   end
 
   def parse_suggested_replies(raw_suggested_replies)

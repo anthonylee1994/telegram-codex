@@ -133,12 +133,14 @@ RSpec.describe TelegramWebhookHandler do
     )
     allow(reply_client).to receive(:generate_suggested_replies).and_return([ '再直接啲', '舉個例', '改短啲' ])
     allow(telegram_client).to receive(:answer_callback_query)
+    allow(telegram_client).to receive(:clear_message_reply_markup)
     allow(telegram_client).to receive(:with_typing_status).and_yield
     allow(telegram_client).to receive(:send_message)
 
     handler.handle(callback_update)
 
     expect(telegram_client).to have_received(:answer_callback_query).with('callback-1')
+    expect(telegram_client).to have_received(:clear_message_reply_markup).with('3', 7)
     expect(reply_client).to have_received(:generate_reply).with(
       chat_id: '3',
       text: '再濃縮',
