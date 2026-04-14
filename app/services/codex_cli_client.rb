@@ -77,22 +77,40 @@ class CodexCliClient
   end
 
   def parse_reply(raw_reply)
-    payload = JSON.parse(raw_reply)
+    payload = parse_reply_payload(raw_reply)
     text = payload.fetch("text").to_s.strip
     raise "codex exec returned an empty reply" if text.empty?
 
     {
       suggested_replies: sanitize_suggested_replies(payload["suggested_replies"]),
-      text: text
+      text: normalize_reply_text(text)
     }
   rescue JSON::ParserError, KeyError
-    text = raw_reply.to_s.strip
+    text = normalize_reply_text(raw_reply.to_s.strip)
     raise "codex exec returned an empty reply" if text.empty?
 
     {
       suggested_replies: DEFAULT_SUGGESTED_REPLIES,
       text: text
     }
+  end
+
+  def parse_reply_payload(raw_reply)
+    payload = JSON.parse(raw_reply)
+    payload = JSON.parse(payload) if payload.is_a?(String)
+    raise JSON::ParserError, "reply payload is not an object" unless payload.is_a?(Hash)
+
+    payload
+  end
+
+  def normalize_reply_text(text)
+    normalized_text = text
+
+    if normalized_text.include?("\\n") || normalized_text.include?("\\r") || normalized_text.include?("\\t")
+      normalized_text = normalized_text.gsub("\\r\\n", "\n").gsub("\\n", "\n").gsub("\\r", "\r").gsub("\\t", "\t")
+    end
+
+    normalized_text.strip
   end
 
   def sanitize_suggested_replies(suggested_replies)
