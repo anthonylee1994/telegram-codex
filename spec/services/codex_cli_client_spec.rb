@@ -71,5 +71,21 @@ RSpec.describe CodexCliClient do
       expect(reply.fetch(:text)).to eq("幫你整好")
       expect(reply.fetch(:suggested_replies)).to eq([ "再濃縮", "再直接啲", "加例子" ])
     end
+
+    it "falls back to the longest string field when text is missing" do
+      allow(client).to receive(:run_codex_exec).and_return(
+        '{"Bug Report：溝通方式問題":"第一點\\n第二點","suggested_replies":["幫我再縮短","整溫和版","整強硬版"]}'
+      )
+
+      reply = client.generate_reply(
+        chat_id: "chat-1",
+        conversation_state: nil,
+        image_file_path: nil,
+        text: "hello"
+      )
+
+      expect(reply.fetch(:text)).to eq("第一點\n第二點")
+      expect(reply.fetch(:suggested_replies)).to eq([ "幫我再縮短", "整溫和版", "整強硬版" ])
+    end
   end
 end

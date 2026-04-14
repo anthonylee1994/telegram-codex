@@ -78,14 +78,14 @@ class CodexCliClient
 
   def parse_reply(raw_reply)
     payload = parse_reply_payload(raw_reply)
-    text = payload.fetch("text").to_s.strip
+    text = extract_reply_text(payload)
     raise "codex exec returned an empty reply" if text.empty?
 
     {
       suggested_replies: sanitize_suggested_replies(payload["suggested_replies"]),
       text: normalize_reply_text(text)
     }
-  rescue JSON::ParserError, KeyError
+  rescue JSON::ParserError
     text = normalize_reply_text(raw_reply.to_s.strip)
     raise "codex exec returned an empty reply" if text.empty?
 
@@ -142,6 +142,22 @@ class CodexCliClient
     return nil if start_index.nil? || end_index.nil? || end_index <= start_index
 
     text[start_index..end_index]
+  end
+
+  def extract_reply_text(payload)
+    direct_text = payload["text"].to_s.strip
+    return direct_text if direct_text.present?
+
+    fallback_text = payload.values.filter_map do |value|
+      next unless value.is_a?(String)
+
+      normalized_value = value.strip
+      next if normalized_value.empty?
+
+      normalized_value
+    end.max_by(&:length)
+
+    fallback_text.to_s.strip
   end
 
   def sanitize_suggested_replies(suggested_replies)
