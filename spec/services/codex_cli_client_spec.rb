@@ -4,10 +4,8 @@ RSpec.describe CodexCliClient do
   let(:client) { described_class.new }
 
   describe "#generate_reply" do
-    it "normalizes escaped newlines in json replies" do
-      allow(client).to receive(:run_codex_exec).and_return(
-        '{"text":"第一段\\n\\n第二段","suggested_replies":["講多少少","列個重點","下一步呢？"]}'
-      )
+    it "returns plain assistant text directly" do
+      allow(client).to receive(:run_codex_exec).and_return("第一段\n\n第二段")
 
       reply = client.generate_reply(
         chat_id: "chat-1",
@@ -17,12 +15,11 @@ RSpec.describe CodexCliClient do
       )
 
       expect(reply.fetch(:text)).to eq("第一段\n\n第二段")
-      expect(reply.fetch(:suggested_replies)).to eq([ "講多少少", "列個重點", "下一步呢？" ])
     end
 
-    it "parses double-encoded json replies" do
+    it "extracts text from json replies when the model still outputs json" do
       allow(client).to receive(:run_codex_exec).and_return(
-        '"{\\"text\\":\\"第一段\\\\n第二段\\",\\"suggested_replies\\":[\\"講多少少\\",\\"列個重點\\",\\"下一步呢？\\"]}"'
+        '{"text":"第一段\\n第二段","suggested_replies":["講多少少","列個重點","下一步呢？"]}'
       )
 
       reply = client.generate_reply(
@@ -33,43 +30,6 @@ RSpec.describe CodexCliClient do
       )
 
       expect(reply.fetch(:text)).to eq("第一段\n第二段")
-      expect(reply.fetch(:suggested_replies)).to eq([ "講多少少", "列個重點", "下一步呢？" ])
-    end
-
-    it "extracts json replies wrapped in code fences" do
-      allow(client).to receive(:run_codex_exec).and_return(
-        <<~TEXT
-          ```json
-          {"text":"整理好咗","suggested_replies":["再短啲","溫和版","可直接send"]}
-          ```
-        TEXT
-      )
-
-      reply = client.generate_reply(
-        chat_id: "chat-1",
-        conversation_state: nil,
-        image_file_path: nil,
-        text: "hello"
-      )
-
-      expect(reply.fetch(:text)).to eq("整理好咗")
-      expect(reply.fetch(:suggested_replies)).to eq([ "再短啲", "溫和版", "可直接send" ])
-    end
-
-    it "extracts json replies even with surrounding text" do
-      allow(client).to receive(:run_codex_exec).and_return(
-        %(以下係結果：\n{"text":"幫你整好","suggested_replies":["再濃縮","再直接啲","加例子"]}\n你睇下。)
-      )
-
-      reply = client.generate_reply(
-        chat_id: "chat-1",
-        conversation_state: nil,
-        image_file_path: nil,
-        text: "hello"
-      )
-
-      expect(reply.fetch(:text)).to eq("幫你整好")
-      expect(reply.fetch(:suggested_replies)).to eq([ "再濃縮", "再直接啲", "加例子" ])
     end
 
     it "falls back to the longest string field when text is missing" do
@@ -85,7 +45,37 @@ RSpec.describe CodexCliClient do
       )
 
       expect(reply.fetch(:text)).to eq("第一點\n第二點")
-      expect(reply.fetch(:suggested_replies)).to eq([ "幫我再縮短", "整溫和版", "整強硬版" ])
+    end
+  end
+
+  describe "#generate_suggested_replies" do
+    it "parses a strict json array" do
+      allow(client).to receive(:run_codex_exec).and_return(
+        '["再濃縮","再直接啲","加例子"]'
+      )
+
+      suggested_replies = client.generate_suggested_replies(conversation_state: "[]")
+      expect(suggested_replies).to eq([ "再濃縮", "再直接啲", "加例子" ])
+    end
+
+    it "extracts suggested replies from json objects or fenced output" do
+      allow(client).to receive(:run_codex_exec).and_return(
+        <<~TEXT
+          ```json
+          {"suggested_replies":["幫我再縮短","整溫和版","整強硬版"]}
+          ```
+        TEXT
+      )
+
+      suggested_replies = client.generate_suggested_replies(conversation_state: "[]")
+      expect(suggested_replies).to eq([ "幫我再縮短", "整溫和版", "整強硬版" ])
+    end
+
+    it "falls back to defaults when parsing fails" do
+      allow(client).to receive(:run_codex_exec).and_raise(StandardError, "boom")
+
+      suggested_replies = client.generate_suggested_replies(conversation_state: "[]")
+      expect(suggested_replies).to eq(described_class::DEFAULT_SUGGESTED_REPLIES)
     end
   end
 end

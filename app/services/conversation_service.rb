@@ -56,7 +56,7 @@ class ConversationService
     record.processed_at = now
     record.reply_text = result.fetch(:text)
     record.conversation_state = result.fetch(:conversation_state)
-    record.suggested_replies = serialize_suggested_replies(result[:suggested_replies])
+    record.suggested_replies = nil
     record.sent_at = nil
     record.save!
   end
@@ -86,6 +86,10 @@ class ConversationService
 
     Rails.logger.info("Generated assistant reply chat_id=#{message.fetch(:chat_id)}")
     result
+  end
+
+  def generate_suggested_replies(conversation_state)
+    @reply_client.generate_suggested_replies(conversation_state: conversation_state)
   end
 
   def system_prompt
@@ -122,9 +126,5 @@ class ConversationService
 
   def current_time_ms
     (Time.now.to_f * 1000).to_i
-  end
-
-  def serialize_suggested_replies(suggested_replies)
-    JSON.generate(Array(suggested_replies))
   end
 end

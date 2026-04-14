@@ -6,6 +6,7 @@ require "tmpdir"
 require "uri"
 
 class TelegramClient
+  CALLBACK_DATA_MAX_BYTES = 64
   TYPING_INTERVAL_SECONDS = 4
   MAX_SUGGESTED_REPLIES = 3
 
@@ -40,6 +41,10 @@ class TelegramClient
     post_form("sendChatAction", chat_id: chat_id, action: action)
   end
 
+  def answer_callback_query(callback_query_id)
+    post_form("answerCallbackQuery", callback_query_id: callback_query_id)
+  end
+
   def with_typing_status(chat_id)
     begin
       send_chat_action(chat_id, "typing")
@@ -72,7 +77,7 @@ class TelegramClient
       "setWebhook",
       url: url,
       secret_token: secret_token,
-      allowed_updates: JSON.generate([ "message" ])
+      allowed_updates: JSON.generate([ "message", "callback_query" ])
     )
 
     Rails.logger.info("Telegram webhook configured url=#{url}")
@@ -145,9 +150,21 @@ class TelegramClient
     return nil if cleaned_replies.empty?
 
     {
-      keyboard: cleaned_replies.map { |reply| [ { text: reply } ] },
-      resize_keyboard: true,
-      one_time_keyboard: true
+      inline_keyboard: cleaned_replies.map do |reply|
+        [ { text: reply, callback_data: callback_data_for(reply) } ]
+      end
     }
+  end
+
+  def callback_data_for(reply)
+    encoded_reply = +""
+
+    reply.each_char do |character|
+      break if (encoded_reply.bytesize + character.bytesize) > CALLBACK_DATA_MAX_BYTES
+
+      encoded_reply << character
+    end
+
+    encoded_reply
   end
 end

@@ -41,31 +41,108 @@ RSpec.describe TelegramWebhookHandler do
       }
     }
   end
+  let(:callback_update) do
+    {
+      'update_id' => 9,
+      'callback_query' => {
+        'id' => 'callback-1',
+        'data' => '再濃縮',
+        'from' => {
+          'id' => 234_392_020
+        },
+        'message' => {
+          'message_id' => 7,
+          'chat' => {
+            'id' => 3
+          }
+        }
+      }
+    }
+  end
 
   it 're-sends a persisted pending reply without regenerating it' do
     attempt = 0
-    suggested_replies = [ '下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？' ]
 
     allow(reply_client).to receive(:generate_reply).and_return(
       conversation_state: 'state-1',
-      suggested_replies: suggested_replies,
       text: 'reply-1'
     )
+    allow(reply_client).to receive(:generate_suggested_replies).and_return([ '下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？' ])
     allow(telegram_client).to receive(:with_typing_status).and_yield
-    allow(telegram_client).to receive(:send_message).with('3', 'reply-1', suggested_replies: suggested_replies) do
+    allow(telegram_client).to receive(:send_message).with('3', 'reply-1') do
       attempt += 1
       raise StandardError, 'telegram send failed' if attempt == 1
     end
+    allow(telegram_client).to receive(:send_message).with(
+      '3',
+      TelegramWebhookHandler::CONTINUE_PROMPT_MESSAGE,
+      suggested_replies: [ '下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？' ]
+    )
 
     expect { handler.handle(update) }.to raise_error(StandardError, 'telegram send failed')
     expect { handler.handle(update) }.not_to raise_error
 
     expect(reply_client).to have_received(:generate_reply).once
-    expect(telegram_client).to have_received(:send_message).with('3', 'reply-1', suggested_replies: suggested_replies).twice
+    expect(telegram_client).to have_received(:send_message).with('3', 'reply-1').twice
     expect(ChatSession.find_by(chat_id: '3')&.last_response_id).to eq('state-1')
     expect(ProcessedUpdate.find_by(update_id: 1)&.reply_text).to eq('reply-1')
-    expect(JSON.parse(ProcessedUpdate.find_by(update_id: 1)&.suggested_replies)).to eq(suggested_replies)
+    expect(ProcessedUpdate.find_by(update_id: 1)&.suggested_replies).to be_nil
     expect(ProcessedUpdate.find_by(update_id: 1)&.sent_at).to be_present
+  end
+
+  it 'sends the answer first and suggested replies after' do
+    call_order = []
+
+    allow(reply_client).to receive(:generate_reply).and_return(
+      conversation_state: 'state-1',
+      text: 'reply-1'
+    )
+    allow(reply_client).to receive(:generate_suggested_replies).and_return([ '下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？' ])
+    allow(telegram_client).to receive(:with_typing_status).and_yield
+    allow(telegram_client).to receive(:send_message) do |chat_id, text, suggested_replies: []|
+      call_order << [ chat_id, text, suggested_replies ]
+    end
+
+    handler.handle(update)
+
+    expect(call_order).to eq([
+      [ '3', 'reply-1', [] ],
+      [ '3', TelegramWebhookHandler::CONTINUE_PROMPT_MESSAGE, [ '下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？' ] ]
+    ])
+  end
+
+  it 'does not fail the main reply when suggested replies fail' do
+    allow(reply_client).to receive(:generate_reply).and_return(
+      conversation_state: 'state-1',
+      text: 'reply-1'
+    )
+    allow(reply_client).to receive(:generate_suggested_replies).and_raise(StandardError, 'slow fail')
+    allow(telegram_client).to receive(:with_typing_status).and_yield
+    allow(telegram_client).to receive(:send_message)
+
+    expect { handler.handle(update) }.not_to raise_error
+    expect(telegram_client).to have_received(:send_message).with('3', 'reply-1')
+  end
+
+  it 'answers callback queries and treats the button text as a new message' do
+    allow(reply_client).to receive(:generate_reply).and_return(
+      conversation_state: 'state-2',
+      text: 'reply-from-button'
+    )
+    allow(reply_client).to receive(:generate_suggested_replies).and_return([ '再直接啲', '舉個例', '改短啲' ])
+    allow(telegram_client).to receive(:answer_callback_query)
+    allow(telegram_client).to receive(:with_typing_status).and_yield
+    allow(telegram_client).to receive(:send_message)
+
+    handler.handle(callback_update)
+
+    expect(telegram_client).to have_received(:answer_callback_query).with('callback-1')
+    expect(reply_client).to have_received(:generate_reply).with(
+      chat_id: '3',
+      text: '再濃縮',
+      conversation_state: nil,
+      image_file_path: nil
+    )
   end
 
   it 'resets session and replies with start message for /start' do

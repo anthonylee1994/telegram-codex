@@ -11,7 +11,7 @@ RSpec.describe ConversationService do
   describe '#generate_reply' do
     it 'passes through conversation state for an active session' do
       ChatSession.create!(chat_id: 'chat-1', last_response_id: 'state-old', updated_at: current_time_ms)
-      result = { conversation_state: 'state-new', suggested_replies: [ '下一步', '列重點', '再解釋' ], text: 'reply' }
+      result = { conversation_state: 'state-new', text: 'reply' }
 
       allow(reply_client).to receive(:generate_reply).and_return(result)
 
@@ -37,7 +37,6 @@ RSpec.describe ConversationService do
       ChatSession.create!(chat_id: 'chat-1', last_response_id: 'state-old', updated_at: current_time_ms - 100_000)
       allow(reply_client).to receive(:generate_reply).and_return(
         conversation_state: 'state-new',
-        suggested_replies: [ '下一步', '列重點', '再解釋' ],
         text: 'new reply'
       )
       allow(AppConfig).to receive(:fetch).and_return(
@@ -98,7 +97,6 @@ RSpec.describe ConversationService do
 
       allow(reply_client).to receive(:generate_reply).and_return(
         conversation_state: 'state-new',
-        suggested_replies: [ '下一步', '列重點', '再解釋' ],
         text: 'reply'
       )
 
@@ -129,7 +127,6 @@ RSpec.describe ConversationService do
 
       allow(reply_client).to receive(:generate_reply).and_return(
         conversation_state: 'state-new',
-        suggested_replies: [ '下一步', '列重點', '再解釋' ],
         text: 'reply'
       )
 
@@ -164,20 +161,31 @@ RSpec.describe ConversationService do
   end
 
   describe '#save_pending_reply' do
-    it 'persists suggested replies as json' do
+    it 'persists the main reply for resend' do
       service.save_pending_reply(
         100,
         'chat-1',
         10,
         {
           conversation_state: 'state-new',
-          suggested_replies: [ '下一步', '列重點', '再解釋' ],
           text: 'reply'
         }
       )
 
       processed_update = ProcessedUpdate.find(100)
-      expect(JSON.parse(processed_update.suggested_replies)).to eq([ '下一步', '列重點', '再解釋' ])
+      expect(processed_update.reply_text).to eq('reply')
+      expect(processed_update.conversation_state).to eq('state-new')
+    end
+  end
+
+  describe '#generate_suggested_replies' do
+    it 'delegates to the reply client' do
+      allow(reply_client).to receive(:generate_suggested_replies).and_return([ '再問多少少', '列重點', '下一步' ])
+
+      result = service.generate_suggested_replies('state-new')
+
+      expect(result).to eq([ '再問多少少', '列重點', '下一步' ])
+      expect(reply_client).to have_received(:generate_suggested_replies).with(conversation_state: 'state-new')
     end
   end
 

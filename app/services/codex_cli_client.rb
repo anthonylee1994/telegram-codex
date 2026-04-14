@@ -14,25 +14,26 @@ class CodexCliClient
 
   def generate_reply(chat_id:, text:, conversation_state:, image_file_path:)
     transcript = parse_conversation_state(conversation_state)
-    user_message = if text.present?
-                     text
-    elsif image_file_path.present?
-                     "請描述呢張圖，並按我需要幫我分析。"
-    else
-                     ""
-    end
-
+    user_message = build_user_message(text, image_file_path)
     next_transcript = trim_transcript(transcript + [ { "role" => "user", "content" => user_message } ])
-    prompt = build_prompt(next_transcript, image_file_path.present?)
+    prompt = build_reply_prompt(next_transcript, image_file_path.present?)
     raw_reply = run_codex_exec(prompt, image_file_path)
-    reply = parse_reply(raw_reply)
-    updated_transcript = trim_transcript(next_transcript + [ { "role" => "assistant", "content" => reply.fetch(:text) } ])
+    reply_text = parse_reply_text(raw_reply)
+    updated_transcript = trim_transcript(next_transcript + [ { "role" => "assistant", "content" => reply_text } ])
 
     {
       conversation_state: JSON.generate(updated_transcript),
-      suggested_replies: reply.fetch(:suggested_replies),
-      text: reply.fetch(:text)
+      text: reply_text
     }
+  end
+
+  def generate_suggested_replies(conversation_state:)
+    transcript = parse_conversation_state(conversation_state)
+    prompt = build_suggested_replies_prompt(transcript)
+    raw_reply = run_codex_exec(prompt, nil)
+    parse_suggested_replies(raw_reply)
+  rescue StandardError
+    DEFAULT_SUGGESTED_REPLIES
   end
 
   private
@@ -55,55 +56,88 @@ class CodexCliClient
     transcript.last(MAX_TRANSCRIPT_MESSAGES)
   end
 
-  def build_prompt(transcript, has_image)
+  def build_user_message(text, image_file_path)
+    return text if text.present?
+    return "請描述呢張圖，並按我需要幫我分析。" if image_file_path.present?
+
+    ""
+  end
+
+  def build_reply_prompt(transcript, has_image)
     lines = transcript.each_with_index.map do |message, index|
       "#{index + 1}. #{message.fetch('role')}: #{message.fetch('content')}"
     end
 
     [
       ConversationService::SYSTEM_PROMPT,
-      ("The latest user message includes an attached image." if has_image),
-      "Conversation so far:",
+      ("最新一條用戶訊息有附圖。" if has_image),
+      "對話紀錄：",
       *lines,
       "",
-      "Return strict JSON only.",
-      'Use this schema: {"text":"assistant reply","suggested_replies":["short reply button 1","short reply button 2","short reply button 3"]}.',
-      "The text reply must be in Cantonese unless the user clearly asked for another language.",
-      "Each suggested reply must be a short Cantonese follow-up the user can tap next.",
-      "Suggested replies must be plain text, practical, non-empty, and at most 20 Chinese characters.",
-      "Always return exactly 3 suggested replies.",
-      "Do not wrap the JSON in markdown fences."
+      "只輸出助手畀用戶嘅主答案內容。",
+      "除非用戶明確要求其他語言，否則一律用廣東話。",
+      "唔好輸出 JSON。",
+      "唔好輸出 markdown code fence。"
     ].compact.join("\n")
   end
 
-  def parse_reply(raw_reply)
+  def build_suggested_replies_prompt(transcript)
+    lines = transcript.each_with_index.map do |message, index|
+      "#{index + 1}. #{message.fetch('role')}: #{message.fetch('content')}"
+    end
+
+    [
+      ConversationService::SYSTEM_PROMPT,
+      "以下係最新對話紀錄，最後一條 assistant 訊息就係啱啱已經發咗畀用戶嘅主答案。",
+      "對話紀錄：",
+      *lines,
+      "",
+      "只可以輸出嚴格 JSON array。",
+      '格式一定要係：["建議回覆 1","建議回覆 2","建議回覆 3"]。',
+      "每個建議回覆都要係用戶下一步可以直接撳嘅簡短廣東話跟進句子。",
+      "建議回覆必須係純文字、實用、唔可以留空，而且最多 20 個中文字。",
+      "一定要回傳啱啱好 3 個建議回覆。",
+      "唔好輸出任何額外文字，唔好用 markdown code fence。"
+    ].compact.join("\n")
+  end
+
+  def parse_reply_text(raw_reply)
     payload = parse_reply_payload(raw_reply)
     text = extract_reply_text(payload)
+    return normalize_reply_text(text) if text.present?
+
+    text = normalize_reply_text(raw_reply.to_s.strip)
     raise "codex exec returned an empty reply" if text.empty?
 
-    {
-      suggested_replies: sanitize_suggested_replies(payload["suggested_replies"]),
-      text: normalize_reply_text(text)
-    }
+    text
   rescue JSON::ParserError
     text = normalize_reply_text(raw_reply.to_s.strip)
     raise "codex exec returned an empty reply" if text.empty?
 
-    {
-      suggested_replies: DEFAULT_SUGGESTED_REPLIES,
-      text: text
-    }
+    text
+  end
+
+  def parse_suggested_replies(raw_reply)
+    payload = parse_reply_payload(raw_reply)
+    extracted_replies = if payload.is_a?(Array)
+                          payload
+    else
+                          payload["suggested_replies"]
+    end
+    sanitize_suggested_replies(extracted_replies)
+  rescue JSON::ParserError
+    sanitize_suggested_replies(raw_reply)
   end
 
   def parse_reply_payload(raw_reply)
     candidate_payloads(raw_reply).each do |candidate|
       payload = parse_json_candidate(candidate)
-      return payload if payload.is_a?(Hash)
+      return payload if payload.is_a?(Hash) || payload.is_a?(Array)
     rescue JSON::ParserError
       next
     end
 
-    raise JSON::ParserError, "reply payload is not an object"
+    raise JSON::ParserError, "reply payload is not an object or array"
   end
 
   def normalize_reply_text(text)
@@ -127,7 +161,7 @@ class CodexCliClient
   def parse_json_candidate(candidate)
     payload = JSON.parse(candidate)
     payload = JSON.parse(payload) if payload.is_a?(String)
-    raise JSON::ParserError, "reply payload is not an object" unless payload.is_a?(Hash)
+    raise JSON::ParserError, "reply payload is not an object or array" unless payload.is_a?(Hash) || payload.is_a?(Array)
 
     payload
   end
@@ -145,6 +179,8 @@ class CodexCliClient
   end
 
   def extract_reply_text(payload)
+    return "" unless payload.is_a?(Hash)
+
     direct_text = payload["text"].to_s.strip
     return direct_text if direct_text.present?
 
