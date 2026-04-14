@@ -41,8 +41,16 @@ class TelegramClient
   end
 
   def with_typing_status(chat_id)
+    begin
+      send_chat_action(chat_id, "typing")
+    rescue StandardError
+      nil
+    end
+
     stop = false
     thread = Thread.new do
+      sleep(TYPING_INTERVAL_SECONDS)
+
       until stop
         begin
           send_chat_action(chat_id, "typing")
