@@ -7,6 +7,7 @@ require "uri"
 
 class TelegramClient
   TYPING_INTERVAL_SECONDS = 4
+  MAX_SUGGESTED_REPLIES = 3
 
   def initialize(bot_token: AppConfig.fetch.telegram_bot_token)
     @bot_token = bot_token
@@ -24,8 +25,15 @@ class TelegramClient
     output_path
   end
 
-  def send_message(chat_id, text)
-    post_form("sendMessage", chat_id: chat_id, text: format_telegram_message(text), parse_mode: "HTML")
+  def send_message(chat_id, text, suggested_replies: [])
+    params = {
+      chat_id: chat_id,
+      text: format_telegram_message(text),
+      parse_mode: "HTML"
+    }
+    reply_markup = build_reply_markup(suggested_replies)
+    params[:reply_markup] = JSON.generate(reply_markup) if reply_markup.present?
+    post_form("sendMessage", params)
   end
 
   def send_chat_action(chat_id, action)
@@ -114,5 +122,24 @@ class TelegramClient
 
   def placeholder_key(index)
     "TELEGRAM_CODE_BLOCK_#{index}__"
+  end
+
+  def build_reply_markup(suggested_replies)
+    cleaned_replies = Array(suggested_replies).filter_map do |reply|
+      next unless reply.is_a?(String)
+
+      normalized_reply = reply.strip
+      next if normalized_reply.empty?
+
+      normalized_reply
+    end.uniq.first(MAX_SUGGESTED_REPLIES)
+
+    return nil if cleaned_replies.empty?
+
+    {
+      keyboard: cleaned_replies.map { |reply| [ { text: reply } ] },
+      resize_keyboard: true,
+      one_time_keyboard: true
+    }
   end
 end

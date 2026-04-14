@@ -8,6 +8,7 @@
 #  processed_at       :integer          not null
 #  reply_text         :text
 #  conversation_state :text
+#  suggested_replies  :text
 #  sent_at            :integer
 #
 # Indexes

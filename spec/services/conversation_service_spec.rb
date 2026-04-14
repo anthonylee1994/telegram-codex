@@ -11,7 +11,7 @@ RSpec.describe ConversationService do
   describe '#generate_reply' do
     it 'passes through conversation state for an active session' do
       ChatSession.create!(chat_id: 'chat-1', last_response_id: 'state-old', updated_at: current_time_ms)
-      result = { conversation_state: 'state-new', text: 'reply' }
+      result = { conversation_state: 'state-new', suggested_replies: [ '下一步', '列重點', '再解釋' ], text: 'reply' }
 
       allow(reply_client).to receive(:generate_reply).and_return(result)
 
@@ -35,7 +35,11 @@ RSpec.describe ConversationService do
 
     it 'resets expired sessions before generating a reply' do
       ChatSession.create!(chat_id: 'chat-1', last_response_id: 'state-old', updated_at: current_time_ms - 100_000)
-      allow(reply_client).to receive(:generate_reply).and_return(conversation_state: 'state-new', text: 'new reply')
+      allow(reply_client).to receive(:generate_reply).and_return(
+        conversation_state: 'state-new',
+        suggested_replies: [ '下一步', '列重點', '再解釋' ],
+        text: 'new reply'
+      )
       allow(AppConfig).to receive(:fetch).and_return(
         AppConfig::Config.new(
           allowed_telegram_user_ids: [],
@@ -92,7 +96,11 @@ RSpec.describe ConversationService do
         sent_at: current_time_ms
       )
 
-      allow(reply_client).to receive(:generate_reply).and_return(conversation_state: 'state-new', text: 'reply')
+      allow(reply_client).to receive(:generate_reply).and_return(
+        conversation_state: 'state-new',
+        suggested_replies: [ '下一步', '列重點', '再解釋' ],
+        text: 'reply'
+      )
 
       service.generate_reply(
         chat_id: 'chat-1',
@@ -119,7 +127,11 @@ RSpec.describe ConversationService do
         sent_at: old_processed_at
       )
 
-      allow(reply_client).to receive(:generate_reply).and_return(conversation_state: 'state-new', text: 'reply')
+      allow(reply_client).to receive(:generate_reply).and_return(
+        conversation_state: 'state-new',
+        suggested_replies: [ '下一步', '列重點', '再解釋' ],
+        text: 'reply'
+      )
 
       service.generate_reply(
         chat_id: 'chat-1',
@@ -148,6 +160,24 @@ RSpec.describe ConversationService do
       )
 
       expect(ProcessedUpdate.find_by(update_id: 2)).to be_present
+    end
+  end
+
+  describe '#save_pending_reply' do
+    it 'persists suggested replies as json' do
+      service.save_pending_reply(
+        100,
+        'chat-1',
+        10,
+        {
+          conversation_state: 'state-new',
+          suggested_replies: [ '下一步', '列重點', '再解釋' ],
+          text: 'reply'
+        }
+      )
+
+      processed_update = ProcessedUpdate.find(100)
+      expect(JSON.parse(processed_update.suggested_replies)).to eq([ '下一步', '列重點', '再解釋' ])
     end
   end
 

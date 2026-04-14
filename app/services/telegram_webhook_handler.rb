@@ -43,7 +43,11 @@ class TelegramWebhookHandler
     end
 
     if processed_update&.reply_text.present? && processed_update.conversation_state.present?
-      @telegram_client.send_message(message.fetch(:chat_id), processed_update.reply_text)
+      @telegram_client.send_message(
+        message.fetch(:chat_id),
+        processed_update.reply_text,
+        suggested_replies: parse_suggested_replies(processed_update.suggested_replies)
+      )
       @conversation_service.persist_conversation_state(message.fetch(:chat_id), processed_update.conversation_state)
       @conversation_service.mark_processed(message.fetch(:update_id), message.fetch(:chat_id), message.fetch(:message_id))
       return
@@ -91,7 +95,11 @@ class TelegramWebhookHandler
 
       @conversation_service.save_pending_reply(message.fetch(:update_id), message.fetch(:chat_id), message.fetch(:message_id), reply)
       has_pending_reply = true
-      @telegram_client.send_message(message.fetch(:chat_id), reply.fetch(:text))
+      @telegram_client.send_message(
+        message.fetch(:chat_id),
+        reply.fetch(:text),
+        suggested_replies: reply.fetch(:suggested_replies)
+      )
       @conversation_service.persist_conversation_state(message.fetch(:chat_id), reply.fetch(:conversation_state))
       @conversation_service.mark_processed(message.fetch(:update_id), message.fetch(:chat_id), message.fetch(:message_id))
     rescue StandardError => e
@@ -125,5 +133,23 @@ class TelegramWebhookHandler
 
   def start_command?(text)
     text.match?(%r{\A/start(?:@[\w_]+)?\z}u)
+  end
+
+  def parse_suggested_replies(raw_suggested_replies)
+    return [] if raw_suggested_replies.blank?
+
+    parsed_replies = JSON.parse(raw_suggested_replies)
+    return [] unless parsed_replies.is_a?(Array)
+
+    parsed_replies.filter_map do |reply|
+      next unless reply.is_a?(String)
+
+      normalized_reply = reply.strip
+      next if normalized_reply.empty?
+
+      normalized_reply
+    end
+  rescue JSON::ParserError
+    []
   end
 end

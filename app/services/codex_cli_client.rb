@@ -4,7 +4,13 @@ require "tmpdir"
 
 class CodexCliClient
   MAX_TRANSCRIPT_MESSAGES = 100
+  MAX_SUGGESTED_REPLIES = 3
   DEFAULT_SANDBOX_MODE = "danger-full-access"
+  DEFAULT_SUGGESTED_REPLIES = [
+    "可唔可以講詳細啲？",
+    "幫我列重點。",
+    "下一步可以點做？"
+  ].freeze
 
   def generate_reply(chat_id:, text:, conversation_state:, image_file_path:)
     transcript = parse_conversation_state(conversation_state)
@@ -18,12 +24,14 @@ class CodexCliClient
 
     next_transcript = trim_transcript(transcript + [ { "role" => "user", "content" => user_message } ])
     prompt = build_prompt(next_transcript, image_file_path.present?)
-    reply_text = run_codex_exec(prompt, image_file_path)
-    updated_transcript = trim_transcript(next_transcript + [ { "role" => "assistant", "content" => reply_text } ])
+    raw_reply = run_codex_exec(prompt, image_file_path)
+    reply = parse_reply(raw_reply)
+    updated_transcript = trim_transcript(next_transcript + [ { "role" => "assistant", "content" => reply.fetch(:text) } ])
 
     {
       conversation_state: JSON.generate(updated_transcript),
-      text: reply_text
+      suggested_replies: reply.fetch(:suggested_replies),
+      text: reply.fetch(:text)
     }
   end
 
@@ -58,8 +66,48 @@ class CodexCliClient
       "Conversation so far:",
       *lines,
       "",
-      "Reply only with the assistant message for the latest user input."
+      "Return strict JSON only.",
+      'Use this schema: {"text":"assistant reply","suggested_replies":["short reply button 1","short reply button 2","short reply button 3"]}.',
+      "The text reply must be in Cantonese unless the user clearly asked for another language.",
+      "Each suggested reply must be a short Cantonese follow-up the user can tap next.",
+      "Suggested replies must be plain text, practical, non-empty, and at most 20 Chinese characters.",
+      "Always return exactly 3 suggested replies.",
+      "Do not wrap the JSON in markdown fences."
     ].compact.join("\n")
+  end
+
+  def parse_reply(raw_reply)
+    payload = JSON.parse(raw_reply)
+    text = payload.fetch("text").to_s.strip
+    raise "codex exec returned an empty reply" if text.empty?
+
+    {
+      suggested_replies: sanitize_suggested_replies(payload["suggested_replies"]),
+      text: text
+    }
+  rescue JSON::ParserError, KeyError
+    text = raw_reply.to_s.strip
+    raise "codex exec returned an empty reply" if text.empty?
+
+    {
+      suggested_replies: DEFAULT_SUGGESTED_REPLIES,
+      text: text
+    }
+  end
+
+  def sanitize_suggested_replies(suggested_replies)
+    cleaned_replies = Array(suggested_replies).filter_map do |reply|
+      next unless reply.is_a?(String)
+
+      normalized_reply = reply.strip.gsub(/\s+/, " ")
+      next if normalized_reply.empty?
+
+      normalized_reply.slice(0, 40)
+    end.uniq.first(MAX_SUGGESTED_REPLIES)
+
+    return DEFAULT_SUGGESTED_REPLIES if cleaned_replies.size < MAX_SUGGESTED_REPLIES
+
+    cleaned_replies
   end
 
   def run_codex_exec(prompt, image_file_path)

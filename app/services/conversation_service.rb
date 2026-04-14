@@ -56,6 +56,7 @@ class ConversationService
     record.processed_at = now
     record.reply_text = result.fetch(:text)
     record.conversation_state = result.fetch(:conversation_state)
+    record.suggested_replies = serialize_suggested_replies(result[:suggested_replies])
     record.sent_at = nil
     record.save!
   end
@@ -121,5 +122,9 @@ class ConversationService
 
   def current_time_ms
     (Time.now.to_f * 1000).to_i
+  end
+
+  def serialize_suggested_replies(suggested_replies)
+    JSON.generate(Array(suggested_replies))
   end
 end

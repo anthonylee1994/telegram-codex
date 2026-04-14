@@ -44,13 +44,15 @@ RSpec.describe TelegramWebhookHandler do
 
   it 're-sends a persisted pending reply without regenerating it' do
     attempt = 0
+    suggested_replies = [ '下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？' ]
 
     allow(reply_client).to receive(:generate_reply).and_return(
       conversation_state: 'state-1',
+      suggested_replies: suggested_replies,
       text: 'reply-1'
     )
     allow(telegram_client).to receive(:with_typing_status).and_yield
-    allow(telegram_client).to receive(:send_message).with('3', 'reply-1') do
+    allow(telegram_client).to receive(:send_message).with('3', 'reply-1', suggested_replies: suggested_replies) do
       attempt += 1
       raise StandardError, 'telegram send failed' if attempt == 1
     end
@@ -59,9 +61,26 @@ RSpec.describe TelegramWebhookHandler do
     expect { handler.handle(update) }.not_to raise_error
 
     expect(reply_client).to have_received(:generate_reply).once
-    expect(telegram_client).to have_received(:send_message).with('3', 'reply-1').twice
+    expect(telegram_client).to have_received(:send_message).with('3', 'reply-1', suggested_replies: suggested_replies).twice
     expect(ChatSession.find_by(chat_id: '3')&.last_response_id).to eq('state-1')
     expect(ProcessedUpdate.find_by(update_id: 1)&.reply_text).to eq('reply-1')
+    expect(JSON.parse(ProcessedUpdate.find_by(update_id: 1)&.suggested_replies)).to eq(suggested_replies)
     expect(ProcessedUpdate.find_by(update_id: 1)&.sent_at).to be_present
+  end
+
+  it 'resets session and replies with start message for /start' do
+    ChatSession.create!(chat_id: '3', last_response_id: 'state-old', updated_at: current_time_ms)
+    start_update = update.deep_merge('message' => { 'text' => '/start' })
+
+    allow(telegram_client).to receive(:send_message)
+
+    handler.handle(start_update)
+
+    expect(ChatSession.find_by(chat_id: '3')).to be_nil
+    expect(telegram_client).to have_received(:send_message).with('3', TelegramWebhookHandler::START_MESSAGE)
+  end
+
+  def current_time_ms
+    (Time.now.to_f * 1000).to_i
   end
 end

@@ -10,20 +10,21 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 20_260_413_000_001) do
-  create_table 'chat_sessions', primary_key: 'chat_id', id: :text, force: :cascade do |t|
-    t.text 'last_response_id'
-    t.integer 'updated_at', null: false
-    t.index ['chat_id'], name: 'index_chat_sessions_on_chat_id', unique: true
+ActiveRecord::Schema[8.1].define(version: 2026_04_14_000000) do
+  create_table "chat_sessions", primary_key: "chat_id", id: :text, force: :cascade do |t|
+    t.text "last_response_id"
+    t.integer "updated_at", null: false
+    t.index ["chat_id"], name: "index_chat_sessions_on_chat_id", unique: true
   end
 
-  create_table 'processed_updates', primary_key: 'update_id', id: :integer, default: nil, force: :cascade do |t|
-    t.text 'chat_id', null: false
-    t.text 'conversation_state'
-    t.integer 'message_id', null: false
-    t.integer 'processed_at', null: false
-    t.text 'reply_text'
-    t.integer 'sent_at'
-    t.index ['update_id'], name: 'index_processed_updates_on_update_id', unique: true
+  create_table "processed_updates", primary_key: "update_id", id: :integer, default: nil, force: :cascade do |t|
+    t.text "chat_id", null: false
+    t.text "conversation_state"
+    t.integer "message_id", null: false
+    t.integer "processed_at", null: false
+    t.text "reply_text"
+    t.integer "sent_at"
+    t.text "suggested_replies"
+    t.index ["update_id"], name: "index_processed_updates_on_update_id", unique: true
   end
 end
