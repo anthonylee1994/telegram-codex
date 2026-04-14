@@ -59,6 +59,26 @@ RSpec.describe TelegramWebhookHandler do
       }
     }
   end
+  let(:start_callback_update) do
+    callback_update.deep_merge(
+      'callback_query' => {
+        'data' => '/start',
+        'message' => {
+          'message_id' => 8
+        }
+      }
+    )
+  end
+  let(:new_callback_update) do
+    callback_update.deep_merge(
+      'callback_query' => {
+        'data' => '/new',
+        'message' => {
+          'message_id' => 9
+        }
+      }
+    )
+  end
 
   it 're-sends a persisted pending reply without regenerating it' do
     attempt = 0
@@ -159,6 +179,28 @@ RSpec.describe TelegramWebhookHandler do
 
     expect(ChatSession.find_by(chat_id: '3')).to be_nil
     expect(telegram_client).to have_received(:send_message).with('3', TelegramWebhookHandler::START_MESSAGE)
+  end
+
+  it 'clears callback keyboard when /start is triggered from an inline button' do
+    allow(telegram_client).to receive(:answer_callback_query)
+    allow(telegram_client).to receive(:clear_message_reply_markup)
+    allow(telegram_client).to receive(:send_message)
+
+    handler.handle(start_callback_update)
+
+    expect(telegram_client).to have_received(:clear_message_reply_markup).with('3', 8)
+    expect(telegram_client).to have_received(:send_message).with('3', TelegramWebhookHandler::START_MESSAGE)
+  end
+
+  it 'clears callback keyboard when /new is triggered from an inline button' do
+    allow(telegram_client).to receive(:answer_callback_query)
+    allow(telegram_client).to receive(:clear_message_reply_markup)
+    allow(telegram_client).to receive(:send_message)
+
+    handler.handle(new_callback_update)
+
+    expect(telegram_client).to have_received(:clear_message_reply_markup).with('3', 9)
+    expect(telegram_client).to have_received(:send_message).with('3', TelegramWebhookHandler::NEW_SESSION_MESSAGE)
   end
 
   def current_time_ms
