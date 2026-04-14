@@ -96,11 +96,14 @@ class CodexCliClient
   end
 
   def parse_reply_payload(raw_reply)
-    payload = JSON.parse(raw_reply)
-    payload = JSON.parse(payload) if payload.is_a?(String)
-    raise JSON::ParserError, "reply payload is not an object" unless payload.is_a?(Hash)
+    candidate_payloads(raw_reply).each do |candidate|
+      payload = parse_json_candidate(candidate)
+      return payload if payload.is_a?(Hash)
+    rescue JSON::ParserError
+      next
+    end
 
-    payload
+    raise JSON::ParserError, "reply payload is not an object"
   end
 
   def normalize_reply_text(text)
@@ -111,6 +114,34 @@ class CodexCliClient
     end
 
     normalized_text.strip
+  end
+
+  def candidate_payloads(raw_reply)
+    normalized_reply = raw_reply.to_s.strip
+    unwrapped_reply = unwrap_code_fence(normalized_reply)
+    extracted_object = extract_json_object(unwrapped_reply)
+
+    [ normalized_reply, unwrapped_reply, extracted_object ].compact.uniq
+  end
+
+  def parse_json_candidate(candidate)
+    payload = JSON.parse(candidate)
+    payload = JSON.parse(payload) if payload.is_a?(String)
+    raise JSON::ParserError, "reply payload is not an object" unless payload.is_a?(Hash)
+
+    payload
+  end
+
+  def unwrap_code_fence(text)
+    text.sub(/\A```(?:json)?\s*/i, "").sub(/\s*```\z/, "").strip
+  end
+
+  def extract_json_object(text)
+    start_index = text.index("{")
+    end_index = text.rindex("}")
+    return nil if start_index.nil? || end_index.nil? || end_index <= start_index
+
+    text[start_index..end_index]
   end
 
   def sanitize_suggested_replies(suggested_replies)
