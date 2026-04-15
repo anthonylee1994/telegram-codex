@@ -60,7 +60,7 @@ RSpec.describe ConversationService do
         text: 'hello',
         conversation_state: nil,
         image_file_path: nil,
-        memory_context: "已知用戶記憶（只作背景參考；除非同最新訊息直接相關，否則唔好主動重複。如果同最新訊息有衝突，一律以最新訊息為準）：\npreference: language = 廣東話"
+        memory_context: "已知用戶記憶：\npreference: language = 廣東話"
       )
     end
 
