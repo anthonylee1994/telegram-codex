@@ -28,20 +28,24 @@ RSpec.describe TelegramWebhookHandlerFactory do
   it "wires the full webhook flow and persists reply state" do
     allow(exec_runner).to receive(:run).and_return(
       "reply-1",
-      '["下一步可以點做？","幫我列重點。","可唔可以講詳細啲？"]'
+      '["下一步可以點做？","幫我列重點。","可唔可以講詳細啲？"]',
+      '[{"kind":"preference","key":"language","value":"廣東話"}]'
     )
     allow(telegram_client).to receive(:send_message)
 
     handler = described_class.build
     handler.handle(update)
 
-    expect(exec_runner).to have_received(:run).twice
+    expect(exec_runner).to have_received(:run).exactly(3).times
     expect(telegram_client).to have_received(:send_message).with(
       "3",
       "reply-1",
       suggested_replies: [ "下一步可以點做？", "幫我列重點。", "可唔可以講詳細啲？" ]
     )
     expect(ChatSession.find_by(chat_id: "3")&.last_response_id).to be_present
+    expect(UserMemory.where(telegram_user_id: "234392020").order(:kind, :key).pluck(:kind, :key, :value)).to eq([
+      [ "preference", "language", "廣東話" ]
+    ])
 
     processed_update = ProcessedUpdate.find_by(update_id: 1)
     expect(processed_update&.reply_text).to eq("reply-1")
@@ -53,7 +57,8 @@ RSpec.describe TelegramWebhookHandlerFactory do
     attempt = 0
     allow(exec_runner).to receive(:run).and_return(
       "reply-1",
-      '["下一步可以點做？","幫我列重點。","可唔可以講詳細啲？"]'
+      '["下一步可以點做？","幫我列重點。","可唔可以講詳細啲？"]',
+      "[]"
     )
     allow(telegram_client).to receive(:send_message) do |chat_id, text, suggested_replies: [], remove_keyboard: false|
       attempt += 1 if text == "reply-1"
@@ -65,7 +70,7 @@ RSpec.describe TelegramWebhookHandlerFactory do
     expect { handler.handle(update) }.to raise_error(StandardError, "telegram send failed")
     expect { handler.handle(update) }.not_to raise_error
 
-    expect(exec_runner).to have_received(:run).twice
+    expect(exec_runner).to have_received(:run).exactly(3).times
     expect(telegram_client).to have_received(:send_message).with(
       "3",
       "reply-1",

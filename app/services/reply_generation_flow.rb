@@ -14,7 +14,9 @@ class ReplyGenerationFlow
         image_file_path = download_image_if_needed(message)
 
         begin
-          build_reply(message, image_file_path)
+          reply = build_reply(message, image_file_path)
+          @conversation_service.remember_message(message)
+          reply
         ensure
           cleanup_downloaded_image(image_file_path)
         end

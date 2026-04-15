@@ -14,9 +14,10 @@ class CodexPromptBuilder
     "唔好輸出任何額外文字，唔好用 markdown code fence。"
   ].freeze
 
-  def build_reply_prompt(transcript, has_image:)
+  def build_reply_prompt(transcript, has_image:, memory_context: nil)
     prefix_sections = []
     prefix_sections << "最新一條用戶訊息有附圖。" if has_image
+    prefix_sections << memory_context if memory_context.present?
 
     build_prompt(transcript, REPLY_PROMPT_INSTRUCTIONS, prefix_sections: prefix_sections)
   end

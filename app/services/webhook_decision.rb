@@ -1,6 +1,8 @@
 class WebhookDecision
   START_COMMAND_PATTERN = %r{\A/start(?:@[\w_]+)?\z}u
   NEW_SESSION_COMMAND_PATTERN = %r{\A/new(?:@[\w_]+)?\z}u
+  SHOW_MEMORY_COMMAND_PATTERN = %r{\A/show_memory(?:@[\w_]+)?\z}u
+  CLEAR_MEMORY_COMMAND_PATTERN = %r{\A/clear_memory(?:@[\w_]+)?\z}u
 
   attr_reader :action, :message, :processed_update, :response_text
 
@@ -35,6 +37,14 @@ class WebhookDecision
     new(action: :rate_limited, message: message)
   end
 
+  def self.show_memory(message)
+    new(action: :show_memory, message: message)
+  end
+
+  def self.clear_memory(message)
+    new(action: :clear_memory, message: message)
+  end
+
   def self.generate_reply(message)
     new(action: :generate_reply, message: message)
   end
@@ -63,6 +73,14 @@ class WebhookDecision
     action == :rate_limited
   end
 
+  def show_memory?
+    action == :show_memory
+  end
+
+  def clear_memory?
+    action == :clear_memory
+  end
+
   class Resolver
     def initialize(processed_update_flow:, rate_limiter:, config:, start_message:, new_session_message:)
       @processed_update_flow = processed_update_flow
@@ -81,6 +99,8 @@ class WebhookDecision
       return WebhookDecision.reject_unauthorized(message) if unauthorized_user?(message.user_id)
       return WebhookDecision.reset_session(message, @new_session_message) if new_session_command?(message.text)
       return WebhookDecision.reset_session(message, @start_message) if start_command?(message.text)
+      return WebhookDecision.show_memory(message) if show_memory_command?(message.text)
+      return WebhookDecision.clear_memory(message) if clear_memory_command?(message.text)
       return WebhookDecision.rate_limited(message) unless @rate_limiter.allow(message.chat_id)
 
       WebhookDecision.generate_reply(message)
@@ -102,6 +122,14 @@ class WebhookDecision
 
     def start_command?(text)
       text.match?(START_COMMAND_PATTERN)
+    end
+
+    def show_memory_command?(text)
+      text.match?(SHOW_MEMORY_COMMAND_PATTERN)
+    end
+
+    def clear_memory_command?(text)
+      text.match?(CLEAR_MEMORY_COMMAND_PATTERN)
     end
   end
 end
