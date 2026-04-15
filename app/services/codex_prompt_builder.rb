@@ -2,6 +2,9 @@ class CodexPromptBuilder
   REPLY_PROMPT_INSTRUCTIONS = [
     "只輸出助手畀用戶嘅主答案內容。",
     "除非用戶明確要求其他語言，否則一律用廣東話。",
+    "優先回應最新一條用戶訊息本身，唔好答去其他舊內容或者背景記憶。",
+    "如果用戶喺最新訊息提供新資料、修正資料、或者叫你記住某樣嘢，要直接針對嗰條資料簡短確認。",
+    "唔好用空泛回覆，例如只講你會用廣東話、會直接回答，除非用戶最新訊息真係問緊呢樣。",
     "唔好輸出 JSON。"
   ].freeze
   SUGGESTED_REPLIES_PROMPT_INSTRUCTIONS = [

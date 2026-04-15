@@ -16,15 +16,17 @@ RSpec.describe CodexPromptBuilder do
       prompt = builder.build_reply_prompt(
         transcript,
         has_image: true,
-        memory_context: "已知用戶記憶：\npreference: language = 廣東話"
+        memory_context: "已知用戶記憶（只作背景參考；除非同最新訊息直接相關，否則唔好主動重複。如果同最新訊息有衝突，一律以最新訊息為準）：\npreference: language = 廣東話"
       )
 
       expect(prompt).to include(ConversationService::SYSTEM_PROMPT)
       expect(prompt).to include("最新一條用戶訊息有附圖。")
-      expect(prompt).to include("已知用戶記憶：\npreference: language = 廣東話")
+      expect(prompt).to include("已知用戶記憶（只作背景參考；除非同最新訊息直接相關，否則唔好主動重複。如果同最新訊息有衝突，一律以最新訊息為準）：\npreference: language = 廣東話")
       expect(prompt).to include("1. user: 你好")
       expect(prompt).to include("2. assistant: 有咩幫到你")
       expect(prompt).to include("只輸出助手畀用戶嘅主答案內容。")
+      expect(prompt).to include("優先回應最新一條用戶訊息本身，唔好答去其他舊內容或者背景記憶。")
+      expect(prompt).to include("如果用戶喺最新訊息提供新資料、修正資料、或者叫你記住某樣嘢，要直接針對嗰條資料簡短確認。")
     end
   end
 
