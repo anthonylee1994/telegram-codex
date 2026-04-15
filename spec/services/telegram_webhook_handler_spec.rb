@@ -107,6 +107,18 @@ RSpec.describe TelegramWebhookHandler do
     expect(ProcessedUpdate.find_by(update_id: 1)&.sent_at).to be_present
   end
 
+  it 'ignores an update that was already marked as sent' do
+    conversation_service.mark_processed(1, '3', 2)
+
+    allow(reply_client).to receive(:generate_reply)
+    allow(telegram_client).to receive(:send_message)
+
+    handler.handle(update)
+
+    expect(telegram_client).not_to have_received(:send_message)
+    expect(reply_client).not_to have_received(:generate_reply)
+  end
+
   it 'generates reply and suggestions before sending once' do
     call_order = []
     suggested_replies = [ '下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？' ]
@@ -197,6 +209,18 @@ RSpec.describe TelegramWebhookHandler do
       TelegramWebhookHandler::NEW_SESSION_MESSAGE,
       remove_keyboard: true
     )
+  end
+
+  it 'replies unsupported for non-text non-photo messages' do
+    unsupported_update = update.deep_merge('message' => { 'text' => nil, 'sticker' => { 'file_id' => 'sticker-1' } })
+
+    allow(reply_client).to receive(:generate_reply)
+    allow(telegram_client).to receive(:send_message)
+
+    handler.handle(unsupported_update)
+
+    expect(telegram_client).to have_received(:send_message).with('3', TelegramWebhookHandler::UNSUPPORTED_MESSAGE)
+    expect(reply_client).not_to have_received(:generate_reply)
   end
 
   it 'clears callback keyboard when /start is triggered from an inline button' do
