@@ -2,8 +2,7 @@ require 'rails_helper'
 
 RSpec.describe ConversationService do
   let(:reply_client) { instance_double(CodexCliClient) }
-  let(:user_memory_extractor) { instance_double(UserMemoryExtractor, extract: []) }
-  let(:service) { described_class.new(reply_client: reply_client, user_memory_extractor: user_memory_extractor) }
+  let(:service) { described_class.new(reply_client: reply_client) }
   let(:message) do
     InboundTelegramMessage.new(
       callback_query_id: nil,
@@ -35,32 +34,7 @@ RSpec.describe ConversationService do
         chat_id: 'chat-1',
         text: 'hello',
         conversation_state: 'state-old',
-        image_file_path: nil,
-        memory_context: nil
-      )
-    end
-
-    it 'injects stored user memory into the reply prompt context' do
-      UserMemory.create!(
-        telegram_user_id: '234392020',
-        kind: 'preference',
-        key: 'language',
-        value: '廣東話',
-        created_at: current_time_ms,
-        updated_at: current_time_ms
-      )
-      result = { conversation_state: 'state-new', text: 'reply' }
-
-      allow(reply_client).to receive(:generate_reply).and_return(result)
-
-      service.generate_reply(message)
-
-      expect(reply_client).to have_received(:generate_reply).with(
-        chat_id: 'chat-1',
-        text: 'hello',
-        conversation_state: nil,
-        image_file_path: nil,
-        memory_context: "已知用戶記憶：\npreference: language = 廣東話"
+        image_file_path: nil
       )
     end
 
@@ -90,8 +64,7 @@ RSpec.describe ConversationService do
         chat_id: 'chat-1',
         text: 'hello',
         conversation_state: nil,
-        image_file_path: nil,
-        memory_context: nil
+        image_file_path: nil
       )
     end
 
@@ -222,86 +195,6 @@ RSpec.describe ConversationService do
 
       expect(result).to eq([ '再問多少少', '列重點', '下一步' ])
       expect(reply_client).to have_received(:generate_suggested_replies).with(conversation_state: 'state-new')
-    end
-  end
-
-  describe '#remember_message' do
-    it 'delegates memory selection to the model-backed extractor' do
-      service.remember_message(
-        InboundTelegramMessage.new(
-          callback_query_id: nil,
-          chat_id: 'chat-1',
-          image_file_id: nil,
-          inline_callback: false,
-          message_id: 10,
-          text: '我叫 Anthony，之後用廣東話，同埋我而家整緊 Telegram bot',
-          user_id: '234392020',
-          update_id: 100
-        )
-      )
-
-      expect(user_memory_extractor).to have_received(:extract).with(
-        text: '我叫 Anthony，之後用廣東話，同埋我而家整緊 Telegram bot',
-        existing_memories: []
-      )
-      expect(UserMemory.where(telegram_user_id: '234392020')).to be_empty
-    end
-
-    it 'persists memories returned by the model-backed extractor' do
-      allow(user_memory_extractor).to receive(:extract).and_return([
-        [ 'preference', 'language', '廣東話' ],
-        [ 'profile', 'name', 'Anthony' ]
-      ].map { |kind, key, value| { kind: kind, key: key, value: value } })
-
-      service.remember_message(
-        InboundTelegramMessage.new(
-          callback_query_id: nil,
-          chat_id: 'chat-1',
-          image_file_id: nil,
-          inline_callback: false,
-          message_id: 10,
-          text: '我叫 Anthony，之後用廣東話',
-          user_id: '234392020',
-          update_id: 100
-        )
-      )
-
-      expect(UserMemory.where(telegram_user_id: '234392020').order(:kind, :key).pluck(:kind, :key, :value)).to eq([
-        [ 'preference', 'language', '廣東話' ],
-        [ 'profile', 'name', 'Anthony' ]
-      ])
-    end
-  end
-
-  describe '#format_memory' do
-    it 'returns a readable summary for stored memory' do
-      UserMemory.create!(
-        telegram_user_id: '234392020',
-        kind: 'preference',
-        key: 'language',
-        value: '廣東話',
-        created_at: current_time_ms,
-        updated_at: current_time_ms
-      )
-
-      expect(service.format_memory('234392020')).to eq("而家記住咗以下資料：\n- [preference] language: 廣東話")
-    end
-  end
-
-  describe '#clear_memory' do
-    it 'deletes all stored memory for the user' do
-      UserMemory.create!(
-        telegram_user_id: '234392020',
-        kind: 'preference',
-        key: 'language',
-        value: '廣東話',
-        created_at: current_time_ms,
-        updated_at: current_time_ms
-      )
-
-      service.clear_memory('234392020')
-
-      expect(UserMemory.where(telegram_user_id: '234392020')).to be_empty
     end
   end
 

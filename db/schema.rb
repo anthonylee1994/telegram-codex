@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_15_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_14_000000) do
   create_table "chat_sessions", primary_key: "chat_id", id: :text, force: :cascade do |t|
     t.text "last_response_id"
     t.integer "updated_at", null: false
@@ -26,17 +26,5 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_15_000000) do
     t.integer "sent_at"
     t.text "suggested_replies"
     t.index ["update_id"], name: "index_processed_updates_on_update_id", unique: true
-  end
-
-  create_table "user_memories", force: :cascade do |t|
-    t.integer "created_at", null: false
-    t.text "key", null: false
-    t.text "kind", null: false
-    t.integer "last_used_at"
-    t.text "telegram_user_id", null: false
-    t.integer "updated_at", null: false
-    t.text "value", null: false
-    t.index ["telegram_user_id", "kind", "key"], name: "index_user_memories_on_telegram_user_id_and_kind_and_key", unique: true
-    t.index ["telegram_user_id"], name: "index_user_memories_on_telegram_user_id"
   end
 end

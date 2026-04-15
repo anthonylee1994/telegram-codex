@@ -99,25 +99,6 @@ class WebhookAction
     end
   end
 
-  class ShowMemory < WebhookAction
-    def call(decision, update: nil)
-      message = decision.message
-      finalize_callback_message(message)
-      telegram_client.send_message(message.chat_id, conversation_service.format_memory(message.user_id), remove_keyboard: true)
-      processed_update_flow.mark_processed(message)
-    end
-  end
-
-  class ClearMemory < WebhookAction
-    def call(decision, update: nil)
-      message = decision.message
-      finalize_callback_message(message)
-      conversation_service.clear_memory(message.user_id)
-      telegram_client.send_message(message.chat_id, TelegramWebhookHandler::MEMORY_CLEARED_MESSAGE, remove_keyboard: true)
-      processed_update_flow.mark_processed(message)
-    end
-  end
-
   class GenerateReply < WebhookAction
     def call(decision, update: nil)
       message = decision.message

@@ -17,19 +17,11 @@ class ConversationService
   def initialize(
     reply_client: CodexCliClient.new,
     chat_session_repository: ChatSessionRepository.new,
-    processed_update_repository: ProcessedUpdateRepository.new,
-    memory_context_builder: MemoryContextBuilder.new,
-    user_memory_extractor: UserMemoryExtractor.new,
-    user_memory_formatter: UserMemoryFormatter.new,
-    user_memory_repository: UserMemoryRepository.new
+    processed_update_repository: ProcessedUpdateRepository.new
   )
     @reply_client = reply_client
     @chat_session_repository = chat_session_repository
     @processed_update_repository = processed_update_repository
-    @memory_context_builder = memory_context_builder
-    @user_memory_extractor = user_memory_extractor
-    @user_memory_formatter = user_memory_formatter
-    @user_memory_repository = user_memory_repository
   end
 
   class << self
@@ -72,15 +64,11 @@ class ConversationService
     prune_processed_updates_if_needed
     session = @chat_session_repository.find_active(message.chat_id)
 
-    memories = @user_memory_repository.list(message.user_id)
-    @user_memory_repository.touch_all(message.user_id, memories.map(&:id))
-
     result = @reply_client.generate_reply(
       chat_id: message.chat_id,
       text: message.text,
       conversation_state: session&.last_response_id,
-      image_file_path: image_file_path,
-      memory_context: @memory_context_builder.build(memories)
+      image_file_path: image_file_path
     )
 
     Rails.logger.info("Generated assistant reply chat_id=#{message.chat_id}")
@@ -89,20 +77,6 @@ class ConversationService
 
   def generate_suggested_replies(conversation_state)
     @reply_client.generate_suggested_replies(conversation_state: conversation_state)
-  end
-
-  def remember_message(message)
-    existing_memories = @user_memory_repository.list(message.user_id)
-    memories = @user_memory_extractor.extract(text: message.text, existing_memories: existing_memories)
-    @user_memory_repository.upsert_all(message.user_id, memories)
-  end
-
-  def format_memory(user_id)
-    @user_memory_formatter.format(@user_memory_repository.list(user_id))
-  end
-
-  def clear_memory(user_id)
-    @user_memory_repository.clear(user_id)
   end
 
   def system_prompt

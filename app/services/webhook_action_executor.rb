@@ -21,14 +21,12 @@ class WebhookActionExecutor
     }
 
     @actions = {
-      clear_memory: WebhookAction::ClearMemory.new(**shared_dependencies),
       duplicate: WebhookAction::Duplicate.new(**shared_dependencies),
       generate_reply: WebhookAction::GenerateReply.new(**shared_dependencies),
       rate_limited: WebhookAction::RateLimited.new(**shared_dependencies),
       reject_unauthorized: WebhookAction::RejectUnauthorized.new(**shared_dependencies),
       replay: WebhookAction::Replay.new(**shared_dependencies),
       reset_session: WebhookAction::ResetSession.new(**shared_dependencies),
-      show_memory: WebhookAction::ShowMemory.new(**shared_dependencies),
       unsupported: WebhookAction::Unsupported.new(**shared_dependencies)
     }
   end

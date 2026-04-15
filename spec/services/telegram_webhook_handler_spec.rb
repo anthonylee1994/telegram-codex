@@ -60,12 +60,6 @@ RSpec.describe TelegramWebhookHandler do
       }
     )
   end
-  let(:show_memory_update) do
-    update.deep_merge('message' => { 'text' => '/show_memory' })
-  end
-  let(:clear_memory_update) do
-    update.deep_merge('message' => { 'text' => '/clear_memory' })
-  end
 
   it 're-sends a persisted pending reply without regenerating it' do
     attempt = 0
@@ -164,8 +158,7 @@ RSpec.describe TelegramWebhookHandler do
       chat_id: '3',
       text: '再濃縮',
       conversation_state: nil,
-      image_file_path: nil,
-      memory_context: nil
+      image_file_path: nil
     )
   end
 
@@ -195,47 +188,6 @@ RSpec.describe TelegramWebhookHandler do
     expect(telegram_client).to have_received(:send_message).with(
       '3',
       TelegramWebhookHandler::NEW_SESSION_MESSAGE,
-      remove_keyboard: true
-    )
-  end
-
-  it 'shows stored memory for /show_memory' do
-    UserMemory.create!(
-      telegram_user_id: '234392020',
-      kind: 'preference',
-      key: 'language',
-      value: '廣東話',
-      created_at: current_time_ms,
-      updated_at: current_time_ms
-    )
-    allow(telegram_client).to receive(:send_message)
-
-    handler.handle(show_memory_update)
-
-    expect(telegram_client).to have_received(:send_message).with(
-      '3',
-      "而家記住咗以下資料：\n- [preference] language: 廣東話",
-      remove_keyboard: true
-    )
-  end
-
-  it 'clears stored memory for /clear_memory' do
-    UserMemory.create!(
-      telegram_user_id: '234392020',
-      kind: 'preference',
-      key: 'language',
-      value: '廣東話',
-      created_at: current_time_ms,
-      updated_at: current_time_ms
-    )
-    allow(telegram_client).to receive(:send_message)
-
-    handler.handle(clear_memory_update)
-
-    expect(UserMemory.where(telegram_user_id: '234392020')).to be_empty
-    expect(telegram_client).to have_received(:send_message).with(
-      '3',
-      TelegramWebhookHandler::MEMORY_CLEARED_MESSAGE,
       remove_keyboard: true
     )
   end

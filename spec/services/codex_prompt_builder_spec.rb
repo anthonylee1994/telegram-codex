@@ -12,16 +12,11 @@ RSpec.describe CodexPromptBuilder do
   end
 
   describe "#build_reply_prompt" do
-    it "includes the system prompt, transcript, memory context, and reply instructions" do
-      prompt = builder.build_reply_prompt(
-        transcript,
-        has_image: true,
-        memory_context: "已知用戶記憶：\npreference: language = 廣東話"
-      )
+    it "includes the system prompt, transcript, and reply instructions" do
+      prompt = builder.build_reply_prompt(transcript, has_image: true)
 
       expect(prompt).to include(ConversationService::SYSTEM_PROMPT)
       expect(prompt).to include("最新一條用戶訊息有附圖。")
-      expect(prompt).to include("已知用戶記憶：\npreference: language = 廣東話")
       expect(prompt).to include("1. user: 你好")
       expect(prompt).to include("2. assistant: 有咩幫到你")
       expect(prompt).to include("只輸出助手畀用戶嘅主答案內容。")
