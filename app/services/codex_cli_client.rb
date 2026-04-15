@@ -76,8 +76,7 @@ class CodexCliClient
       "",
       "只輸出助手畀用戶嘅主答案內容。",
       "除非用戶明確要求其他語言，否則一律用廣東話。",
-      "唔好輸出 JSON。",
-      "唔好輸出 markdown code fence。"
+      "唔好輸出 JSON。"
     ].compact.join("\n")
   end
 
