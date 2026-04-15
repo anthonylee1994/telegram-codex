@@ -32,7 +32,7 @@ RSpec.describe 'App', type: :request do
         }
       }
 
-      allow(TelegramWebhookHandler).to receive(:new).and_return(handler)
+      allow(TelegramWebhookHandlerFactory).to receive(:build).and_return(handler)
 
       post '/telegram/webhook', params: update.to_json, headers: headers
 
@@ -54,7 +54,7 @@ RSpec.describe 'App', type: :request do
     it 'returns 500 when handler fails' do
       handler = instance_double(TelegramWebhookHandler)
 
-      allow(TelegramWebhookHandler).to receive(:new).and_return(handler)
+      allow(TelegramWebhookHandlerFactory).to receive(:build).and_return(handler)
       allow(handler).to receive(:handle).and_raise(StandardError, 'boom')
       allow(Rails.logger).to receive(:error)
 

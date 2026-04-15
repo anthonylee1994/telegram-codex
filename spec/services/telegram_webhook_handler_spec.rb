@@ -2,30 +2,11 @@ require 'rails_helper'
 
 RSpec.describe TelegramWebhookHandler do
   let(:reply_client) { instance_double(CodexCliClient) }
-  let(:conversation_service) { ConversationService.new(reply_client: reply_client) }
   let(:telegram_client) { instance_double(TelegramClient, download_file_to_temp: nil) }
-  let(:config) do
-    AppConfig::Config.new(
-      allowed_telegram_user_ids: [],
-      base_url: 'https://example.com',
-      port: 3000,
-      rate_limit_max_messages: 5,
-      rate_limit_window_ms: 10_000,
-      session_ttl_days: 7,
-      sqlite_db_path: Rails.root.join('data/test.db').to_s,
-      telegram_bot_token: 'token',
-      telegram_webhook_secret: 'secret'
-    )
-  end
-  let(:handler) do
-    described_class.new(
-      conversation_service: conversation_service,
-      telegram_client: telegram_client,
-      rate_limiter: ChatRateLimiter.instance,
-      telegram_update_parser: TelegramUpdateParser.new,
-      config: config
-    )
-  end
+  let(:config) { telegram_test_config }
+  let(:handler_bundle) { build_telegram_webhook_handler(reply_client: reply_client, telegram_client: telegram_client, config: config) }
+  let(:handler) { handler_bundle.first }
+  let(:conversation_service) { handler_bundle.last }
   let(:update) do
     {
       'update_id' => 1,

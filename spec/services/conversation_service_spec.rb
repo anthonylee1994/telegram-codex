@@ -3,6 +3,18 @@ require 'rails_helper'
 RSpec.describe ConversationService do
   let(:reply_client) { instance_double(CodexCliClient) }
   let(:service) { described_class.new(reply_client: reply_client) }
+  let(:message) do
+    InboundTelegramMessage.new(
+      callback_query_id: nil,
+      chat_id: 'chat-1',
+      image_file_id: nil,
+      inline_callback: false,
+      message_id: 10,
+      text: 'hello',
+      user_id: '234392020',
+      update_id: 100
+    )
+  end
 
   before do
     described_class.reset_prune_state!
@@ -15,14 +27,7 @@ RSpec.describe ConversationService do
 
       allow(reply_client).to receive(:generate_reply).and_return(result)
 
-      reply = service.generate_reply(
-        chat_id: 'chat-1',
-        image_file_id: nil,
-        message_id: 10,
-        text: 'hello',
-        update_id: 100,
-        user_id: '234392020'
-      )
+      reply = service.generate_reply(message)
 
       expect(reply).to eq(result)
       expect(reply_client).to have_received(:generate_reply).with(
@@ -53,14 +58,7 @@ RSpec.describe ConversationService do
         )
       )
 
-      service.generate_reply(
-        chat_id: 'chat-1',
-        image_file_id: nil,
-        message_id: 10,
-        text: 'hello',
-        update_id: 100,
-        user_id: '234392020'
-      )
+      service.generate_reply(message)
 
       expect(reply_client).to have_received(:generate_reply).with(
         chat_id: 'chat-1',
@@ -100,14 +98,7 @@ RSpec.describe ConversationService do
         text: 'reply'
       )
 
-      service.generate_reply(
-        chat_id: 'chat-1',
-        image_file_id: nil,
-        message_id: 10,
-        text: 'hello',
-        update_id: 100,
-        user_id: '234392020'
-      )
+      service.generate_reply(message)
 
       expect(ProcessedUpdate.find_by(update_id: 1)).to be_nil
       expect(ProcessedUpdate.find_by(update_id: 2)).to be_present
@@ -130,14 +121,7 @@ RSpec.describe ConversationService do
         text: 'reply'
       )
 
-      service.generate_reply(
-        chat_id: 'chat-1',
-        image_file_id: nil,
-        message_id: 10,
-        text: 'hello',
-        update_id: 100,
-        user_id: '234392020'
-      )
+      service.generate_reply(message)
 
       ProcessedUpdate.create!(
         update_id: 2,
@@ -148,12 +132,16 @@ RSpec.describe ConversationService do
       )
 
       service.generate_reply(
-        chat_id: 'chat-1',
-        image_file_id: nil,
-        message_id: 11,
-        text: 'hello again',
-        update_id: 101,
-        user_id: '234392020'
+        InboundTelegramMessage.new(
+          callback_query_id: nil,
+          chat_id: 'chat-1',
+          image_file_id: nil,
+          inline_callback: false,
+          message_id: 11,
+          text: 'hello again',
+          user_id: '234392020',
+          update_id: 101
+        )
       )
 
       expect(ProcessedUpdate.find_by(update_id: 2)).to be_present

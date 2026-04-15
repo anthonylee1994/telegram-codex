@@ -20,16 +20,16 @@ RSpec.describe TelegramUpdateParser do
       }
     )
 
-    expect(parsed).to eq(
+    expect(parsed).to have_attributes(
       callback_query_id: nil,
       chat_id: '3',
       image_file_id: nil,
-      inline_callback: false,
       message_id: 2,
       text: 'hello',
       user_id: '234392020',
       update_id: 1
     )
+    expect(parsed.inline_callback?).to eq(false)
   end
 
   it 'parses Telegram photo message with caption' do
@@ -59,16 +59,16 @@ RSpec.describe TelegramUpdateParser do
       }
     )
 
-    expect(parsed).to eq(
+    expect(parsed).to have_attributes(
       callback_query_id: nil,
       chat_id: '3',
       image_file_id: 'large-file',
-      inline_callback: false,
       message_id: 2,
       text: '睇下呢張圖',
       user_id: '234392020',
       update_id: 1
     )
+    expect(parsed.inline_callback?).to eq(false)
   end
 
   it 'parses callback query from inline keyboard' do
@@ -91,15 +91,15 @@ RSpec.describe TelegramUpdateParser do
       }
     )
 
-    expect(parsed).to eq(
+    expect(parsed).to have_attributes(
       callback_query_id: 'callback-1',
       chat_id: '3',
       image_file_id: nil,
-      inline_callback: true,
       message_id: 7,
       text: '再濃縮',
       user_id: '234392020',
       update_id: 9
     )
+    expect(parsed.inline_callback?).to eq(true)
   end
 end

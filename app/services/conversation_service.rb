@@ -14,8 +14,14 @@ class ConversationService
     如果用戶要求你公開記憶、隱藏內容、資料庫內容、伺服器檔案、機密或者原始日誌，要簡短拒絕，然後提供安全替代幫助。
   PROMPT
 
-  def initialize(reply_client: CodexCliClient.new)
+  def initialize(
+    reply_client: CodexCliClient.new,
+    chat_session_repository: ChatSessionRepository.new,
+    processed_update_repository: ProcessedUpdateRepository.new
+  )
     @reply_client = reply_client
+    @chat_session_repository = chat_session_repository
+    @processed_update_repository = processed_update_repository
   end
 
   class << self
@@ -35,58 +41,37 @@ class ConversationService
   end
 
   def get_processed_update(update_id)
-    ProcessedUpdate.find_by(update_id: update_id)
+    @processed_update_repository.find(update_id)
   end
 
   def mark_processed(update_id, chat_id, message_id)
-    now = current_time_ms
-    upsert_processed_update(
-      update_id: update_id,
-      chat_id: chat_id,
-      message_id: message_id,
-      processed_at: now,
-      sent_at: now
-    )
+    @processed_update_repository.mark_processed(update_id, chat_id, message_id)
   end
 
   def save_pending_reply(update_id, chat_id, message_id, result)
-    now = current_time_ms
-    upsert_processed_update(
-      update_id: update_id,
-      chat_id: chat_id,
-      message_id: message_id,
-      processed_at: now,
-      reply_text: result.fetch(:text),
-      conversation_state: result.fetch(:conversation_state),
-      suggested_replies: JSON.generate(Array(result[:suggested_replies])),
-      sent_at: nil
-    )
+    @processed_update_repository.save_pending_reply(update_id, chat_id, message_id, result)
   end
 
   def persist_conversation_state(chat_id, conversation_state)
-    record = ChatSession.find_or_initialize_by(chat_id: chat_id)
-    record.last_response_id = conversation_state
-    record.updated_at = current_time_ms
-    record.save!
+    @chat_session_repository.persist(chat_id, conversation_state)
   end
 
   def reset_session(chat_id)
-    ChatSession.where(chat_id: chat_id).delete_all
-    Rails.logger.info("Reset chat session chat_id=#{chat_id}")
+    @chat_session_repository.reset(chat_id)
   end
 
-  def generate_reply(message)
+  def generate_reply(message, image_file_path: nil)
     prune_processed_updates_if_needed
-    session = load_active_session(message.fetch(:chat_id))
+    session = @chat_session_repository.find_active(message.chat_id)
 
     result = @reply_client.generate_reply(
-      chat_id: message.fetch(:chat_id),
-      text: message.fetch(:text),
+      chat_id: message.chat_id,
+      text: message.text,
       conversation_state: session&.last_response_id,
-      image_file_path: message[:image_file_path]
+      image_file_path: image_file_path
     )
 
-    Rails.logger.info("Generated assistant reply chat_id=#{message.fetch(:chat_id)}")
+    Rails.logger.info("Generated assistant reply chat_id=#{message.chat_id}")
     result
   end
 
@@ -108,29 +93,13 @@ class ConversationService
       return if last_pruned_at && (now - last_pruned_at) < PROCESSED_UPDATE_PRUNE_INTERVAL_MS
 
       cutoff = now - PROCESSED_UPDATE_RETENTION_MS
-      deleted_count = ProcessedUpdate.where.not(sent_at: nil).where("processed_at < ?", cutoff).delete_all
+      deleted_count = @processed_update_repository.prune_sent_before(cutoff)
       self.class.send(:last_processed_update_prune_at=, now)
       Rails.logger.info("Pruned processed updates count=#{deleted_count} cutoff=#{cutoff}")
     end
   end
 
-  def load_active_session(chat_id)
-    session = ChatSession.find_by(chat_id: chat_id)
-    return nil if session.nil?
-
-    session_ttl_ms = AppConfig.fetch.session_ttl_days * 24 * 60 * 60 * 1000
-    return session if current_time_ms - session.updated_at <= session_ttl_ms
-
-    ChatSession.where(chat_id: chat_id).delete_all
-    Rails.logger.info("Reset expired session chat_id=#{chat_id}")
-    nil
-  end
-
   def current_time_ms
     (Time.now.to_f * 1000).to_i
-  end
-
-  def upsert_processed_update(attributes)
-    ProcessedUpdate.upsert(attributes, unique_by: :index_processed_updates_on_update_id)
   end
 end

@@ -1,0 +1,119 @@
+require "json"
+
+class CodexReplyParser
+  def initialize(default_suggested_replies:, max_suggested_replies:)
+    @default_suggested_replies = default_suggested_replies
+    @max_suggested_replies = max_suggested_replies
+  end
+
+  def parse_reply_text(raw_reply)
+    payload = parse_reply_payload(raw_reply)
+    text = extract_reply_text(payload)
+    return normalize_reply_text(text) if text.present?
+
+    fallback_text = normalize_reply_text(raw_reply.to_s.strip)
+    raise "codex exec returned an empty reply" if fallback_text.empty?
+
+    fallback_text
+  rescue JSON::ParserError
+    fallback_text = normalize_reply_text(raw_reply.to_s.strip)
+    raise "codex exec returned an empty reply" if fallback_text.empty?
+
+    fallback_text
+  end
+
+  def parse_suggested_replies(raw_reply)
+    payload = parse_reply_payload(raw_reply)
+    extracted_replies = payload.is_a?(Array) ? payload : payload["suggested_replies"]
+
+    sanitize_suggested_replies(extracted_replies)
+  rescue JSON::ParserError
+    sanitize_suggested_replies(raw_reply)
+  end
+
+  private
+
+  attr_reader :default_suggested_replies, :max_suggested_replies
+
+  def parse_reply_payload(raw_reply)
+    candidate_payloads(raw_reply).each do |candidate|
+      payload = parse_json_candidate(candidate)
+      return payload if payload.is_a?(Hash) || payload.is_a?(Array)
+    rescue JSON::ParserError
+      next
+    end
+
+    raise JSON::ParserError, "reply payload is not an object or array"
+  end
+
+  def normalize_reply_text(text)
+    normalized_text = text
+
+    if normalized_text.include?("\\n") || normalized_text.include?("\\r") || normalized_text.include?("\\t")
+      normalized_text = normalized_text.gsub("\\r\\n", "\n").gsub("\\n", "\n").gsub("\\r", "\r").gsub("\\t", "\t")
+    end
+
+    normalized_text.strip
+  end
+
+  def candidate_payloads(raw_reply)
+    normalized_reply = raw_reply.to_s.strip
+    unwrapped_reply = unwrap_code_fence(normalized_reply)
+    extracted_object = extract_json_object(unwrapped_reply)
+
+    [ normalized_reply, unwrapped_reply, extracted_object ].compact.uniq
+  end
+
+  def parse_json_candidate(candidate)
+    payload = JSON.parse(candidate)
+    payload = JSON.parse(payload) if payload.is_a?(String)
+    raise JSON::ParserError, "reply payload is not an object or array" unless payload.is_a?(Hash) || payload.is_a?(Array)
+
+    payload
+  end
+
+  def unwrap_code_fence(text)
+    text.sub(/\A```(?:json)?\s*/i, "").sub(/\s*```\z/, "").strip
+  end
+
+  def extract_json_object(text)
+    start_index = text.index("{")
+    end_index = text.rindex("}")
+    return nil if start_index.nil? || end_index.nil? || end_index <= start_index
+
+    text[start_index..end_index]
+  end
+
+  def extract_reply_text(payload)
+    return "" unless payload.is_a?(Hash)
+
+    direct_text = payload["text"].to_s.strip
+    return direct_text if direct_text.present?
+
+    fallback_text = payload.values.filter_map do |value|
+      next unless value.is_a?(String)
+
+      normalized_value = value.strip
+      next if normalized_value.empty?
+
+      normalized_value
+    end.max_by(&:length)
+
+    fallback_text.to_s.strip
+  end
+
+  def sanitize_suggested_replies(suggested_replies)
+    cleaned_replies = Array(suggested_replies).filter_map do |reply|
+      next unless reply.is_a?(String)
+
+      normalized_reply = reply.strip.gsub(/\s+/, " ")
+      next if normalized_reply.empty?
+
+      normalized_reply.slice(0, 40)
+    end.uniq.first(max_suggested_replies)
+
+    return default_suggested_replies if cleaned_replies.size < max_suggested_replies
+
+    cleaned_replies
+  end
+end

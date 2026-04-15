@@ -1,20 +1,9 @@
 class TelegramUpdateParser
   def parse_incoming_telegram_message(update)
-    return parse_callback_query(update) if supported_callback_query?(update)
+    return build_callback_query_message(update) if supported_callback_query?(update)
     return nil unless supported_message?(update)
 
-    largest_photo = Array(update.dig("message", "photo")).max_by { |photo| photo["file_size"].to_i }
-
-    {
-      callback_query_id: nil,
-      chat_id: update.dig("message", "chat", "id").to_s,
-      image_file_id: largest_photo&.fetch("file_id", nil),
-      inline_callback: false,
-      message_id: update.dig("message", "message_id"),
-      text: update.dig("message", "text").presence || update.dig("message", "caption").to_s.strip,
-      user_id: update.dig("message", "from", "id").to_s,
-      update_id: update.fetch("update_id")
-    }
+    build_message(update)
   end
 
   private
@@ -35,19 +24,6 @@ class TelegramUpdateParser
     text || photo
   end
 
-  def parse_callback_query(update)
-    {
-      callback_query_id: update.dig("callback_query", "id").to_s,
-      chat_id: update.dig("callback_query", "message", "chat", "id").to_s,
-      image_file_id: nil,
-      inline_callback: true,
-      message_id: update.dig("callback_query", "message", "message_id"),
-      text: update.dig("callback_query", "data").to_s.strip,
-      user_id: update.dig("callback_query", "from", "id").to_s,
-      update_id: update.fetch("update_id")
-    }
-  end
-
   def supported_callback_query?(update)
     return false unless update.is_a?(Hash)
     return false unless update["update_id"].is_a?(Integer)
@@ -61,5 +37,53 @@ class TelegramUpdateParser
     return false unless callback_query.dig("message", "message_id").is_a?(Integer)
 
     callback_query["data"].is_a?(String) && callback_query["data"].strip != ""
+  end
+
+  def build_message(update)
+    message = update.fetch("message")
+
+    build_inbound_message(
+      update: update,
+      callback_query_id: nil,
+      chat_id: message.dig("chat", "id"),
+      image_file_id: largest_photo_file_id(message),
+      inline_callback: false,
+      message_id: message["message_id"],
+      text: message["text"].presence || message["caption"].to_s.strip,
+      user_id: message.dig("from", "id")
+    )
+  end
+
+  def build_callback_query_message(update)
+    callback_query = update.fetch("callback_query")
+
+    build_inbound_message(
+      update: update,
+      callback_query_id: callback_query["id"],
+      chat_id: callback_query.dig("message", "chat", "id"),
+      image_file_id: nil,
+      inline_callback: true,
+      message_id: callback_query.dig("message", "message_id"),
+      text: callback_query["data"].to_s.strip,
+      user_id: callback_query.dig("from", "id")
+    )
+  end
+
+  def build_inbound_message(update:, callback_query_id:, chat_id:, image_file_id:, inline_callback:, message_id:, text:, user_id:)
+    InboundTelegramMessage.new(
+      callback_query_id: callback_query_id&.to_s,
+      chat_id: chat_id.to_s,
+      image_file_id: image_file_id,
+      inline_callback: inline_callback,
+      message_id: message_id,
+      text: text,
+      user_id: user_id.to_s,
+      update_id: update.fetch("update_id")
+    )
+  end
+
+  def largest_photo_file_id(message)
+    largest_photo = Array(message["photo"]).max_by { |photo| photo["file_size"].to_i }
+    largest_photo&.fetch("file_id", nil)
   end
 end
