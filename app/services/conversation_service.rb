@@ -40,25 +40,27 @@ class ConversationService
 
   def mark_processed(update_id, chat_id, message_id)
     now = current_time_ms
-    record = ProcessedUpdate.find_or_initialize_by(update_id: update_id)
-    record.chat_id = chat_id
-    record.message_id = message_id
-    record.processed_at = now
-    record.sent_at = now
-    record.save!
+    upsert_processed_update(
+      update_id: update_id,
+      chat_id: chat_id,
+      message_id: message_id,
+      processed_at: now,
+      sent_at: now
+    )
   end
 
   def save_pending_reply(update_id, chat_id, message_id, result)
     now = current_time_ms
-    record = ProcessedUpdate.find_or_initialize_by(update_id: update_id)
-    record.chat_id = chat_id
-    record.message_id = message_id
-    record.processed_at = now
-    record.reply_text = result.fetch(:text)
-    record.conversation_state = result.fetch(:conversation_state)
-    record.suggested_replies = JSON.generate(Array(result[:suggested_replies]))
-    record.sent_at = nil
-    record.save!
+    upsert_processed_update(
+      update_id: update_id,
+      chat_id: chat_id,
+      message_id: message_id,
+      processed_at: now,
+      reply_text: result.fetch(:text),
+      conversation_state: result.fetch(:conversation_state),
+      suggested_replies: JSON.generate(Array(result[:suggested_replies])),
+      sent_at: nil
+    )
   end
 
   def persist_conversation_state(chat_id, conversation_state)
@@ -126,5 +128,9 @@ class ConversationService
 
   def current_time_ms
     (Time.now.to_f * 1000).to_i
+  end
+
+  def upsert_processed_update(attributes)
+    ProcessedUpdate.upsert(attributes, unique_by: :index_processed_updates_on_update_id)
   end
 end

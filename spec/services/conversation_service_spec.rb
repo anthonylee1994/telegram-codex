@@ -176,6 +176,27 @@ RSpec.describe ConversationService do
       expect(processed_update.reply_text).to eq('reply')
       expect(processed_update.conversation_state).to eq('state-new')
     end
+
+    it 'keeps the persisted reply when the same update is later marked as sent' do
+      service.save_pending_reply(
+        100,
+        'chat-1',
+        10,
+        {
+          conversation_state: 'state-new',
+          suggested_replies: [ '列重點', '下一步' ],
+          text: 'reply'
+        }
+      )
+
+      service.mark_processed(100, 'chat-1', 10)
+
+      processed_update = ProcessedUpdate.find(100)
+      expect(processed_update.reply_text).to eq('reply')
+      expect(processed_update.conversation_state).to eq('state-new')
+      expect(JSON.parse(processed_update.suggested_replies)).to eq([ '列重點', '下一步' ])
+      expect(processed_update.sent_at).to be_present
+    end
   end
 
   describe '#generate_suggested_replies' do
