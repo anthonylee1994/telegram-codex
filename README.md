@@ -26,6 +26,7 @@ Demo：https://t.me/On99AppBot
 - 支援單張圖片同 caption
 - 支援 `/start` 顯示 welcome / help message
 - 支援 `/new` 重開當前 chat session
+- 支援最多 3 個 reply keyboard suggested replies
 - 有 session memory
 - 有 duplicate update 保護
 - 有簡單 rate limit
@@ -105,7 +106,8 @@ spec/
 5. 真正要生成回覆時，handler 會 call `ConversationService`。
 6. `ConversationService` 先攞返目前 chat 嘅 session state，再 call `CodexCliClient`。
 7. `CodexCliClient` 用 transcript + system prompt 組 prompt，然後同步跑 `codex exec`。
-8. 回覆生成後，handler 會 send 番 Telegram，並將新 session state 寫返 SQLite。
+8. `CodexCliClient` 會再生成 3 個 suggested replies。
+9. handler 會將主答案同 suggested replies 一次過 send 番 Telegram，並將新 session state 寫返 SQLite。
 
 ## 主要檔案點運作
 
@@ -137,7 +139,7 @@ spec/
 - [`processed_update.rb`](app/models/processed_update.rb)
   - 用 Telegram `update_id` 做主鍵。
   - 主要係防 duplicate webhook，仲有 pending reply replay。
-  - 如果 reply 已生成但 send Telegram 失敗，下次 Telegram resend 同一個 update，app 可以直接補送，唔使再 call 一次 Codex。
+  - 如果 reply 已生成但 send Telegram 失敗，下次 Telegram resend 同一個 update，app 可以直接補送主答案同 suggested replies，唔使再 call 一次 Codex。
 
 ### Service 層
 
@@ -160,6 +162,7 @@ spec/
   - 包住 Telegram Bot API。
   - 主要做：
     - send message
+    - send / remove reply keyboard
     - send typing action
     - download image 到 temp file
     - set webhook
@@ -179,7 +182,8 @@ spec/
   - 真正同 `codex exec` 接軌嗰層。
   - 佢會：
     - parse 上次 conversation state
-    - 同 system prompt 拼埋做 prompt
+    - 先同 system prompt 拼埋做 prompt 生成主答案
+    - 再用更新後 transcript 生成 suggested replies
     - 如果有圖就加 `--image`
     - 讀返 `codex exec --output-last-message` 生成嘅最後訊息
   - 呢層係同步 call，唔係 background job。
@@ -195,6 +199,7 @@ spec/
     - `/new`
     - rate limit
     - typing indicator
+    - reply keyboard suggested replies
     - 圖片 download + cleanup
     - generic error fallback
 
@@ -309,10 +314,10 @@ bundle exec rails server -p 3000
 
 ## Telegram commands
 
-- `/start`：顯示 welcome / help message
-- `/new`：清除當前 chat 嘅 session memory，下一句重新開始
+- `/start`：顯示 welcome / help message，同時清走而家個 reply keyboard
+- `/new`：清除當前 chat 嘅 session memory，下一句重新開始，同時清走而家個 reply keyboard
 
-平時直接 send 文字或者圖片畀 bot 就得，唔需要 command。
+平時直接 send 文字或者圖片畀 bot 就得，唔需要 command。撳 suggested reply 會由 Telegram client 直接送出一條新 message，所以 chat 入面會見到自己嘅綠色訊息。
 
 ## 常見 debug 方法
 
@@ -381,6 +386,7 @@ ${BASE_URL}/telegram/webhook
 ```
 
 所以 `BASE_URL` 唔好自己加 `/telegram/webhook`。
+而家 webhook 只需要收普通 `message` update，唔需要 `callback_query`。
 
 ## Rails console
 
@@ -568,4 +574,5 @@ RSpec 覆蓋咗以下核心行為：
 - webhook handler failure path
 - session TTL
 - pending reply replay
+- reply keyboard suggested replies
 - Telegram update parser
