@@ -217,6 +217,8 @@ spec/
 - [`telegram.rake`](lib/tasks/telegram.rake)
   - `bundle exec rake telegram:set_webhook`
   - 用而家 ENV 裏面個 `BASE_URL` 直接註冊 Telegram webhook。
+  - `bundle exec rake telegram:update_commands`
+  - 將 `/start` 同 `/new` command description 同步去 Telegram bot menu。
 
 - [`auto_annotate_models.rake`](lib/tasks/auto_annotate_models.rake)
   - 同 schema comments / annotate model 有關。

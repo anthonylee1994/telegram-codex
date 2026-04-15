@@ -101,6 +101,11 @@ class TelegramClient
     Rails.logger.info("Telegram webhook configured url=#{url}")
   end
 
+  def set_my_commands(commands)
+    post_form("setMyCommands", commands: JSON.generate(commands))
+    Rails.logger.info("Telegram commands updated count=#{Array(commands).length}")
+  end
+
   private
 
   def get_file(file_id)
