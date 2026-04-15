@@ -282,29 +282,38 @@ SQLite 而家主要得兩張表：
 | `RATE_LIMIT_WINDOW_MS` | rate limit window | `10000` |
 | `RATE_LIMIT_MAX_MESSAGES` | window 內最多幾多訊息 | `5` |
 
-## 本地設定
+## 部署
+
+### 本地開發
 
 1. 複製 `.env.example` 做 `.env`
-2. 填好 `TELEGRAM_BOT_TOKEN`
-3. 填好 `BASE_URL`，例如 `https://your-domain.com`
-4. 填好 `TELEGRAM_WEBHOOK_SECRET`
-5. 如有需要再設 `ALLOWED_TELEGRAM_USER_IDS`
-6. 安裝 gems
+2. 填好環境變數：
+   - `TELEGRAM_BOT_TOKEN`
+   - `BASE_URL`（例如 `https://your-domain.com`）
+   - `TELEGRAM_WEBHOOK_SECRET`
+   - `ALLOWED_TELEGRAM_USER_IDS`（可選）
+3. 安裝 gems
 
 ```bash
 bundle install
 ```
 
-7. 準備 database
+4. 準備 database
 
 ```bash
 bundle exec rails db:prepare
 ```
 
-## 開發
+5. 啟動 server
 
 ```bash
 bundle exec rails server -p 3000
+```
+
+6. 註冊 webhook
+
+```bash
+bundle exec rake telegram:set_webhook
 ```
 
 主要 endpoint：
@@ -325,14 +334,32 @@ bundle exec rails server -p 3000
 
 ### 1. 用 Rails console 睇資料
 
+本地：
+
 ```bash
 bundle exec rails console
 ```
 
+Dokku：
+
+```bash
+dokku run telegram-codex bundle exec rails console
+```
+
+常用查詢：
+
 ```ruby
+# 睇特定 chat session
 ChatSession.find_by(chat_id: "123456")
+
+# 睇特定 update
 ProcessedUpdate.find_by(update_id: 123456789)
+
+# 睇最近 updates
 ProcessedUpdate.order(update_id: :desc).limit(20)
+
+# 睇所有 sessions
+ChatSession.all
 ```
 
 ### 2. 本地打 health check
@@ -351,15 +378,13 @@ curl -i http://localhost:3000/health
 
 如果你懷疑 memory / context 搞亂咗，呢個最快。
 
-### 4. 重新 set webhook
+### 4. 睇 logs
 
-如果你改咗 domain、換咗 tunnel、或者 deploy 去新 host：
+本地：
 
 ```bash
-bundle exec rake telegram:set_webhook
+bundle exec rails server
 ```
-
-### 5. 睇 Docker / Dokku logs
 
 Docker：
 
@@ -373,34 +398,6 @@ Dokku：
 dokku logs telegram-codex -t
 ```
 
-## 註冊 Telegram webhook
-
-```bash
-bundle exec rake telegram:set_webhook
-```
-
-佢會將 webhook 設成：
-
-```text
-${BASE_URL}/telegram/webhook
-```
-
-所以 `BASE_URL` 唔好自己加 `/telegram/webhook`。
-而家 webhook 只需要收普通 `message` update，唔需要 `callback_query`。
-
-## Rails console
-
-```bash
-bundle exec rails console
-```
-
-例如你可以直接睇 session / processed update：
-
-```ruby
-ChatSession.all
-ProcessedUpdate.order(update_id: :desc).limit(10)
-```
-
 ## 檢查
 
 ```bash
@@ -410,7 +407,7 @@ bundle exec rubocop
 bundle exec rspec
 ```
 
-## Docker
+### Docker
 
 Docker image 會：
 
@@ -432,25 +429,31 @@ docker run --rm -p 3000:3000 \
   telegram-codex
 ```
 
-## Dokku 部署
+註冊 webhook：
+
+```bash
+docker exec <container-id> bundle exec rake telegram:set_webhook
+```
+
+### Dokku
 
 以下假設你個 app 叫 `telegram-codex`，domain 係 `telegram-codex.example.com`。
 
-### 1. 建 app 同 domain
+#### 1. 建 app 同 domain
 
 ```bash
 dokku apps:create telegram-codex
 dokku domains:set telegram-codex telegram-codex.example.com
 ```
 
-如果你有開 HTTPS，記得另外處理 certificate，例如：
+如果你有開 HTTPS：
 
 ```bash
 dokku letsencrypt:set telegram-codex email you@example.com
 dokku letsencrypt:enable telegram-codex
 ```
 
-### 2. 準備 persistent storage
+#### 2. 準備 persistent storage
 
 呢個 app 至少要 persist 兩樣：
 
@@ -471,20 +474,15 @@ dokku storage:mount telegram-codex /var/lib/dokku/data/storage/telegram-codex/da
 dokku storage:mount telegram-codex /var/lib/dokku/data/storage/telegram-codex/codex:/root/.codex
 ```
 
-如果你本身已經喺 server 登入過 Codex，可以直接將 auth 檔放入去 mount path；如果未有，就喺 host 準備：
+如果你本身已經喺 server 登入過 Codex，可以直接將 auth 檔放入去 mount path：
 
 ```bash
 sudo cp -R ~/.codex/. /var/lib/dokku/data/storage/telegram-codex/codex/
 sudo chown -R 32767:32767 /var/lib/dokku/data/storage/telegram-codex/codex
-```
-
-SQLite directory 都建議一樣俾返 container user 可寫：
-
-```bash
 sudo chown -R 32767:32767 /var/lib/dokku/data/storage/telegram-codex/data
 ```
 
-### 3. 設定環境變數
+#### 3. 設定環境變數
 
 ```bash
 dokku config:set telegram-codex \
@@ -493,40 +491,37 @@ dokku config:set telegram-codex \
   BASE_URL=https://telegram-codex.example.com \
   TELEGRAM_BOT_TOKEN=replace-me \
   TELEGRAM_WEBHOOK_SECRET=replace-me \
-  SQLITE_DB_PATH=/rails/data/app.db \
+  SQLITE_DB_PATH=/rails/data/app.db
+```
+
+可選設定（如要限制指定 user 或調整 rate limit）：
+
+```bash
+dokku config:set telegram-codex \
+  ALLOWED_TELEGRAM_USER_IDS=123456789,987654321 \
   SESSION_TTL_DAYS=7 \
   RATE_LIMIT_WINDOW_MS=10000 \
   RATE_LIMIT_MAX_MESSAGES=5
 ```
 
-如要限制指定 Telegram user：
-
-```bash
-dokku config:set telegram-codex ALLOWED_TELEGRAM_USER_IDS=123456789,987654321
-```
-
-### 4. Deploy
-
-如果你用 git push deploy：
+#### 4. Deploy
 
 ```bash
 git remote add dokku dokku@your-server:telegram-codex
 git push dokku main
 ```
 
-如果你 branch 唔係 `main`，改返你自己嗰個 branch 名。
+app 起動時會自動跑 `bundle exec rails db:prepare`。
 
-app 起動時會自動跑 `bundle exec rails db:prepare`，所以正常唔使手動 migrate。
-
-### 5. 註冊 Telegram webhook
-
-第一次 deploy 完，或者之後改咗 domain / `BASE_URL`，要喺 Dokku app 入面跑：
+#### 5. 註冊 webhook
 
 ```bash
 dokku run telegram-codex bundle exec rake telegram:set_webhook
 ```
 
-### 6. 驗證
+佢會將 webhook 設成 `${BASE_URL}/telegram/webhook`，所以 `BASE_URL` 唔好自己加 `/telegram/webhook`。
+
+#### 6. 驗證
 
 ```bash
 curl -i https://telegram-codex.example.com/health
@@ -539,7 +534,7 @@ dokku logs telegram-codex -t
 {"ok":true}
 ```
 
-### 7. 常用維護指令
+#### 7. 常用維護指令
 
 重建 app：
 
@@ -553,16 +548,11 @@ dokku ps:rebuild telegram-codex
 dokku run telegram-codex bundle exec rails console
 ```
 
-手動睇最近 update：
-
-```ruby
-ProcessedUpdate.order(update_id: :desc).limit(10)
-```
-
-如果想 backup SQLite：
+Backup SQLite：
 
 ```bash
-sudo cp /var/lib/dokku/data/storage/telegram-codex/data/app.db /var/lib/dokku/data/storage/telegram-codex/data/app.db.bak
+sudo cp /var/lib/dokku/data/storage/telegram-codex/data/app.db \
+       /var/lib/dokku/data/storage/telegram-codex/data/app.db.bak
 ```
 
 ## 測試
