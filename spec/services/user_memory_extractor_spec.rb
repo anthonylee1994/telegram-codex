@@ -48,5 +48,25 @@ RSpec.describe UserMemoryExtractor do
       expect(captured_prompt).to include("目前已存在記憶：")
       expect(captured_prompt).to include("- preference.language = 廣東話")
     end
+
+    it "guides the model to keep explicit remember requests across different domains" do
+      captured_prompt = nil
+
+      allow(exec_runner).to receive(:run) do |prompt:|
+        captured_prompt = prompt
+        '[{"kind":"travel","key":"hotel_name","value":"Hotel Nikko"}]'
+      end
+
+      result = extractor.extract(text: "記低我住嘅酒店名係 Hotel Nikko")
+
+      expect(captured_prompt).to include("如果用戶明確叫你「記住／記低／記得」某項資料，通常應該保存")
+      expect(captured_prompt).to include("唔好只限某一類 domain；旅行、工作、生活、健康、學習、行政安排都可以。")
+      expect(captured_prompt).to include("如果用戶話「記低我住緊嘅酒店係 XXX」")
+      expect(captured_prompt).to include("如果用戶話「記住我已經離婚」")
+      expect(captured_prompt).to include("如果用戶話「記低我對花生過敏」")
+      expect(result).to eq([
+        { kind: "travel", key: "hotel_name", value: "Hotel Nikko" }
+      ])
+    end
   end
 end

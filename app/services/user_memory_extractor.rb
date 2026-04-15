@@ -6,15 +6,25 @@ class UserMemoryExtractor
 
     規則：
     1. 只抽取對之後對話有幫助、而且相對穩定或者值得保留嘅資料。
-    2. 唔好抽取一次性、短暫、無實際價值、或者太含糊嘅內容。
-    3. 如果冇任何值得保存嘅記憶，就回傳空陣列。
-    4. 只可以輸出嚴格 JSON array，格式：
+    2. 如果用戶明確叫你「記住／記低／記得」某項資料，通常應該保存，除非內容太含糊或者無法重用。
+    3. 某啲未必永久穩定、但喺之後對話高度可能再用到嘅重要資料都應該保存，例如位置、聯絡資料、預約、安排、偏好、身份背景、工作背景、關係狀態、健康限制、項目背景，或者任何用戶特登提醒你之後要記得嘅資訊。
+    4. 唔好只限某一類 domain；旅行、工作、生活、健康、學習、行政安排都可以。
+    5. 唔好抽取無實際價值、太私密而且冇必要、或者太含糊嘅內容。
+    6. 如果冇任何值得保存嘅記憶，就回傳空陣列。
+    7. 只可以輸出嚴格 JSON array，格式：
        [{"kind":"preference","key":"language","value":"廣東話"}]
-    5. 每個 object 只可以有 kind、key、value 三個字串欄位。
-    6. kind 用簡短英文分類，例如 profile、preference、project、context。
-    7. key 用簡短英文 snake_case。
-    8. value 用簡潔自然語言，保留原意，唔好作嘢。
-    9. 唔好輸出 markdown、解釋、額外文字。
+    8. 每個 object 只可以有 kind、key、value 三個字串欄位。
+    9. kind 用簡短英文分類，例如 profile、preference、project、context、travel、work、health。
+    10. key 用簡短英文 snake_case。
+    11. value 用簡潔自然語言，保留原意，唔好作嘢。
+    12. 例子：
+        如果用戶話「記低我住緊嘅酒店係 XXX」，合理輸出例如：
+        [{"kind":"travel","key":"hotel_name","value":"XXX"}]
+        如果用戶話「記住我已經離婚」，合理輸出例如：
+        [{"kind":"profile","key":"marital_status","value":"divorced"}]
+        如果用戶話「記低我對花生過敏」，合理輸出例如：
+        [{"kind":"health","key":"allergy","value":"花生過敏"}]
+    13. 唔好輸出 markdown、解釋、額外文字。
   PROMPT
 
   def initialize(exec_runner: CodexExecRunner.new)
