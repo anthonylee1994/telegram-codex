@@ -178,7 +178,25 @@ RSpec.describe TelegramWebhookHandler do
     handler.handle(start_update)
 
     expect(ChatSession.find_by(chat_id: '3')).to be_nil
-    expect(telegram_client).to have_received(:send_message).with('3', TelegramWebhookHandler::START_MESSAGE)
+    expect(telegram_client).to have_received(:send_message).with(
+      '3',
+      TelegramWebhookHandler::START_MESSAGE,
+      remove_keyboard: true
+    )
+  end
+
+  it 'replies with new session message and clears suggestion keyboard for /new' do
+    new_update = update.deep_merge('message' => { 'text' => '/new' })
+
+    allow(telegram_client).to receive(:send_message)
+
+    handler.handle(new_update)
+
+    expect(telegram_client).to have_received(:send_message).with(
+      '3',
+      TelegramWebhookHandler::NEW_SESSION_MESSAGE,
+      remove_keyboard: true
+    )
   end
 
   it 'clears callback keyboard when /start is triggered from an inline button' do
@@ -189,7 +207,11 @@ RSpec.describe TelegramWebhookHandler do
     handler.handle(start_callback_update)
 
     expect(telegram_client).to have_received(:clear_message_reply_markup).with('3', 8)
-    expect(telegram_client).to have_received(:send_message).with('3', TelegramWebhookHandler::START_MESSAGE)
+    expect(telegram_client).to have_received(:send_message).with(
+      '3',
+      TelegramWebhookHandler::START_MESSAGE,
+      remove_keyboard: true
+    )
   end
 
   it 'clears callback keyboard when /new is triggered from an inline button' do
@@ -200,7 +222,11 @@ RSpec.describe TelegramWebhookHandler do
     handler.handle(new_callback_update)
 
     expect(telegram_client).to have_received(:clear_message_reply_markup).with('3', 9)
-    expect(telegram_client).to have_received(:send_message).with('3', TelegramWebhookHandler::NEW_SESSION_MESSAGE)
+    expect(telegram_client).to have_received(:send_message).with(
+      '3',
+      TelegramWebhookHandler::NEW_SESSION_MESSAGE,
+      remove_keyboard: true
+    )
   end
 
   def current_time_ms

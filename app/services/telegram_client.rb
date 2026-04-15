@@ -25,13 +25,13 @@ class TelegramClient
     output_path
   end
 
-  def send_message(chat_id, text, suggested_replies: [])
+  def send_message(chat_id, text, suggested_replies: [], remove_keyboard: false)
     params = {
       chat_id: chat_id,
       text: format_telegram_message(text),
       parse_mode: "HTML"
     }
-    reply_markup = build_reply_markup(suggested_replies)
+    reply_markup = build_reply_markup(suggested_replies, remove_keyboard: remove_keyboard)
     params[:reply_markup] = JSON.generate(reply_markup) if reply_markup.present?
     post_form("sendMessage", params)
   end
@@ -155,7 +155,9 @@ class TelegramClient
     "TELEGRAM_CODE_BLOCK_#{index}__"
   end
 
-  def build_reply_markup(suggested_replies)
+  def build_reply_markup(suggested_replies, remove_keyboard: false)
+    return { remove_keyboard: true } if remove_keyboard
+
     cleaned_replies = Array(suggested_replies).filter_map do |reply|
       next unless reply.is_a?(String)
 

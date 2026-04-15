@@ -70,7 +70,7 @@ class TelegramWebhookHandler
       answer_callback_query(message)
       clear_callback_buttons(message)
       @conversation_service.reset_session(message.fetch(:chat_id))
-      @telegram_client.send_message(message.fetch(:chat_id), NEW_SESSION_MESSAGE)
+      @telegram_client.send_message(message.fetch(:chat_id), NEW_SESSION_MESSAGE, remove_keyboard: true)
       @conversation_service.mark_processed(message.fetch(:update_id), message.fetch(:chat_id), message.fetch(:message_id))
       return
     end
@@ -79,7 +79,7 @@ class TelegramWebhookHandler
       answer_callback_query(message)
       clear_callback_buttons(message)
       @conversation_service.reset_session(message.fetch(:chat_id))
-      @telegram_client.send_message(message.fetch(:chat_id), START_MESSAGE)
+      @telegram_client.send_message(message.fetch(:chat_id), START_MESSAGE, remove_keyboard: true)
       @conversation_service.mark_processed(message.fetch(:update_id), message.fetch(:chat_id), message.fetch(:message_id))
       return
     end
