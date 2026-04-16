@@ -125,6 +125,34 @@ RSpec.describe TelegramWebhookHandler do
     ])
   end
 
+  it 'does not generate or send twice when the same update re-enters while still inflight' do
+    reentered = false
+
+    allow(reply_client).to receive(:generate_reply) do
+      unless reentered
+        reentered = true
+        handler.handle(update)
+      end
+
+      {
+        conversation_state: 'state-1',
+        text: 'reply-1'
+      }
+    end
+    allow(reply_client).to receive(:generate_suggested_replies).and_return([ '下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？' ])
+    allow(telegram_client).to receive(:with_typing_status).and_yield
+    allow(telegram_client).to receive(:send_message)
+
+    handler.handle(update)
+
+    expect(reply_client).to have_received(:generate_reply).once
+    expect(telegram_client).to have_received(:send_message).with(
+      '3',
+      'reply-1',
+      suggested_replies: [ '下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？' ]
+    ).once
+  end
+
   it 'sends a generic error when suggestions generation fails before sending' do
     allow(reply_client).to receive(:generate_reply).and_return(
       conversation_state: 'state-1',

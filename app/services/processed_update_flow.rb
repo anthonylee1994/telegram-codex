@@ -7,6 +7,14 @@ class ProcessedUpdateFlow
     @conversation_service.get_processed_update(update_id)
   end
 
+  def begin_processing(message)
+    @conversation_service.begin_processing(message.update_id, message.chat_id, message.message_id)
+  end
+
+  def clear_processing(message)
+    @conversation_service.clear_processing(message.update_id)
+  end
+
   def duplicate?(processed_update)
     processed_update&.sent_at.present?
   end

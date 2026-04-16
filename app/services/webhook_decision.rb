@@ -82,6 +82,7 @@ class WebhookDecision
       return WebhookDecision.reset_session(message, @new_session_message) if new_session_command?(message.text)
       return WebhookDecision.reset_session(message, @start_message) if start_command?(message.text)
       return WebhookDecision.rate_limited(message) unless @rate_limiter.allow(message.chat_id)
+      return WebhookDecision.duplicate(message) unless @processed_update_flow.begin_processing(message)
 
       WebhookDecision.generate_reply(message)
     end

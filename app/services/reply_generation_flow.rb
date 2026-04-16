@@ -30,6 +30,7 @@ class ReplyGenerationFlow
       @conversation_service.persist_conversation_state(message.chat_id, reply.fetch(:conversation_state))
       @conversation_service.mark_processed(message.update_id, message.chat_id, message.message_id)
     rescue StandardError
+      @conversation_service.clear_processing(message.update_id) unless has_pending_reply
       raise if has_pending_reply
 
       raise

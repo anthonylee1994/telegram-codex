@@ -187,6 +187,17 @@ RSpec.describe ConversationService do
     end
   end
 
+  describe '#begin_processing' do
+    it 'claims a fresh update only once until it is cleared' do
+      expect(service.begin_processing(100, 'chat-1', 10)).to be(true)
+      expect(service.begin_processing(100, 'chat-1', 10)).to be(false)
+
+      service.clear_processing(100)
+
+      expect(service.begin_processing(100, 'chat-1', 10)).to be(true)
+    end
+  end
+
   describe '#generate_suggested_replies' do
     it 'delegates to the reply client' do
       allow(reply_client).to receive(:generate_suggested_replies).and_return([ '再問多少少', '列重點', '下一步' ])

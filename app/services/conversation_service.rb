@@ -44,6 +44,14 @@ class ConversationService
     @processed_update_repository.find(update_id)
   end
 
+  def begin_processing(update_id, chat_id, message_id)
+    @processed_update_repository.begin_processing(update_id, chat_id, message_id)
+  end
+
+  def clear_processing(update_id)
+    @processed_update_repository.clear_processing(update_id)
+  end
+
   def mark_processed(update_id, chat_id, message_id)
     @processed_update_repository.mark_processed(update_id, chat_id, message_id)
   end
