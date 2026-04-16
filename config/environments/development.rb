@@ -20,4 +20,6 @@ Rails.application.configure do
   config.action_dispatch.verbose_redirect_logs = true
   config.action_controller.raise_on_missing_callback_actions = true
   config.secret_key_base = ENV.fetch("SECRET_KEY_BASE", "telegram-codex-development-secret-key-base")
+
+  config.hosts << /[a-z0-9-]+\.ngrok-free\.app/
 end
