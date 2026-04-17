@@ -5,6 +5,7 @@ class AppConfig
   Config = Struct.new(
     :allowed_telegram_user_ids,
     :base_url,
+    :media_group_wait_ms,
     :port,
     :rate_limit_max_messages,
     :rate_limit_window_ms,
@@ -33,6 +34,7 @@ class AppConfig
       Config.new(
         allowed_telegram_user_ids: allowed_telegram_user_ids,
         base_url: fetch_url("BASE_URL"),
+        media_group_wait_ms: fetch_integer("MEDIA_GROUP_WAIT_MS", default: 1200),
         port: fetch_integer("PORT", default: 3000),
         rate_limit_max_messages: fetch_integer("RATE_LIMIT_MAX_MESSAGES", default: 5),
         rate_limit_window_ms: fetch_integer("RATE_LIMIT_WINDOW_MS", default: 10_000),

@@ -48,6 +48,7 @@ RSpec.describe ConversationService do
         AppConfig::Config.new(
           allowed_telegram_user_ids: [],
           base_url: 'https://example.com',
+          media_group_wait_ms: 1200,
           port: 3000,
           rate_limit_max_messages: 5,
           rate_limit_window_ms: 10_000,

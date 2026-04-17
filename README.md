@@ -281,6 +281,7 @@ SQLite 而家主要得兩張表：
 | `ALLOWED_TELEGRAM_USER_IDS` | 限定可用 Telegram user id，逗號分隔 | 空 |
 | `SQLITE_DB_PATH` | SQLite database path | `./data/app.db` |
 | `SESSION_TTL_DAYS` | session 過期日數 | `7` |
+| `MEDIA_GROUP_WAIT_MS` | Telegram 相簿多圖聚合等待時間 | `1200` |
 | `RATE_LIMIT_WINDOW_MS` | rate limit window | `10000` |
 | `RATE_LIMIT_MAX_MESSAGES` | window 內最多幾多訊息 | `5` |
 
@@ -502,6 +503,7 @@ dokku config:set telegram-codex \
 dokku config:set telegram-codex \
   ALLOWED_TELEGRAM_USER_IDS=123456789,987654321 \
   SESSION_TTL_DAYS=7 \
+  MEDIA_GROUP_WAIT_MS=1200 \
   RATE_LIMIT_WINDOW_MS=10000 \
   RATE_LIMIT_MAX_MESSAGES=5
 ```

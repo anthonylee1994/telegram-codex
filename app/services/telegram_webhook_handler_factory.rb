@@ -5,7 +5,7 @@ class TelegramWebhookHandlerFactory
     telegram_client = TelegramClient.new
     rate_limiter = ChatRateLimiter.instance
     telegram_update_parser = TelegramUpdateParser.new
-    media_group_aggregator = MediaGroupAggregator.new
+    media_group_aggregator = MediaGroupAggregator.new(wait_duration_seconds: config.media_group_wait_ms / 1000.0)
     processed_update_flow = ProcessedUpdateFlow.new(conversation_service: conversation_service)
     reply_generation_flow = ReplyGenerationFlow.new(
       conversation_service: conversation_service,
