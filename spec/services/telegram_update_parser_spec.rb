@@ -23,12 +23,14 @@ RSpec.describe TelegramUpdateParser do
     expect(parsed).to have_attributes(
       callback_query_id: nil,
       chat_id: '3',
-      image_file_id: nil,
+      image_file_ids: [],
+      media_group_id: nil,
       message_id: 2,
       text: 'hello',
       user_id: '234392020',
       update_id: 1
     )
+    expect(parsed.image_file_id).to be_nil
     expect(parsed.inline_callback?).to eq(false)
   end
 
@@ -62,11 +64,54 @@ RSpec.describe TelegramUpdateParser do
     expect(parsed).to have_attributes(
       callback_query_id: nil,
       chat_id: '3',
-      image_file_id: 'large-file',
+      image_file_ids: [ 'large-file' ],
+      media_group_id: nil,
       message_id: 2,
       text: '睇下呢張圖',
       user_id: '234392020',
       update_id: 1
+    )
+    expect(parsed.image_file_id).to eq('large-file')
+    expect(parsed.inline_callback?).to eq(false)
+  end
+
+  it 'parses Telegram album message and keeps the media group id' do
+    parsed = parser.parse_incoming_telegram_message(
+      {
+        'update_id' => 11,
+        'message' => {
+          'from' => {
+            'id' => 234_392_020
+          },
+          'media_group_id' => 'album-1',
+          'message_id' => 12,
+          'caption' => '一齊睇',
+          'photo' => [
+            {
+              'file_id' => 'album-small',
+              'file_size' => 100
+            },
+            {
+              'file_id' => 'album-large',
+              'file_size' => 200
+            }
+          ],
+          'chat' => {
+            'id' => 3
+          }
+        }
+      }
+    )
+
+    expect(parsed).to have_attributes(
+      callback_query_id: nil,
+      chat_id: '3',
+      image_file_ids: [ 'album-large' ],
+      media_group_id: 'album-1',
+      message_id: 12,
+      text: '一齊睇',
+      user_id: '234392020',
+      update_id: 11
     )
     expect(parsed.inline_callback?).to eq(false)
   end
@@ -94,7 +139,8 @@ RSpec.describe TelegramUpdateParser do
     expect(parsed).to have_attributes(
       callback_query_id: 'callback-1',
       chat_id: '3',
-      image_file_id: nil,
+      image_file_ids: [],
+      media_group_id: nil,
       message_id: 7,
       text: '再濃縮',
       user_id: '234392020',

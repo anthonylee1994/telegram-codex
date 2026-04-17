@@ -11,12 +11,12 @@ class ReplyGenerationFlow
 
     begin
       reply = @telegram_client.with_typing_status(message.chat_id) do
-        image_file_path = download_image_if_needed(message)
+        image_file_paths = download_images_if_needed(message)
 
         begin
-          build_reply(message, image_file_path)
+          build_reply(message, image_file_paths)
         ensure
-          cleanup_downloaded_image(image_file_path)
+          cleanup_downloaded_images(image_file_paths)
         end
       end
 
@@ -39,22 +39,24 @@ class ReplyGenerationFlow
 
   private
 
-  def build_reply(message, image_file_path)
-    generated_reply = @conversation_service.generate_reply(message, image_file_path: image_file_path)
+  def build_reply(message, image_file_paths)
+    generated_reply = @conversation_service.generate_reply(message, image_file_paths: image_file_paths)
     suggested_replies = @conversation_service.generate_suggested_replies(generated_reply.fetch(:conversation_state))
 
     generated_reply.merge(suggested_replies: suggested_replies)
   end
 
-  def download_image_if_needed(message)
-    return nil if message.image_file_id.blank?
+  def download_images_if_needed(message)
+    return [] if message.image_file_ids.empty?
 
-    @telegram_client.download_file_to_temp(message.image_file_id)
+    message.image_file_ids.map do |image_file_id|
+      @telegram_client.download_file_to_temp(image_file_id)
+    end
   end
 
-  def cleanup_downloaded_image(image_file_path)
-    return if image_file_path.blank?
-
-    FileUtils.rm_rf(File.dirname(image_file_path))
+  def cleanup_downloaded_images(image_file_paths)
+    Array(image_file_paths).map { |image_file_path| File.dirname(image_file_path) }.uniq.each do |directory_path|
+      FileUtils.rm_rf(directory_path)
+    end
   end
 end

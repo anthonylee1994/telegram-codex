@@ -13,16 +13,29 @@ class TelegramWebhookHandler
 
   def initialize(
     telegram_update_parser: TelegramUpdateParser.new,
+    media_group_aggregator: MediaGroupAggregator.new,
     decision_resolver:,
     action_executor:
   )
     @telegram_update_parser = telegram_update_parser
+    @media_group_aggregator = media_group_aggregator
     @decision_resolver = decision_resolver
     @action_executor = action_executor
   end
 
   def handle(update)
     message = @telegram_update_parser.parse_incoming_telegram_message(update)
+    message = @media_group_aggregator.call(message) do |aggregated_message|
+      process_message(aggregated_message, update: update)
+    end
+    return if message.equal?(MediaGroupAggregator::DEFERRED)
+
+    process_message(message, update: update)
+  end
+
+  private
+
+  def process_message(message, update:)
     decision = @decision_resolver.call(message)
     @action_executor.call(decision, update: update)
   end

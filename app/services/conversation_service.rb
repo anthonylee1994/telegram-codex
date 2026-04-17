@@ -68,7 +68,7 @@ class ConversationService
     @chat_session_repository.reset(chat_id)
   end
 
-  def generate_reply(message, image_file_path: nil)
+  def generate_reply(message, image_file_paths: [])
     prune_processed_updates_if_needed
     session = @chat_session_repository.find_active(message.chat_id)
 
@@ -76,7 +76,7 @@ class ConversationService
       chat_id: message.chat_id,
       text: message.text,
       conversation_state: session&.last_response_id,
-      image_file_path: image_file_path
+      image_file_paths: image_file_paths
     )
 
     Rails.logger.info("Generated assistant reply chat_id=#{message.chat_id}")

@@ -15,12 +15,12 @@ class CodexCliClient
     @prompt_builder = prompt_builder
   end
 
-  def generate_reply(chat_id:, text:, conversation_state:, image_file_path:)
+  def generate_reply(chat_id:, text:, conversation_state:, image_file_paths:)
     transcript = CodexTranscript.from_conversation_state(conversation_state)
-    user_message = build_user_message(text, image_file_path)
+    user_message = build_user_message(text, image_file_paths)
     next_transcript = transcript.append("user", user_message)
-    prompt = @prompt_builder.build_reply_prompt(next_transcript, has_image: image_file_path.present?)
-    raw_reply = execute_prompt(prompt, image_file_path)
+    prompt = @prompt_builder.build_reply_prompt(next_transcript, has_image: image_file_paths.present?)
+    raw_reply = execute_prompt(prompt, image_file_paths)
     reply_text = @reply_parser.parse_reply_text(raw_reply)
     updated_transcript = next_transcript.append("assistant", reply_text)
 
@@ -41,14 +41,14 @@ class CodexCliClient
 
   private
 
-  def build_user_message(text, image_file_path)
+  def build_user_message(text, image_file_paths)
     return text if text.present?
-    return "請描述呢張圖，並按我需要幫我分析。" if image_file_path.present?
+    return "請描述呢啲圖，並按我需要幫我分析。" if Array(image_file_paths).any?
 
     ""
   end
 
-  def execute_prompt(prompt, image_file_path = nil)
-    @exec_runner.run(prompt: prompt, image_file_path: image_file_path)
+  def execute_prompt(prompt, image_file_paths = [])
+    @exec_runner.run(prompt: prompt, image_file_paths: image_file_paths)
   end
 end

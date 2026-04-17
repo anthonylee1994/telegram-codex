@@ -46,8 +46,9 @@ class TelegramUpdateParser
       update: update,
       callback_query_id: nil,
       chat_id: message.dig("chat", "id"),
-      image_file_id: largest_photo_file_id(message),
+      image_file_ids: build_image_file_ids(message),
       inline_callback: false,
+      media_group_id: message["media_group_id"].to_s.presence,
       message_id: message["message_id"],
       text: message["text"].presence || message["caption"].to_s.strip,
       user_id: message.dig("from", "id")
@@ -61,20 +62,22 @@ class TelegramUpdateParser
       update: update,
       callback_query_id: callback_query["id"],
       chat_id: callback_query.dig("message", "chat", "id"),
-      image_file_id: nil,
+      image_file_ids: [],
       inline_callback: true,
+      media_group_id: nil,
       message_id: callback_query.dig("message", "message_id"),
       text: callback_query["data"].to_s.strip,
       user_id: callback_query.dig("from", "id")
     )
   end
 
-  def build_inbound_message(update:, callback_query_id:, chat_id:, image_file_id:, inline_callback:, message_id:, text:, user_id:)
+  def build_inbound_message(update:, callback_query_id:, chat_id:, image_file_ids:, inline_callback:, media_group_id:, message_id:, text:, user_id:)
     InboundTelegramMessage.new(
       callback_query_id: callback_query_id&.to_s,
       chat_id: chat_id.to_s,
-      image_file_id: image_file_id,
+      image_file_ids: image_file_ids,
       inline_callback: inline_callback,
+      media_group_id: media_group_id,
       message_id: message_id,
       text: text,
       user_id: user_id.to_s,
@@ -82,8 +85,8 @@ class TelegramUpdateParser
     )
   end
 
-  def largest_photo_file_id(message)
+  def build_image_file_ids(message)
     largest_photo = Array(message["photo"]).max_by { |photo| photo["file_size"].to_i }
-    largest_photo&.fetch("file_id", nil)
+    largest_photo&.then { |photo| [ photo.fetch("file_id", nil) ] }.to_a
   end
 end

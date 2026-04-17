@@ -8,11 +8,26 @@ class ProcessedUpdateFlow
   end
 
   def begin_processing(message)
-    @conversation_service.begin_processing(message.update_id, message.chat_id, message.message_id)
+    claimed_update_ids = []
+
+    message.processing_updates.each do |processing_update|
+      claimed = @conversation_service.begin_processing(
+        processing_update.fetch(:update_id),
+        message.chat_id,
+        processing_update.fetch(:message_id)
+      )
+      return rollback_processing_claims(claimed_update_ids) unless claimed
+
+      claimed_update_ids << processing_update.fetch(:update_id)
+    end
+
+    true
   end
 
   def clear_processing(message)
-    @conversation_service.clear_processing(message.update_id)
+    message.processing_updates.each do |processing_update|
+      @conversation_service.clear_processing(processing_update.fetch(:update_id))
+    end
   end
 
   def duplicate?(processed_update)
@@ -34,10 +49,24 @@ class ProcessedUpdateFlow
   end
 
   def mark_processed(message)
-    @conversation_service.mark_processed(message.update_id, message.chat_id, message.message_id)
+    message.processing_updates.each do |processing_update|
+      @conversation_service.mark_processed(
+        processing_update.fetch(:update_id),
+        message.chat_id,
+        processing_update.fetch(:message_id)
+      )
+    end
   end
 
   private
+
+  def rollback_processing_claims(claimed_update_ids)
+    claimed_update_ids.each do |update_id|
+      @conversation_service.clear_processing(update_id)
+    end
+
+    false
+  end
 
   def parse_suggested_replies(raw_suggested_replies)
     return [] if raw_suggested_replies.blank?

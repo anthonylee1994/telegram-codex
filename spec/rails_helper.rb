@@ -32,5 +32,6 @@ RSpec.configure do |config|
   config.before do
     AppConfig.reset!
     ChatRateLimiter.instance.reset!
+    MediaGroupAggregator.reset!
   end
 end

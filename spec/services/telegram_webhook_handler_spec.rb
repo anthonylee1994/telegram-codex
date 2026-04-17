@@ -22,6 +22,57 @@ RSpec.describe TelegramWebhookHandler do
       }
     }
   end
+  let(:album_update_1) do
+    {
+      'update_id' => 21,
+      'message' => {
+        'from' => {
+          'id' => 234_392_020
+        },
+        'media_group_id' => 'album-1',
+        'message_id' => 22,
+        'caption' => '幫我比較下',
+        'photo' => [
+          {
+            'file_id' => 'album-1-small',
+            'file_size' => 100
+          },
+          {
+            'file_id' => 'album-1-large',
+            'file_size' => 200
+          }
+        ],
+        'chat' => {
+          'id' => 3
+        }
+      }
+    }
+  end
+  let(:album_update_2) do
+    {
+      'update_id' => 22,
+      'message' => {
+        'from' => {
+          'id' => 234_392_020
+        },
+        'media_group_id' => 'album-1',
+        'message_id' => 23,
+        'photo' => [
+          {
+            'file_id' => 'album-2-small',
+            'file_size' => 100
+          },
+          {
+            'file_id' => 'album-2-large',
+            'file_size' => 300
+          }
+        ],
+        'chat' => {
+          'id' => 3
+        }
+      }
+    }
+  end
   let(:callback_update) do
     {
       'update_id' => 9,
@@ -186,8 +237,38 @@ RSpec.describe TelegramWebhookHandler do
       chat_id: '3',
       text: '再濃縮',
       conversation_state: nil,
-      image_file_path: nil
+      image_file_paths: []
     )
+  end
+
+  it 'aggregates album updates into one multi-image reply' do
+    allow(reply_client).to receive(:generate_reply).and_return(
+      conversation_state: 'state-album',
+      text: 'album reply'
+    )
+    allow(reply_client).to receive(:generate_suggested_replies).and_return([ '再比多啲重點', '逐張分析', '講結論' ])
+    allow(telegram_client).to receive(:download_file_to_temp) do |file_id|
+      "/tmp/#{file_id}.jpg"
+    end
+    allow(telegram_client).to receive(:with_typing_status).and_yield
+    allow(telegram_client).to receive(:send_message)
+
+    handler.handle(album_update_1)
+    handler.handle(album_update_2)
+    sleep(0.08)
+
+    expect(reply_client).to have_received(:generate_reply).once.with(
+      chat_id: '3',
+      text: '幫我比較下',
+      conversation_state: nil,
+      image_file_paths: [ '/tmp/album-1-large.jpg', '/tmp/album-2-large.jpg' ]
+    )
+    expect(telegram_client).to have_received(:send_message).with(
+      '3',
+      'album reply',
+      suggested_replies: [ '再比多啲重點', '逐張分析', '講結論' ]
+    ).once
+    expect(ProcessedUpdate.find_by(update_id: 21)&.sent_at).to be_present
   end
 
   it 'resets session and replies with start message for /start' do

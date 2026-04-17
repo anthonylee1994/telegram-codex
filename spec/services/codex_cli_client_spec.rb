@@ -12,7 +12,7 @@ RSpec.describe CodexCliClient do
       reply = client.generate_reply(
         chat_id: "chat-1",
         conversation_state: nil,
-        image_file_path: nil,
+        image_file_paths: [],
         text: "hello"
       )
 
@@ -27,7 +27,7 @@ RSpec.describe CodexCliClient do
       reply = client.generate_reply(
         chat_id: "chat-1",
         conversation_state: nil,
-        image_file_path: nil,
+        image_file_paths: [],
         text: "hello"
       )
 
@@ -42,7 +42,7 @@ RSpec.describe CodexCliClient do
       reply = client.generate_reply(
         chat_id: "chat-1",
         conversation_state: nil,
-        image_file_path: nil,
+        image_file_paths: [],
         text: "hello"
       )
 
@@ -79,5 +79,21 @@ RSpec.describe CodexCliClient do
       suggested_replies = client.generate_suggested_replies(conversation_state: "[]")
       expect(suggested_replies).to eq(described_class::DEFAULT_SUGGESTED_REPLIES)
     end
+  end
+
+  it "uses a plural image prompt when the request only contains images" do
+    allow(exec_runner).to receive(:run).and_return("圖像分析結果")
+
+    client.generate_reply(
+      chat_id: "chat-1",
+      conversation_state: nil,
+      image_file_paths: [ "/tmp/a.png", "/tmp/b.png" ],
+      text: ""
+    )
+
+    expect(exec_runner).to have_received(:run).with(
+      prompt: include("請描述呢啲圖"),
+      image_file_paths: [ "/tmp/a.png", "/tmp/b.png" ]
+    )
   end
 end

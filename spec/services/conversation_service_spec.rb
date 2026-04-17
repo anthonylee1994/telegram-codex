@@ -7,7 +7,7 @@ RSpec.describe ConversationService do
     InboundTelegramMessage.new(
       callback_query_id: nil,
       chat_id: 'chat-1',
-      image_file_id: nil,
+      image_file_ids: [],
       inline_callback: false,
       message_id: 10,
       text: 'hello',
@@ -34,7 +34,7 @@ RSpec.describe ConversationService do
         chat_id: 'chat-1',
         text: 'hello',
         conversation_state: 'state-old',
-        image_file_path: nil
+        image_file_paths: []
       )
     end
 
@@ -64,7 +64,7 @@ RSpec.describe ConversationService do
         chat_id: 'chat-1',
         text: 'hello',
         conversation_state: nil,
-        image_file_path: nil
+        image_file_paths: []
       )
     end
 
@@ -135,7 +135,7 @@ RSpec.describe ConversationService do
         InboundTelegramMessage.new(
           callback_query_id: nil,
           chat_id: 'chat-1',
-          image_file_id: nil,
+          image_file_ids: [],
           inline_callback: false,
           message_id: 11,
           text: 'hello again',

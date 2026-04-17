@@ -1,5 +1,6 @@
 module TelegramWebhookHandlerTestHelper
   def build_telegram_webhook_handler(reply_client:, telegram_client:, config:)
+    MediaGroupAggregator.reset!
     conversation_service = ConversationService.new(reply_client: reply_client)
     processed_update_flow = ProcessedUpdateFlow.new(conversation_service: conversation_service)
     reply_generation_flow = ReplyGenerationFlow.new(
@@ -27,6 +28,7 @@ module TelegramWebhookHandlerTestHelper
     [
       TelegramWebhookHandler.new(
         telegram_update_parser: TelegramUpdateParser.new,
+        media_group_aggregator: MediaGroupAggregator.new(wait_duration_seconds: 0.05),
         decision_resolver: decision_resolver,
         action_executor: action_executor
       ),
