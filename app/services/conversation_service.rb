@@ -83,10 +83,6 @@ class ConversationService
     result
   end
 
-  def generate_suggested_replies(conversation_state)
-    @reply_client.generate_suggested_replies(conversation_state: conversation_state)
-  end
-
   def system_prompt
     SYSTEM_PROMPT
   end

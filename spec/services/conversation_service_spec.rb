@@ -199,17 +199,6 @@ RSpec.describe ConversationService do
     end
   end
 
-  describe '#generate_suggested_replies' do
-    it 'delegates to the reply client' do
-      allow(reply_client).to receive(:generate_suggested_replies).and_return([ '再問多少少', '列重點', '下一步' ])
-
-      result = service.generate_suggested_replies('state-new')
-
-      expect(result).to eq([ '再問多少少', '列重點', '下一步' ])
-      expect(reply_client).to have_received(:generate_suggested_replies).with(conversation_state: 'state-new')
-    end
-  end
-
   def current_time_ms
     (Time.now.to_f * 1000).to_i
   end

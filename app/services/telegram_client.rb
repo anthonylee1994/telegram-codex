@@ -26,12 +26,13 @@ class TelegramClient
   end
 
   def send_message(chat_id, text, suggested_replies: [], remove_keyboard: false)
+    normalized_text, normalized_suggested_replies = normalize_outbound_reply(text, suggested_replies)
     params = {
       chat_id: chat_id,
-      text: format_telegram_message(text),
+      text: format_telegram_message(normalized_text),
       parse_mode: "HTML"
     }
-    reply_markup = build_reply_markup(suggested_replies, remove_keyboard: remove_keyboard)
+    reply_markup = build_reply_markup(normalized_suggested_replies, remove_keyboard: remove_keyboard)
     params[:reply_markup] = JSON.generate(reply_markup) if reply_markup.present?
     post_form("sendMessage", params)
   end
@@ -179,5 +180,42 @@ class TelegramClient
       resize_keyboard: true,
       one_time_keyboard: true
     }
+  end
+
+  def normalize_outbound_reply(text, suggested_replies)
+    payload = parse_structured_reply_payload(text)
+    return [ text.to_s, suggested_replies ] unless payload.is_a?(Hash)
+
+    normalized_text = payload["text"].to_s.strip
+    normalized_text = text.to_s if normalized_text.empty?
+
+    normalized_suggested_replies = Array(suggested_replies)
+    if normalized_suggested_replies.empty? && payload["suggested_replies"].is_a?(Array)
+      normalized_suggested_replies = payload["suggested_replies"]
+    end
+
+    [ normalized_text, normalized_suggested_replies ]
+  rescue JSON::ParserError
+    [ text.to_s, suggested_replies ]
+  end
+
+  def parse_structured_reply_payload(text)
+    normalized_text = text.to_s.strip
+    return nil if normalized_text.empty?
+
+    candidates = [
+      normalized_text,
+      normalized_text.sub(/\A```(?:json)?\s*/i, "").sub(/\s*```\z/, "").strip
+    ].uniq
+
+    candidates.each do |candidate|
+      payload = JSON.parse(candidate)
+      payload = JSON.parse(payload) if payload.is_a?(String)
+      return payload if payload.is_a?(Hash)
+    rescue JSON::ParserError
+      next
+    end
+
+    nil
   end
 end

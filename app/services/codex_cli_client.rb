@@ -20,23 +20,16 @@ class CodexCliClient
     user_message = build_user_message(text, image_file_paths)
     next_transcript = transcript.append("user", user_message)
     prompt = @prompt_builder.build_reply_prompt(next_transcript, has_image: image_file_paths.present?)
-    raw_reply = execute_prompt(prompt, image_file_paths)
-    reply_text = @reply_parser.parse_reply_text(raw_reply)
+    raw_reply = execute_prompt(prompt, image_file_paths, output_schema: reply_output_schema)
+    parsed_reply = @reply_parser.parse_reply(raw_reply)
+    reply_text = parsed_reply.fetch(:text)
     updated_transcript = next_transcript.append("assistant", reply_text)
 
     {
       conversation_state: updated_transcript.to_conversation_state,
+      suggested_replies: parsed_reply.fetch(:suggested_replies),
       text: reply_text
     }
-  end
-
-  def generate_suggested_replies(conversation_state:)
-    transcript = CodexTranscript.from_conversation_state(conversation_state)
-    prompt = @prompt_builder.build_suggested_replies_prompt(transcript)
-    raw_reply = execute_prompt(prompt)
-    @reply_parser.parse_suggested_replies(raw_reply)
-  rescue StandardError
-    DEFAULT_SUGGESTED_REPLIES
   end
 
   private
@@ -48,7 +41,30 @@ class CodexCliClient
     ""
   end
 
-  def execute_prompt(prompt, image_file_paths = [])
-    @exec_runner.run(prompt: prompt, image_file_paths: image_file_paths)
+  def execute_prompt(prompt, image_file_paths = [], output_schema: nil)
+    @exec_runner.run(prompt: prompt, image_file_paths: image_file_paths, output_schema: output_schema)
+  end
+
+  def reply_output_schema
+    {
+      type: "object",
+      additionalProperties: false,
+      required: [ "text", "suggested_replies" ],
+      properties: {
+        text: {
+          type: "string",
+          minLength: 1
+        },
+        suggested_replies: {
+          type: "array",
+          minItems: MAX_SUGGESTED_REPLIES,
+          maxItems: MAX_SUGGESTED_REPLIES,
+          items: {
+            type: "string",
+            minLength: 1
+          }
+        }
+      }
+    }
   end
 end

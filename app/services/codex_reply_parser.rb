@@ -6,29 +6,17 @@ class CodexReplyParser
     @max_suggested_replies = max_suggested_replies
   end
 
-  def parse_reply_text(raw_reply)
+  def parse_reply(raw_reply)
     payload = parse_reply_payload(raw_reply)
-    text = extract_reply_text(payload)
-    return normalize_reply_text(text) if text.present?
-
-    fallback_text = normalize_reply_text(raw_reply.to_s.strip)
-    raise "codex exec returned an empty reply" if fallback_text.empty?
-
-    fallback_text
+    {
+      suggested_replies: extract_suggested_replies(payload, raw_reply),
+      text: extract_reply_text(payload, raw_reply)
+    }
   rescue JSON::ParserError
-    fallback_text = normalize_reply_text(raw_reply.to_s.strip)
-    raise "codex exec returned an empty reply" if fallback_text.empty?
-
-    fallback_text
-  end
-
-  def parse_suggested_replies(raw_reply)
-    payload = parse_reply_payload(raw_reply)
-    extracted_replies = payload.is_a?(Array) ? payload : payload["suggested_replies"]
-
-    sanitize_suggested_replies(extracted_replies)
-  rescue JSON::ParserError
-    sanitize_suggested_replies(raw_reply)
+    {
+      suggested_replies: sanitize_suggested_replies(raw_reply),
+      text: fallback_reply_text(raw_reply)
+    }
   end
 
   private
@@ -84,22 +72,39 @@ class CodexReplyParser
     text[start_index..end_index]
   end
 
-  def extract_reply_text(payload)
-    return "" unless payload.is_a?(Hash)
+  def extract_reply_text(payload, raw_reply)
+    direct_text = payload.is_a?(Hash) ? payload["text"].to_s.strip : ""
+    return normalize_reply_text(direct_text) if direct_text.present?
 
-    direct_text = payload["text"].to_s.strip
-    return direct_text if direct_text.present?
+    fallback_text = payload.is_a?(Hash) ? longest_string_value(payload) : ""
+    return normalize_reply_text(fallback_text) if fallback_text.present?
 
-    fallback_text = payload.values.filter_map do |value|
+    fallback_reply_text(raw_reply)
+  end
+
+  def extract_suggested_replies(payload, raw_reply)
+    extracted_replies = payload.is_a?(Array) ? payload : payload["suggested_replies"]
+    sanitize_suggested_replies(extracted_replies)
+  rescue StandardError
+    sanitize_suggested_replies(raw_reply)
+  end
+
+  def longest_string_value(payload)
+    payload.values.filter_map do |value|
       next unless value.is_a?(String)
 
       normalized_value = value.strip
       next if normalized_value.empty?
 
       normalized_value
-    end.max_by(&:length)
+    end.max_by(&:length).to_s.strip
+  end
 
-    fallback_text.to_s.strip
+  def fallback_reply_text(raw_reply)
+    fallback_text = normalize_reply_text(raw_reply.to_s.strip)
+    raise "codex exec returned an empty reply" if fallback_text.empty?
+
+    fallback_text
   end
 
   def sanitize_suggested_replies(suggested_replies)

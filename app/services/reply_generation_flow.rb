@@ -40,10 +40,7 @@ class ReplyGenerationFlow
   private
 
   def build_reply(message, image_file_paths)
-    generated_reply = @conversation_service.generate_reply(message, image_file_paths: image_file_paths)
-    suggested_replies = @conversation_service.generate_suggested_replies(generated_reply.fetch(:conversation_state))
-
-    generated_reply.merge(suggested_replies: suggested_replies)
+    @conversation_service.generate_reply(message, image_file_paths: image_file_paths)
   end
 
   def download_images_if_needed(message)

@@ -7,7 +7,9 @@ RSpec.describe CodexCliClient do
 
   describe "#generate_reply" do
     it "returns plain assistant text directly" do
-      allow(exec_runner).to receive(:run).and_return("第一段\n\n第二段")
+      allow(exec_runner).to receive(:run).and_return(
+        '{"text":"第一段\\n\\n第二段","suggested_replies":["講多少少","列個重點","下一步呢？"]}'
+      )
 
       reply = client.generate_reply(
         chat_id: "chat-1",
@@ -16,7 +18,10 @@ RSpec.describe CodexCliClient do
         text: "hello"
       )
 
-      expect(reply.fetch(:text)).to eq("第一段\n\n第二段")
+      expect(reply).to include(
+        text: "第一段\n\n第二段",
+        suggested_replies: [ "講多少少", "列個重點", "下一步呢？" ]
+      )
     end
 
     it "extracts text from json replies when the model still outputs json" do
@@ -31,7 +36,10 @@ RSpec.describe CodexCliClient do
         text: "hello"
       )
 
-      expect(reply.fetch(:text)).to eq("第一段\n第二段")
+      expect(reply).to include(
+        text: "第一段\n第二段",
+        suggested_replies: [ "講多少少", "列個重點", "下一步呢？" ]
+      )
     end
 
     it "falls back to the longest string field when text is missing" do
@@ -46,38 +54,10 @@ RSpec.describe CodexCliClient do
         text: "hello"
       )
 
-      expect(reply.fetch(:text)).to eq("第一點\n第二點")
-    end
-  end
-
-  describe "#generate_suggested_replies" do
-    it "parses a strict json array" do
-      allow(exec_runner).to receive(:run).and_return(
-        '["再濃縮","再直接啲","加例子"]'
+      expect(reply).to include(
+        text: "第一點\n第二點",
+        suggested_replies: [ "幫我再縮短", "整溫和版", "整強硬版" ]
       )
-
-      suggested_replies = client.generate_suggested_replies(conversation_state: "[]")
-      expect(suggested_replies).to eq([ "再濃縮", "再直接啲", "加例子" ])
-    end
-
-    it "extracts suggested replies from json objects or fenced output" do
-      allow(exec_runner).to receive(:run).and_return(
-        <<~TEXT
-          ```json
-          {"suggested_replies":["幫我再縮短","整溫和版","整強硬版"]}
-          ```
-        TEXT
-      )
-
-      suggested_replies = client.generate_suggested_replies(conversation_state: "[]")
-      expect(suggested_replies).to eq([ "幫我再縮短", "整溫和版", "整強硬版" ])
-    end
-
-    it "falls back to defaults when parsing fails" do
-      allow(exec_runner).to receive(:run).and_raise(StandardError, "boom")
-
-      suggested_replies = client.generate_suggested_replies(conversation_state: "[]")
-      expect(suggested_replies).to eq(described_class::DEFAULT_SUGGESTED_REPLIES)
     end
   end
 
@@ -93,7 +73,8 @@ RSpec.describe CodexCliClient do
 
     expect(exec_runner).to have_received(:run).with(
       prompt: include("請描述呢啲圖"),
-      image_file_paths: [ "/tmp/a.png", "/tmp/b.png" ]
+      image_file_paths: [ "/tmp/a.png", "/tmp/b.png" ],
+      output_schema: kind_of(Hash)
     )
   end
 end

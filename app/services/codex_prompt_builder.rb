@@ -1,13 +1,10 @@
 class CodexPromptBuilder
   REPLY_PROMPT_INSTRUCTIONS = [
-    "只輸出助手畀用戶嘅主答案內容。",
+    "只可以輸出一個 JSON object。",
+    "格式一定要包含 `text` 同 `suggested_replies` 兩個欄位。",
+    "格式例子：{\"text\":\"主答案\",\"suggested_replies\":[\"建議回覆 1\",\"建議回覆 2\",\"建議回覆 3\"]}。",
     "除非用戶明確要求其他語言，否則一律用廣東話。",
-    "唔好輸出 JSON。"
-  ].freeze
-  SUGGESTED_REPLIES_PROMPT_INSTRUCTIONS = [
-    "以下係最新對話紀錄，最後一條 assistant 訊息就係啱啱已經發咗畀用戶嘅主答案。",
-    "只可以輸出嚴格 JSON array。",
-    '格式一定要係：["建議回覆 1","建議回覆 2","建議回覆 3"]。',
+    "text 只可以係助手畀用戶嘅主答案內容。",
     "每個建議回覆都要係用戶下一步可以直接撳嘅簡短廣東話跟進句子。",
     "建議回覆必須係純文字、實用、唔可以留空，而且最多 20 個中文字。",
     "一定要回傳啱啱好 3 個建議回覆。",
@@ -19,10 +16,6 @@ class CodexPromptBuilder
     prefix_sections << "最新一條用戶訊息有附圖。" if has_image
 
     build_prompt(transcript, REPLY_PROMPT_INSTRUCTIONS, prefix_sections: prefix_sections)
-  end
-
-  def build_suggested_replies_prompt(transcript)
-    build_prompt(transcript, SUGGESTED_REPLIES_PROMPT_INSTRUCTIONS)
   end
 
   private

@@ -118,9 +118,9 @@ RSpec.describe TelegramWebhookHandler do
 
     allow(reply_client).to receive(:generate_reply).and_return(
       conversation_state: 'state-1',
+      suggested_replies: suggested_replies,
       text: 'reply-1'
     )
-    allow(reply_client).to receive(:generate_suggested_replies).and_return(suggested_replies)
     allow(telegram_client).to receive(:with_typing_status).and_yield
     allow(telegram_client).to receive(:send_message).with('3', 'reply-1', suggested_replies: suggested_replies) do
       attempt += 1
@@ -131,7 +131,6 @@ RSpec.describe TelegramWebhookHandler do
     expect { handler.handle(update) }.not_to raise_error
 
     expect(reply_client).to have_received(:generate_reply).once
-    expect(reply_client).to have_received(:generate_suggested_replies).once
     expect(telegram_client).to have_received(:send_message).with('3', 'reply-1', suggested_replies: suggested_replies).twice
     expect(ChatSession.find_by(chat_id: '3')&.last_response_id).to eq('state-1')
     expect(ProcessedUpdate.find_by(update_id: 1)&.reply_text).to eq('reply-1')
@@ -157,12 +156,9 @@ RSpec.describe TelegramWebhookHandler do
 
     allow(reply_client).to receive(:generate_reply).and_return(
       conversation_state: 'state-1',
+      suggested_replies: suggested_replies,
       text: 'reply-1'
     )
-    allow(reply_client).to receive(:generate_suggested_replies) do
-      call_order << :generate_suggested_replies
-      suggested_replies
-    end
     allow(telegram_client).to receive(:with_typing_status).and_yield
     allow(telegram_client).to receive(:send_message) do |chat_id, text, suggested_replies: []|
       call_order << [ :send_message, chat_id, text, suggested_replies ]
@@ -170,10 +166,7 @@ RSpec.describe TelegramWebhookHandler do
 
     handler.handle(update)
 
-    expect(call_order).to eq([
-      :generate_suggested_replies,
-      [ :send_message, '3', 'reply-1', suggested_replies ]
-    ])
+    expect(call_order).to eq([ [ :send_message, '3', 'reply-1', suggested_replies ] ])
   end
 
   it 'does not generate or send twice when the same update re-enters while still inflight' do
@@ -187,10 +180,10 @@ RSpec.describe TelegramWebhookHandler do
 
       {
         conversation_state: 'state-1',
+        suggested_replies: [ '下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？' ],
         text: 'reply-1'
       }
     end
-    allow(reply_client).to receive(:generate_suggested_replies).and_return([ '下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？' ])
     allow(telegram_client).to receive(:with_typing_status).and_yield
     allow(telegram_client).to receive(:send_message)
 
@@ -204,12 +197,8 @@ RSpec.describe TelegramWebhookHandler do
     ).once
   end
 
-  it 'sends a generic error when suggestions generation fails before sending' do
-    allow(reply_client).to receive(:generate_reply).and_return(
-      conversation_state: 'state-1',
-      text: 'reply-1'
-    )
-    allow(reply_client).to receive(:generate_suggested_replies).and_raise(StandardError, 'slow fail')
+  it 'sends a generic error when reply generation fails before sending' do
+    allow(reply_client).to receive(:generate_reply).and_raise(StandardError, 'slow fail')
     allow(telegram_client).to receive(:with_typing_status).and_yield
     allow(telegram_client).to receive(:send_message)
 
@@ -221,9 +210,9 @@ RSpec.describe TelegramWebhookHandler do
   it 'answers callback queries and treats the button text as a new message' do
     allow(reply_client).to receive(:generate_reply).and_return(
       conversation_state: 'state-2',
+      suggested_replies: [ '再直接啲', '舉個例', '改短啲' ],
       text: 'reply-from-button'
     )
-    allow(reply_client).to receive(:generate_suggested_replies).and_return([ '再直接啲', '舉個例', '改短啲' ])
     allow(telegram_client).to receive(:answer_callback_query)
     allow(telegram_client).to receive(:clear_message_reply_markup)
     allow(telegram_client).to receive(:with_typing_status).and_yield
@@ -244,9 +233,9 @@ RSpec.describe TelegramWebhookHandler do
   it 'aggregates album updates into one multi-image reply' do
     allow(reply_client).to receive(:generate_reply).and_return(
       conversation_state: 'state-album',
+      suggested_replies: [ '再比多啲重點', '逐張分析', '講結論' ],
       text: 'album reply'
     )
-    allow(reply_client).to receive(:generate_suggested_replies).and_return([ '再比多啲重點', '逐張分析', '講結論' ])
     allow(telegram_client).to receive(:download_file_to_temp) do |file_id|
       "/tmp/#{file_id}.jpg"
     end

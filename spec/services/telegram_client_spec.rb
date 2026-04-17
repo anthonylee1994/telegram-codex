@@ -32,4 +32,36 @@ RSpec.describe TelegramClient do
       expect(call_order.first(2)).to eq([ :typing, :yield ])
     end
   end
+
+  describe "#send_message" do
+    it "extracts the text field when structured json leaks into the outbound message" do
+      client = described_class.new(bot_token: "token")
+
+      allow(client).to receive(:post_form)
+
+      client.send_message(
+        "chat-1",
+        '{"text":"淨係出呢句","suggested_replies":["一","二","三"]}',
+        suggested_replies: [ "一", "二", "三" ]
+      )
+
+      expect(client).to have_received(:post_form).with(
+        "sendMessage",
+        hash_including(
+          chat_id: "chat-1",
+          text: "淨係出呢句",
+          parse_mode: "HTML",
+          reply_markup: JSON.generate(
+            keyboard: [
+              [ { text: "一" } ],
+              [ { text: "二" } ],
+              [ { text: "三" } ]
+            ],
+            resize_keyboard: true,
+            one_time_keyboard: true
+          )
+        )
+      )
+    end
+  end
 end
