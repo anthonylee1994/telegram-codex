@@ -15,9 +15,9 @@ class CodexCliClient
     @prompt_builder = prompt_builder
   end
 
-  def generate_reply(chat_id:, text:, conversation_state:, image_file_paths:)
+  def generate_reply(chat_id:, text:, conversation_state:, image_file_paths:, reply_to_text: nil)
     transcript = CodexTranscript.from_conversation_state(conversation_state)
-    user_message = build_user_message(text, image_file_paths)
+    user_message = build_user_message(text, image_file_paths, reply_to_text: reply_to_text)
     next_transcript = transcript.append("user", user_message)
     prompt = @prompt_builder.build_reply_prompt(
       next_transcript,
@@ -38,13 +38,17 @@ class CodexCliClient
 
   private
 
-  def build_user_message(text, image_file_paths)
+  def build_user_message(text, image_file_paths, reply_to_text: nil)
     image_count = Array(image_file_paths).length
+    base_text = text
+    base_text = build_unprompted_image_message(image_count) if base_text.blank? && image_count.positive?
+    return base_text unless reply_to_text.present?
 
-    return text if text.present?
-    return build_unprompted_image_message(image_count) if image_count.positive?
-
-    ""
+    [
+      "你而家係回覆緊之前一則訊息。",
+      "被引用訊息：#{reply_to_text}",
+      "你今次嘅新訊息：#{base_text.presence || '（冇文字）'}"
+    ].join("\n")
   end
 
   def build_unprompted_image_message(image_count)

@@ -143,6 +143,133 @@ RSpec.describe TelegramUpdateParser do
     )
   end
 
+  it 'parses replied text context from Telegram message replies' do
+    parsed = parser.parse_incoming_telegram_message(
+      {
+        'update_id' => 14,
+        'message' => {
+          'from' => {
+            'id' => 234_392_020
+          },
+          'message_id' => 15,
+          'text' => '咁應該點做？',
+          'reply_to_message' => {
+            'message_id' => 9,
+            'text' => '之前建議你先檢查 webhook secret。'
+          },
+          'chat' => {
+            'id' => 3
+          }
+        }
+      }
+    )
+
+    expect(parsed).to have_attributes(
+      message_id: 15,
+      reply_to_message_id: 9,
+      reply_to_text: '之前建議你先檢查 webhook secret。',
+      text: '咁應該點做？'
+    )
+  end
+
+  it 'parses replied media context when the replied message has no text' do
+    parsed = parser.parse_incoming_telegram_message(
+      {
+        'update_id' => 15,
+        'message' => {
+          'from' => {
+            'id' => 234_392_020
+          },
+          'message_id' => 16,
+          'text' => '幫我睇返呢張',
+          'reply_to_message' => {
+            'message_id' => 10,
+            'photo' => [
+              {
+                'file_id' => 'small-file',
+                'file_size' => 100
+              }
+            ]
+          },
+          'chat' => {
+            'id' => 3
+          }
+        }
+      }
+    )
+
+    expect(parsed).to have_attributes(
+      reply_to_message_id: 10,
+      reply_to_image_file_ids: ['small-file'],
+      reply_to_text: '用戶引用咗一張相。'
+    )
+  end
+
+  it 'parses replied pdf context for Telegram message replies' do
+    parsed = parser.parse_incoming_telegram_message(
+      {
+        'update_id' => 16,
+        'message' => {
+          'from' => {
+            'id' => 234_392_020
+          },
+          'message_id' => 17,
+          'text' => '幫我總結返',
+          'reply_to_message' => {
+            'message_id' => 11,
+            'document' => {
+              'file_id' => 'reply-pdf-file',
+              'file_name' => 'report.pdf',
+              'mime_type' => 'application/pdf'
+            }
+          },
+          'chat' => {
+            'id' => 3
+          }
+        }
+      }
+    )
+
+    expect(parsed).to have_attributes(
+      reply_to_message_id: 11,
+      reply_to_pdf_file_id: 'reply-pdf-file',
+      reply_to_text: '用戶引用咗一份 PDF。'
+    )
+  end
+
+  it 'parses replied text document context for Telegram message replies' do
+    parsed = parser.parse_incoming_telegram_message(
+      {
+        'update_id' => 17,
+        'message' => {
+          'from' => {
+            'id' => 234_392_020
+          },
+          'message_id' => 18,
+          'text' => '就住呢份寫摘要',
+          'reply_to_message' => {
+            'message_id' => 12,
+            'document' => {
+              'file_id' => 'reply-doc-file',
+              'file_name' => 'notes.md',
+              'mime_type' => 'text/markdown'
+            }
+          },
+          'chat' => {
+            'id' => 3
+          }
+        }
+      }
+    )
+
+    expect(parsed).to have_attributes(
+      reply_to_message_id: 12,
+      reply_to_text_document_file_id: 'reply-doc-file',
+      reply_to_text_document_name: 'notes.md',
+      reply_to_text: '用戶引用咗一份文字檔。'
+    )
+  end
+
   it 'parses pdf documents and keeps the file id for later rasterization' do
     parsed = parser.parse_incoming_telegram_message(
       {

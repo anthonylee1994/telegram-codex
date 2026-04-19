@@ -152,4 +152,32 @@ RSpec.describe ReplyGenerationJob do
       output_schema: kind_of(Hash)
     )
   end
+
+  it "downloads a quoted pdf document and sends it to codex as images" do
+    quoted_pdf_message = InboundTelegramMessage.new(
+      chat_id: "3",
+      image_file_ids: [],
+      message_id: 2,
+      reply_to_message_id: 1,
+      reply_to_pdf_file_id: "quoted-pdf-file",
+      reply_to_text: "用戶引用咗一份 PDF。",
+      text: "幫我總結返",
+      user_id: "234392020",
+      update_id: 1
+    )
+    allow(telegram_client).to receive(:download_file_to_temp).with("quoted-pdf-file").and_return("/tmp/quoted.pdf")
+    allow(pdf_page_rasterizer).to receive(:rasterize).with("/tmp/quoted.pdf").and_return(["/tmp/quoted-page-1.png"])
+    allow(exec_runner).to receive(:run).and_return(
+      '{"text":"reply-1","suggested_replies":["下一步可以點做？","幫我列重點。","可唔可以講詳細啲？"]}'
+    )
+    allow(telegram_client).to receive(:send_message)
+
+    described_class.perform_now(quoted_pdf_message.to_job_payload)
+
+    expect(exec_runner).to have_received(:run).with(
+      prompt: include("被引用訊息：用戶引用咗一份 PDF。"),
+      image_file_paths: ["/tmp/quoted-page-1.png"],
+      output_schema: kind_of(Hash)
+    )
+  end
 end

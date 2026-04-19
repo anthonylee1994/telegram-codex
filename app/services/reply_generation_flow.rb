@@ -64,19 +64,21 @@ class ReplyGenerationFlow
 
   def download_attachments_if_needed(message)
     image_file_paths = download_images_if_needed(message)
-    return image_file_paths unless message.pdf?
+    return image_file_paths unless effective_pdf?(message)
 
-    pdf_path = @telegram_client.download_file_to_temp(message.pdf_file_id)
+    pdf_path = @telegram_client.download_file_to_temp(message.effective_pdf_file_id)
     image_file_paths + @pdf_page_rasterizer.rasterize(pdf_path)
   end
 
   def build_text_override(message)
-    return message.text unless message.text_document?
+    return message.text unless effective_text_document?(message)
 
-    document_path = @telegram_client.download_file_to_temp(message.text_document_file_id)
+    document_path = @telegram_client.download_file_to_temp(message.effective_text_document_file_id)
     extraction_result = @text_document_extractor.extract(document_path)
     base_prompt = if message.text.present?
       message.text
+    elsif message.replying_to_file?
+      "我引用咗之前一份文字檔。請先概括內容，再按內容回答。"
     else
       "我上載咗一份文字檔。請先概括內容，再按內容回答。"
     end
@@ -84,7 +86,7 @@ class ReplyGenerationFlow
     [
       base_prompt,
       "",
-      "檔案名稱：#{message.text_document_name.presence || '未命名檔案'}",
+      "檔案名稱：#{message.effective_text_document_name.presence || '未命名檔案'}",
       "以下係檔案內容：",
       "```text",
       extraction_result.content,
@@ -94,9 +96,17 @@ class ReplyGenerationFlow
   end
 
   def download_images_if_needed(message)
-    message.image_file_ids.map do |image_file_id|
+    message.effective_image_file_ids.map do |image_file_id|
       @telegram_client.download_file_to_temp(image_file_id)
     end
+  end
+
+  def effective_pdf?(message)
+    message.effective_pdf_file_id.present?
+  end
+
+  def effective_text_document?(message)
+    message.effective_text_document_file_id.present?
   end
 
   def cleanup_downloaded_images(image_file_paths)

@@ -33,7 +33,8 @@ RSpec.describe ConversationService do
         chat_id: 'chat-1',
         text: 'hello',
         conversation_state: 'state-old',
-        image_file_paths: []
+        image_file_paths: [],
+        reply_to_text: nil
       )
     end
 
@@ -67,7 +68,8 @@ RSpec.describe ConversationService do
         chat_id: 'chat-1',
         text: 'hello',
         conversation_state: nil,
-        image_file_paths: []
+        image_file_paths: [],
+        reply_to_text: nil
       )
     end
 
@@ -83,7 +85,35 @@ RSpec.describe ConversationService do
         chat_id: 'chat-1',
         text: 'override text',
         conversation_state: nil,
-        image_file_paths: []
+        image_file_paths: [],
+        reply_to_text: nil
+      )
+    end
+
+    it 'passes replied message context through to the reply client' do
+      replied_message = InboundTelegramMessage.new(
+        chat_id: 'chat-1',
+        image_file_ids: [],
+        message_id: 10,
+        reply_to_message_id: 8,
+        reply_to_text: '你應該先重設 webhook。',
+        text: '咁之後呢？',
+        user_id: '234392020',
+        update_id: 100
+      )
+      allow(reply_client).to receive(:generate_reply).and_return(
+        conversation_state: 'state-new',
+        text: 'reply'
+      )
+
+      service.generate_reply(replied_message)
+
+      expect(reply_client).to have_received(:generate_reply).with(
+        chat_id: 'chat-1',
+        text: '咁之後呢？',
+        conversation_state: nil,
+        image_file_paths: [],
+        reply_to_text: '你應該先重設 webhook。'
       )
     end
 

@@ -15,6 +15,7 @@ RSpec.describe CodexCliClient do
         chat_id: "chat-1",
         conversation_state: nil,
         image_file_paths: [],
+        reply_to_text: nil,
         text: "hello"
       )
 
@@ -33,6 +34,7 @@ RSpec.describe CodexCliClient do
         chat_id: "chat-1",
         conversation_state: nil,
         image_file_paths: [],
+        reply_to_text: nil,
         text: "hello"
       )
 
@@ -51,6 +53,7 @@ RSpec.describe CodexCliClient do
         chat_id: "chat-1",
         conversation_state: nil,
         image_file_paths: [],
+        reply_to_text: nil,
         text: "hello"
       )
 
@@ -68,6 +71,7 @@ RSpec.describe CodexCliClient do
       chat_id: "chat-1",
       conversation_state: nil,
       image_file_paths: ["/tmp/a.png", "/tmp/b.png"],
+      reply_to_text: nil,
       text: ""
     )
 
@@ -85,12 +89,31 @@ RSpec.describe CodexCliClient do
       chat_id: "chat-1",
       conversation_state: nil,
       image_file_paths: ["/tmp/a.png", "/tmp/b.png", "/tmp/c.png"],
+      reply_to_text: nil,
       text: "幫我比較"
     )
 
     expect(exec_runner).to have_received(:run).with(
       prompt: include("分析時要用圖 1、圖 2、圖 3 呢類編號逐張講。"),
       image_file_paths: ["/tmp/a.png", "/tmp/b.png", "/tmp/c.png"],
+      output_schema: kind_of(Hash)
+    )
+  end
+
+  it "includes replied message context in the prompt when the user replies to an older message" do
+    allow(exec_runner).to receive(:run).and_return("圖像分析結果")
+
+    client.generate_reply(
+      chat_id: "chat-1",
+      conversation_state: nil,
+      image_file_paths: [],
+      reply_to_text: "之前建議你先檢查 webhook secret。",
+      text: "咁下一步呢？"
+    )
+
+    expect(exec_runner).to have_received(:run).with(
+      prompt: include("你而家係回覆緊之前一則訊息。", "被引用訊息：之前建議你先檢查 webhook secret。", "你今次嘅新訊息：咁下一步呢？"),
+      image_file_paths: [],
       output_schema: kind_of(Hash)
     )
   end

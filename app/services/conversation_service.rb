@@ -115,7 +115,8 @@ class ConversationService
       chat_id: message.chat_id,
       text: text_override.presence || message.text,
       conversation_state: session&.last_response_id,
-      image_file_paths: image_file_paths
+      image_file_paths: image_file_paths,
+      reply_to_text: message.reply_to_text
     )
 
     Rails.logger.info("Generated assistant reply chat_id=#{message.chat_id}")

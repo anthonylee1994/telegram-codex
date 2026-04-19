@@ -36,6 +36,12 @@ class TelegramUpdateParser
       media_group_id: message["media_group_id"].to_s.presence,
       message_id: message["message_id"],
       pdf_file_id: build_pdf_file_id(message),
+      reply_to_image_file_ids: build_reply_to_image_file_ids(message),
+      reply_to_message_id: build_reply_to_message_id(message),
+      reply_to_pdf_file_id: build_reply_to_pdf_file_id(message),
+      reply_to_text: build_reply_to_text(message),
+      reply_to_text_document_file_id: build_reply_to_text_document_file_id(message),
+      reply_to_text_document_name: build_reply_to_text_document_name(message),
       text: message["text"].presence || message["caption"].to_s.strip,
       text_document_file_id: build_text_document_file_id(message),
       text_document_name: build_text_document_name(message),
@@ -43,7 +49,9 @@ class TelegramUpdateParser
     )
   end
 
-  def build_inbound_message(update:, chat_id:, image_file_ids:, media_group_id:, message_id:, pdf_file_id:, text:,
+  def build_inbound_message(update:, chat_id:, image_file_ids:, media_group_id:, message_id:, pdf_file_id:,
+                            reply_to_image_file_ids:, reply_to_message_id:, reply_to_pdf_file_id:, reply_to_text:,
+                            reply_to_text_document_file_id:, reply_to_text_document_name:, text:,
                             text_document_file_id:, text_document_name:, user_id:)
     InboundTelegramMessage.new(
       chat_id: chat_id.to_s,
@@ -51,6 +59,12 @@ class TelegramUpdateParser
       media_group_id: media_group_id,
       message_id: message_id,
       pdf_file_id: pdf_file_id,
+      reply_to_image_file_ids: reply_to_image_file_ids,
+      reply_to_message_id: reply_to_message_id,
+      reply_to_pdf_file_id: reply_to_pdf_file_id,
+      reply_to_text: reply_to_text,
+      reply_to_text_document_file_id: reply_to_text_document_file_id,
+      reply_to_text_document_name: reply_to_text_document_name,
       text: text,
       text_document_file_id: text_document_file_id,
       text_document_name: text_document_name,
@@ -82,6 +96,55 @@ class TelegramUpdateParser
     return nil unless supported_text_document?(message["document"])
 
     message.fetch("document")["file_name"].to_s.strip
+  end
+
+  def build_reply_to_message_id(message)
+    reply_to_message = message["reply_to_message"]
+    return nil unless reply_to_message.is_a?(Hash)
+
+    reply_to_message["message_id"]
+  end
+
+  def build_reply_to_image_file_ids(message)
+    reply_to_message = message["reply_to_message"]
+    return [] unless reply_to_message.is_a?(Hash)
+
+    build_image_file_ids(reply_to_message)
+  end
+
+  def build_reply_to_pdf_file_id(message)
+    reply_to_message = message["reply_to_message"]
+    return nil unless reply_to_message.is_a?(Hash)
+
+    build_pdf_file_id(reply_to_message)
+  end
+
+  def build_reply_to_text(message)
+    reply_to_message = message["reply_to_message"]
+    return nil unless reply_to_message.is_a?(Hash)
+
+    text = reply_to_message["text"].presence || reply_to_message["caption"].to_s.strip
+    return text if text.present?
+    return "用戶引用咗一張相。" if reply_to_message["photo"].is_a?(Array) && reply_to_message["photo"].any?
+    return "用戶引用咗一個圖片檔案。" if supported_document_image?(reply_to_message["document"])
+    return "用戶引用咗一份 PDF。" if supported_pdf_document?(reply_to_message["document"])
+    return "用戶引用咗一份文字檔。" if supported_text_document?(reply_to_message["document"])
+
+    nil
+  end
+
+  def build_reply_to_text_document_file_id(message)
+    reply_to_message = message["reply_to_message"]
+    return nil unless reply_to_message.is_a?(Hash)
+
+    build_text_document_file_id(reply_to_message)
+  end
+
+  def build_reply_to_text_document_name(message)
+    reply_to_message = message["reply_to_message"]
+    return nil unless reply_to_message.is_a?(Hash)
+
+    build_text_document_name(reply_to_message)
   end
 
   def supported_document_image?(document)
