@@ -12,5 +12,10 @@ test:
   database: <%= ENV.fetch("SQLITE_DB_PATH", "./data/test.db") %>
 
 production:
-  <<: *default
-  database: <%= ENV.fetch("SQLITE_DB_PATH", "./data/app.db") %>
+  primary:
+    <<: *default
+    database: <%= ENV.fetch("SQLITE_DB_PATH", "./data/app.db") %>
+  queue:
+    <<: *default
+    database: <%= ENV.fetch("SOLID_QUEUE_DB_PATH", "./data/queue_production.sqlite3") %>
+    migrations_paths: db/queue_migrate

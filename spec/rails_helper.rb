@@ -15,6 +15,7 @@ require File.expand_path('../config/environment', __dir__)
 abort('The Rails environment is running in production mode!') if Rails.env.production?
 
 require 'rspec/rails'
+require 'active_job/test_helper'
 Dir[Rails.root.join('spec/support/**/*.rb')].sort.each { |file| require file }
 
 begin
@@ -28,10 +29,13 @@ RSpec.configure do |config|
   config.use_transactional_fixtures = true
   config.filter_rails_from_backtrace!
   config.include TelegramWebhookHandlerTestHelper
+  config.include ActiveJob::TestHelper
 
   config.before do
     AppConfig.reset!
     ChatRateLimiter.instance.reset!
     MediaGroupAggregator.reset!
+    clear_enqueued_jobs
+    clear_performed_jobs
   end
 end

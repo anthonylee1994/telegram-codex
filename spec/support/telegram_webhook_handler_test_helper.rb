@@ -1,12 +1,8 @@
 module TelegramWebhookHandlerTestHelper
-  def build_telegram_webhook_handler(reply_client:, telegram_client:, config:)
+  def build_telegram_webhook_handler(reply_client:, telegram_client:, config:, reply_generation_job_class: ReplyGenerationJob)
     MediaGroupAggregator.reset!
     conversation_service = ConversationService.new(reply_client: reply_client)
     processed_update_flow = ProcessedUpdateFlow.new(conversation_service: conversation_service)
-    reply_generation_flow = ReplyGenerationFlow.new(
-      conversation_service: conversation_service,
-      telegram_client: telegram_client
-    )
     decision_resolver = WebhookDecision::Resolver.new(
       processed_update_flow: processed_update_flow,
       rate_limiter: ChatRateLimiter.instance,
@@ -18,7 +14,7 @@ module TelegramWebhookHandlerTestHelper
       conversation_service: conversation_service,
       telegram_client: telegram_client,
       processed_update_flow: processed_update_flow,
-      reply_generation_flow: reply_generation_flow,
+      reply_generation_job_class: reply_generation_job_class,
       generic_error_message: TelegramWebhookHandler::GENERIC_ERROR_MESSAGE,
       unauthorized_message: TelegramWebhookHandler::UNAUTHORIZED_MESSAGE,
       rate_limit_message: TelegramWebhookHandler::RATE_LIMIT_MESSAGE,

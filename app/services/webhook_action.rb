@@ -3,7 +3,7 @@ class WebhookAction
     conversation_service:,
     telegram_client:,
     processed_update_flow:,
-    reply_generation_flow:,
+    reply_generation_job_class:,
     generic_error_message:,
     unauthorized_message:,
     rate_limit_message:,
@@ -12,7 +12,7 @@ class WebhookAction
     @conversation_service = conversation_service
     @telegram_client = telegram_client
     @processed_update_flow = processed_update_flow
-    @reply_generation_flow = reply_generation_flow
+    @reply_generation_job_class = reply_generation_job_class
     @generic_error_message = generic_error_message
     @unauthorized_message = unauthorized_message
     @rate_limit_message = rate_limit_message
@@ -21,7 +21,7 @@ class WebhookAction
 
   private
 
-  attr_reader :conversation_service, :telegram_client, :processed_update_flow, :reply_generation_flow,
+  attr_reader :conversation_service, :telegram_client, :processed_update_flow, :reply_generation_job_class,
               :generic_error_message, :unauthorized_message, :rate_limit_message, :unsupported_message
 
   class Unsupported < WebhookAction
@@ -76,18 +76,13 @@ class WebhookAction
   class GenerateReply < WebhookAction
     def call(decision, update: nil)
       message = decision.message
-
-      begin
-        reply_generation_flow.call(message)
-      rescue StandardError => e
-        Rails.logger.error(
-          "Failed to handle Telegram update update_id=#{message.update_id} chat_id=#{message.chat_id} error=#{e.message}"
-        )
-        processed_update = processed_update_flow.find(message.update_id)
-        raise if processed_update_flow.replayable?(processed_update)
-
-        telegram_client.send_message(message.chat_id, generic_error_message)
-      end
+      reply_generation_job_class.perform_later(message.to_job_payload)
+    rescue StandardError => e
+      processed_update_flow.clear_processing(message)
+      Rails.logger.error(
+        "Failed to enqueue Telegram update update_id=#{message.update_id} chat_id=#{message.chat_id} error=#{e.message}"
+      )
+      raise
     end
   end
 end

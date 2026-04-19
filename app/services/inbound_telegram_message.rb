@@ -33,6 +33,37 @@ class InboundTelegramMessage
     text.blank? && image_file_ids.empty?
   end
 
+  def to_job_payload
+    {
+      "chat_id" => chat_id,
+      "image_file_ids" => image_file_ids,
+      "media_group_id" => media_group_id,
+      "message_id" => message_id,
+      "processing_updates" => processing_updates.map do |processing_update|
+        {
+          "update_id" => processing_update.fetch(:update_id),
+          "message_id" => processing_update.fetch(:message_id)
+        }
+      end,
+      "text" => text,
+      "user_id" => user_id,
+      "update_id" => update_id
+    }
+  end
+
+  def self.from_job_payload(payload)
+    new(
+      chat_id: payload.fetch("chat_id"),
+      image_file_ids: payload.fetch("image_file_ids", []),
+      media_group_id: payload["media_group_id"],
+      message_id: payload.fetch("message_id"),
+      processing_updates: payload.fetch("processing_updates", []),
+      text: payload["text"],
+      user_id: payload.fetch("user_id"),
+      update_id: payload.fetch("update_id")
+    )
+  end
+
   private
 
   def normalize_image_file_ids(image_file_ids)

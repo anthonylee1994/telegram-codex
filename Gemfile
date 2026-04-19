@@ -19,3 +19,4 @@ end
 
 gem "annotate", "~> 2.6"
 gem "pry-rails"
+gem "solid_queue"

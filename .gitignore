@@ -9,6 +9,8 @@
 /dist
 /data/*.db
 /data/*.db-*
+/data/*.sqlite3
+/data/*.sqlite3-*
 !/log/.keep
 !/tmp/.keep
 !/tmp/pids/.keep

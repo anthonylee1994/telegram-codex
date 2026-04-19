@@ -73,129 +73,68 @@ RSpec.describe TelegramWebhookHandler do
       }
     }
   end
-  it 're-sends a persisted pending reply without regenerating it' do
-    attempt = 0
-    suggested_replies = ['下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？']
-
-    allow(reply_client).to receive(:generate_reply).and_return(
-      conversation_state: 'state-1',
-      suggested_replies: suggested_replies,
-      text: 'reply-1'
-    )
-    allow(telegram_client).to receive(:with_typing_status).and_yield
-    allow(telegram_client).to receive(:send_message).with('3', 'reply-1', suggested_replies: suggested_replies) do
-      attempt += 1
-      raise StandardError, 'telegram send failed' if attempt == 1
-    end
-
-    expect { handler.handle(update) }.to raise_error(StandardError, 'telegram send failed')
-    expect { handler.handle(update) }.not_to raise_error
-
-    expect(reply_client).to have_received(:generate_reply).once
-    expect(telegram_client).to have_received(:send_message).with('3', 'reply-1', suggested_replies: suggested_replies).twice
-    expect(ChatSession.find_by(chat_id: '3')&.last_response_id).to eq('state-1')
-    expect(ProcessedUpdate.find_by(update_id: 1)&.reply_text).to eq('reply-1')
-    expect(JSON.parse(ProcessedUpdate.find_by(update_id: 1)&.suggested_replies)).to eq(suggested_replies)
-    expect(ProcessedUpdate.find_by(update_id: 1)&.sent_at).to be_present
-  end
-
   it 'ignores an update that was already marked as sent' do
     conversation_service.mark_processed(1, '3', 2)
 
-    allow(reply_client).to receive(:generate_reply)
     allow(telegram_client).to receive(:send_message)
 
     handler.handle(update)
 
     expect(telegram_client).not_to have_received(:send_message)
-    expect(reply_client).not_to have_received(:generate_reply)
+    expect(enqueued_jobs).to be_empty
   end
 
-  it 'generates reply and suggestions before sending once' do
-    call_order = []
-    suggested_replies = ['下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？']
-
-    allow(reply_client).to receive(:generate_reply).and_return(
-      conversation_state: 'state-1',
-      suggested_replies: suggested_replies,
-      text: 'reply-1'
-    )
-    allow(telegram_client).to receive(:with_typing_status).and_yield
-    allow(telegram_client).to receive(:send_message) do |chat_id, text, suggested_replies: []|
-      call_order << [:send_message, chat_id, text, suggested_replies]
-    end
-
+  it 'enqueues reply generation and marks the update as inflight' do
     handler.handle(update)
 
-    expect(call_order).to eq([[:send_message, '3', 'reply-1', suggested_replies]])
+    expect(ReplyGenerationJob).to have_been_enqueued.with(
+      hash_including(
+        "chat_id" => "3",
+        "message_id" => 2,
+        "text" => "hello",
+        "update_id" => 1
+      )
+    )
+    expect(ProcessedUpdate.find_by(update_id: 1)&.sent_at).to be_nil
   end
 
-  it 'does not generate or send twice when the same update re-enters while still inflight' do
-    reentered = false
-
-    allow(reply_client).to receive(:generate_reply) do
-      unless reentered
-        reentered = true
-        handler.handle(update)
-      end
-
-      {
-        conversation_state: 'state-1',
-        suggested_replies: ['下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？'],
-        text: 'reply-1'
-      }
-    end
-    allow(telegram_client).to receive(:with_typing_status).and_yield
-    allow(telegram_client).to receive(:send_message)
-
+  it 'does not enqueue twice when the same update re-enters while still inflight' do
+    handler.handle(update)
     handler.handle(update)
 
-    expect(reply_client).to have_received(:generate_reply).once
-    expect(telegram_client).to have_received(:send_message).with(
-      '3',
-      'reply-1',
-      suggested_replies: ['下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？']
-    ).once
+    expect(ReplyGenerationJob).to have_been_enqueued.exactly(:once)
   end
 
-  it 'sends a generic error when reply generation fails before sending' do
-    allow(reply_client).to receive(:generate_reply).and_raise(StandardError, 'slow fail')
-    allow(telegram_client).to receive(:with_typing_status).and_yield
-    allow(telegram_client).to receive(:send_message)
-
-    expect { handler.handle(update) }.not_to raise_error
-    expect(telegram_client).to have_received(:send_message).with('3', TelegramWebhookHandler::GENERIC_ERROR_MESSAGE)
-    expect(telegram_client).not_to have_received(:send_message).with('3', 'reply-1', any_args)
-  end
-
-  it 'aggregates album updates into one multi-image reply' do
-    allow(reply_client).to receive(:generate_reply).and_return(
-      conversation_state: 'state-album',
-      suggested_replies: ['再比多啲重點', '逐張分析', '講結論'],
-      text: 'album reply'
+  it 'clears the inflight claim if enqueueing the job fails' do
+    job_class = class_double(ReplyGenerationJob)
+    allow(job_class).to receive(:perform_later).and_raise(StandardError, "queue down")
+    handler_bundle = build_telegram_webhook_handler(
+      reply_client: reply_client,
+      telegram_client: telegram_client,
+      config: config,
+      reply_generation_job_class: job_class
     )
-    allow(telegram_client).to receive(:download_file_to_temp) do |file_id|
-      "/tmp/#{file_id}.jpg"
-    end
-    allow(telegram_client).to receive(:with_typing_status).and_yield
-    allow(telegram_client).to receive(:send_message)
 
+    expect { handler_bundle.first.handle(update) }.to raise_error(StandardError, "queue down")
+    expect(ProcessedUpdate.find_by(update_id: 1)).to be_nil
+  end
+
+  it 'aggregates album updates into one multi-image job' do
     handler.handle(album_update_1)
     handler.handle(album_update_2)
     sleep(0.08)
 
-    expect(reply_client).to have_received(:generate_reply).once.with(
-      chat_id: '3',
-      text: '幫我比較下',
-      conversation_state: nil,
-      image_file_paths: ['/tmp/album-1-large.jpg', '/tmp/album-2-large.jpg']
+    expect(ReplyGenerationJob).to have_been_enqueued.with(
+      hash_including(
+        "chat_id" => "3",
+        "image_file_ids" => ["album-1-large", "album-2-large"],
+        "message_id" => 22,
+        "text" => "幫我比較下",
+        "update_id" => 21
+      )
     )
-    expect(telegram_client).to have_received(:send_message).with(
-      '3',
-      'album reply',
-      suggested_replies: ['再比多啲重點', '逐張分析', '講結論']
-    ).once
-    expect(ProcessedUpdate.find_by(update_id: 21)&.sent_at).to be_present
+    expect(ProcessedUpdate.find_by(update_id: 21)&.sent_at).to be_nil
+    expect(ProcessedUpdate.find_by(update_id: 22)&.sent_at).to be_nil
   end
 
   it 'resets session and replies with start message for /start' do
@@ -231,14 +170,14 @@ RSpec.describe TelegramWebhookHandler do
   it 'replies unsupported for non-text non-photo messages' do
     unsupported_update = update.deep_merge('message' => { 'text' => nil, 'sticker' => { 'file_id' => 'sticker-1' } })
 
-    allow(reply_client).to receive(:generate_reply)
     allow(telegram_client).to receive(:send_message)
 
     handler.handle(unsupported_update)
 
     expect(telegram_client).to have_received(:send_message).with('3', TelegramWebhookHandler::UNSUPPORTED_MESSAGE)
-    expect(reply_client).not_to have_received(:generate_reply)
+    expect(enqueued_jobs).to be_empty
   end
+
   def current_time_ms
     (Time.now.to_f * 1000).to_i
   end

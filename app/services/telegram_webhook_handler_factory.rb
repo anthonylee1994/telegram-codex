@@ -7,10 +7,6 @@ class TelegramWebhookHandlerFactory
     telegram_update_parser = TelegramUpdateParser.new
     media_group_aggregator = MediaGroupAggregator.new(wait_duration_seconds: config.media_group_wait_ms / 1000.0)
     processed_update_flow = ProcessedUpdateFlow.new(conversation_service: conversation_service)
-    reply_generation_flow = ReplyGenerationFlow.new(
-      conversation_service: conversation_service,
-      telegram_client: telegram_client
-    )
     decision_resolver = WebhookDecision::Resolver.new(
       processed_update_flow: processed_update_flow,
       rate_limiter: rate_limiter,
@@ -22,7 +18,7 @@ class TelegramWebhookHandlerFactory
       conversation_service: conversation_service,
       telegram_client: telegram_client,
       processed_update_flow: processed_update_flow,
-      reply_generation_flow: reply_generation_flow,
+      reply_generation_job_class: ReplyGenerationJob,
       generic_error_message: TelegramWebhookHandler::GENERIC_ERROR_MESSAGE,
       unauthorized_message: TelegramWebhookHandler::UNAUTHORIZED_MESSAGE,
       rate_limit_message: TelegramWebhookHandler::RATE_LIMIT_MESSAGE,

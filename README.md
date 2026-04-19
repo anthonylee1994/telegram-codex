@@ -1,6 +1,6 @@
 # telegram-codex
 
-用 Telegram webhook 收訊息，之後喺 server 入面跑 `codex exec` 做回覆；對話狀態用 SQLite 存，而家個 HTTP layer 用 Ruby on Rails API。
+用 Telegram webhook 收訊息，之後 enqueue background job 跑 `codex exec` 做回覆；對話狀態用 SQLite 存，而家個 HTTP layer 用 Ruby on Rails API。
 
 Demo：https://t.me/On99AppBot
 
@@ -88,6 +88,7 @@ spec/
 - `TelegramUpdateParser` 將 Telegram payload 轉成 app message
 - `TelegramWebhookHandler` 做 duplicate、防重送、allowed user、`/start`、`/new`、rate limit
 - `ConversationService` 管 session TTL，同 `CodexCliClient` 串 `codex exec`
+- `ReplyGenerationJob` 非同步生成回覆同發送 Telegram 訊息
 - `ChatSession` / `ProcessedUpdate` 用 SQLite 存狀態
 - `rake telegram:set_webhook` 取代原本 script
 
@@ -103,11 +104,12 @@ spec/
    - 檢查 allowed users
    - 處理 `/start` 同 `/new`
    - 做 chat-level rate limit
-5. 真正要生成回覆時，handler 會 call `ConversationService`。
-6. `ConversationService` 先攞返目前 chat 嘅 session state，再 call `CodexCliClient`。
-7. `CodexCliClient` 用 transcript + system prompt 組 prompt，然後同步跑 `codex exec`。
-8. `CodexCliClient` 會再生成 3 個 suggested replies。
-9. handler 會將主答案同 suggested replies 一次過 send 番 Telegram，並將新 session state 寫返 SQLite。
+5. 真正要生成回覆時，handler 會 enqueue `ReplyGenerationJob`，Webhook 先即刻回 `200 OK`。
+6. `ReplyGenerationJob` 再 call `ConversationService` 攞返目前 chat 嘅 session state。
+7. `ConversationService` call `CodexCliClient`。
+8. `CodexCliClient` 用 transcript + system prompt 組 prompt，然後跑 `codex exec`。
+9. `CodexCliClient` 會再生成 3 個 suggested replies。
+10. job 將主答案同 suggested replies send 番 Telegram，並將新 session state 寫返 SQLite。
 
 ## 主要檔案點運作
 
@@ -125,6 +127,7 @@ spec/
 - [`telegram_webhooks_controller.rb`](app/controllers/telegram_webhooks_controller.rb)
   - Telegram webhook 真入口。
   - 只做三件事：驗 secret、call handler、將結果轉成 HTTP status。
+  - 回覆生成已經唔喺 request thread 做，webhook 主要負責快速 ack Telegram。
   - 呢層刻意唔做重業務邏輯，因為 webhook flow 測試會乾淨好多。
 
 ### Model / Persistence
@@ -168,6 +171,10 @@ spec/
     - set webhook
   - 仲會順手做 Telegram HTML formatting，令 code block / inline code 顯示得正常啲。
 
+- [`reply_generation_job.rb`](app/jobs/reply_generation_job.rb)
+  - 將原本同步 reply generation flow 搬去 background job。
+  - webhook claim 咗個 update 之後，就由呢個 job 負責真正生成 reply、send Telegram，同埋 pending reply replay。
+
 - [`conversation_service.rb`](app/services/conversation_service.rb)
   - 對話層 orchestration。
   - 主要責任：
@@ -186,7 +193,7 @@ spec/
     - 再用更新後 transcript 生成 suggested replies
     - 如果有圖就加 `--image`
     - 讀返 `codex exec --output-last-message` 生成嘅最後訊息
-  - 呢層係同步 call，唔係 background job。
+  - `codex exec` 仍然係同步 call，但而家係喺 background job 入面跑，唔會再頂住 webhook request。
 
 - [`telegram_webhook_handler.rb`](app/services/telegram_webhook_handler.rb)
   - 成個 bot flow 最核心嘅 file。
@@ -212,8 +219,22 @@ spec/
     - `POST /telegram/webhook`
 
 - [`database.yml`](config/database.yml)
-  - 三個 environment 都用 SQLite。
-  - 預設 path 由 `SQLITE_DB_PATH` 控。
+  - production 用 app DB + Solid Queue DB 嘅 SQLite multi-db 配置。
+  - app DB 預設 path 由 `SQLITE_DB_PATH` 控；queue DB 預設 path 由 `SOLID_QUEUE_DB_PATH` 控。
+
+- [`queue.yml`](config/queue.yml)
+  - Solid Queue worker / dispatcher 設定。
+  - 而家預設會跑全部 queues。
+
+- [`Procfile`](Procfile)
+  - `web` 用 Puma 起 Rails API。
+  - `worker` 用 `bundle exec bin/jobs` 起 Solid Queue worker。
+
+- [`development.rb`](config/environments/development.rb)
+  - development 保持用 `:async` job adapter，唔使另外開 Solid Queue worker 都可以本機試 flow。
+
+- [`production.rb`](config/environments/production.rb)
+  - production 用 `:solid_queue`，並連去 `queue` database。
 
 - [`telegram.rake`](lib/tasks/telegram.rake)
   - `bundle exec rake telegram:set_webhook`
