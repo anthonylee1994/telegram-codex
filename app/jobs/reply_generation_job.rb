@@ -1,4 +1,6 @@
 class ReplyGenerationJob < ApplicationJob
+  TIMEOUT_ERROR_MESSAGE = "我卡住咗太耐，今次覆唔切。你可以等陣再試。"
+
   retry_on StandardError, wait: 1.second, attempts: 3 do |job, error|
     job.handle_retry_exhausted(error)
   end
@@ -31,7 +33,7 @@ class ReplyGenerationJob < ApplicationJob
       return
     end
 
-    telegram_client.send_message(message.chat_id, TelegramWebhookHandler::GENERIC_ERROR_MESSAGE)
+    telegram_client.send_message(message.chat_id, error_message_for(error))
   rescue StandardError => exhausted_error
     Rails.logger.error(
       "Failed to send retry exhaustion fallback update_id=#{message.update_id} chat_id=#{message.chat_id} error=#{exhausted_error.message}"
@@ -57,5 +59,11 @@ class ReplyGenerationJob < ApplicationJob
 
   def telegram_client
     @telegram_client ||= TelegramClient.new
+  end
+
+  def error_message_for(error)
+    return TIMEOUT_ERROR_MESSAGE if error.is_a?(CodexExecRunner::ExecutionTimeoutError)
+
+    TelegramWebhookHandler::GENERIC_ERROR_MESSAGE
   end
 end

@@ -77,4 +77,18 @@ RSpec.describe ReplyGenerationJob do
     expect(telegram_client).to have_received(:send_message).with("3", TelegramWebhookHandler::GENERIC_ERROR_MESSAGE)
     expect(ProcessedUpdate.find_by(update_id: 1)).to be_nil
   end
+
+  it "sends a specific timeout fallback after retries are exhausted" do
+    allow(exec_runner).to receive(:run).and_raise(CodexExecRunner::ExecutionTimeoutError, "codex exec timed out after 90 seconds")
+    allow(telegram_client).to receive(:send_message)
+
+    perform_enqueued_jobs do
+      expect {
+        described_class.perform_later(message.to_job_payload)
+      }.not_to raise_error
+    end
+
+    expect(telegram_client).to have_received(:send_message).with("3", ReplyGenerationJob::TIMEOUT_ERROR_MESSAGE)
+    expect(ProcessedUpdate.find_by(update_id: 1)).to be_nil
+  end
 end
