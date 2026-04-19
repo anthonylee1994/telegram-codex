@@ -27,6 +27,8 @@ Demo：https://t.me/On99AppBot
 - 支援 Telegram 相簿多圖訊息分析
 - 支援 Telegram PDF document，會先轉頭幾頁做圖片再分析
 - 支援 `.txt`、`.md`、`.html`、`.json`、`.csv`、`.docx`、`.xlsx` document，會先抽文字再分析
+- 支援 reply 之前嘅 message；如果引用舊文字，會就住嗰句延續回答
+- 支援 reply 之前嘅相 / PDF / 文字檔；就算今次冇重新 upload，都会拎返被引用文件再分析
 - 多圖分析會用 `圖 1`、`圖 2` 呢類編號逐張講
 - 相簿冇 caption 時會自動補 prompt，叫模型逐張描述再比較
 - 相簿太多圖時會先叫用戶縮窄範圍再分析
@@ -105,6 +107,7 @@ spec/
 3. 驗證通過後，controller 將 payload 交畀 `TelegramWebhookHandler`。
 4. handler 會：
    - parse 文字 / 圖片 message
+   - parse `reply_to_message`，抽返被引用文字或者文件 context
    - 檢查係咪 duplicate update
    - 檢查係咪 pending reply replay
    - 檢查 allowed users
@@ -160,6 +163,7 @@ spec/
 - [`telegram_update_parser.rb`](app/services/telegram_update_parser.rb)
   - 將 Telegram 原始 payload 轉成 app 內部用嘅 hash。
   - 支援文字訊息、單張圖片、圖片 document、PDF document、文字 document 同 Telegram 相簿訊息。
+  - 如果 user 用 reply 功能引用之前一則 message，呢層會一齊抽返被引用文字、相、PDF、文字檔嘅 context。
   - 每張圖都會揀 Telegram `photo` array 裏面最大嗰張。
 
 - [`chat_rate_limiter.rb`](app/services/chat_rate_limiter.rb)
@@ -185,6 +189,7 @@ spec/
   - 真正處理 Telegram 附件 download 嗰層。
   - 如果收到 PDF，會先 download，再用 `pdftoppm` 將頭幾頁轉做 PNG，之後先交畀 Codex。
   - 如果收到 `.txt`、`.md`、`.html`、`.json`、`.csv`、`.docx`、`.xlsx`，會先抽文字再拼入 prompt。
+  - 如果今次訊息本身冇新附件，但係 reply 咗之前一份相 / PDF / 文字檔，亦會 fallback download 嗰份被引用文件再分析。
 
 - [`conversation_service.rb`](app/services/conversation_service.rb)
   - 對話層 orchestration。
@@ -202,6 +207,7 @@ spec/
   - 佢會：
     - parse 上次 conversation state
     - 先同 system prompt 拼埋做 prompt 生成主答案
+    - 如果今次係 reply 舊訊息，會將被引用內容一齊拼入最新 user message
     - 多圖時會要求模型用 `圖 1`、`圖 2` 呢類編號逐張分析
     - 冇 caption 但有圖時會自動補一段分析 prompt
     - 再用更新後 transcript 生成 suggested replies
@@ -276,7 +282,7 @@ spec/
   - 驗 session TTL、reply generation input、processed update prune。
 
 - [`telegram_update_parser_spec.rb`](spec/services/telegram_update_parser_spec.rb)
-  - 驗 Telegram payload parsing。
+  - 驗 Telegram payload parsing，包括 `reply_to_message` 嘅文字 / 相 / PDF / 文字檔引用情況。
 
 - [`telegram_webhook_handler_spec.rb`](spec/services/telegram_webhook_handler_spec.rb)
   - 驗 pending reply replay 呢種最易出事嘅邊界情況。
@@ -382,6 +388,18 @@ bundle exec rake telegram:set_webhook
 - `/new`：清除當前 chat 嘅 session memory，下一句重新開始，同時清走而家個 reply keyboard
 
 平時直接 send 文字或者圖片畀 bot 就得，唔需要 command。撳 suggested reply 會由 Telegram client 直接送出一條新 message，所以 chat 入面會見到自己嘅綠色訊息。
+
+如果你用 Telegram 個 reply 功能：
+
+- reply 舊文字：bot 會當你係就住嗰句延續問落去
+- reply 舊相：bot 會重新下載返張被引用嘅相再分析
+- reply 舊 PDF：bot 會重新攞返份 PDF，轉頭幾頁做圖再分析
+- reply 舊文字檔：bot 會重新抽返份檔案內容，再按你今次問題回答
+
+而家個優先次序係：
+
+- 如果今次 message 自己有新附件，就優先用今次新附件
+- 如果今次 message 冇新附件，但 reply 咗舊文件，就 fallback 用被引用文件
 
 ## 常見 debug 方法
 
@@ -631,3 +649,4 @@ RSpec 覆蓋咗以下核心行為：
 - pending reply replay
 - reply keyboard suggested replies
 - Telegram update parser
+- reply-to-message context，包括引用舊文字 / 相 / PDF / 文字檔
