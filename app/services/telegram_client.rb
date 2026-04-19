@@ -155,39 +155,22 @@ class TelegramClient
   end
 
   def normalize_outbound_reply(text, suggested_replies)
-    payload = parse_structured_reply_payload(text)
-    return [text.to_s, suggested_replies] unless payload.is_a?(Hash)
-
-    normalized_text = payload["text"].to_s.strip
+    payload = structured_reply_parser.parse_reply(text)
+    normalized_text = payload.fetch(:text).to_s.strip
     normalized_text = text.to_s if normalized_text.empty?
 
     normalized_suggested_replies = Array(suggested_replies)
-    if normalized_suggested_replies.empty? && payload["suggested_replies"].is_a?(Array)
-      normalized_suggested_replies = payload["suggested_replies"]
+    if normalized_suggested_replies.empty?
+      normalized_suggested_replies = payload.fetch(:suggested_replies)
     end
 
     [normalized_text, normalized_suggested_replies]
-  rescue JSON::ParserError
-    [text.to_s, suggested_replies]
   end
 
-  def parse_structured_reply_payload(text)
-    normalized_text = text.to_s.strip
-    return nil if normalized_text.empty?
-
-    candidates = [
-      normalized_text,
-      normalized_text.sub(/\A```(?:json)?\s*/i, "").sub(/\s*```\z/, "").strip
-    ].uniq
-
-    candidates.each do |candidate|
-      payload = JSON.parse(candidate)
-      payload = JSON.parse(payload) if payload.is_a?(String)
-      return payload if payload.is_a?(Hash)
-    rescue JSON::ParserError
-      next
-    end
-
-    nil
+  def structured_reply_parser
+    @structured_reply_parser ||= CodexReplyParser.new(
+      default_suggested_replies: [],
+      max_suggested_replies: MAX_SUGGESTED_REPLIES
+    )
   end
 end

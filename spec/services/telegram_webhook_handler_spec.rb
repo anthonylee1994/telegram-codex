@@ -313,7 +313,7 @@ RSpec.describe TelegramWebhookHandler do
 
     expect(telegram_client).to have_received(:send_message).with(
       '3',
-      include('Bot status：ok'),
+      include('Bot 狀態：OK'),
       remove_keyboard: true
     )
   end

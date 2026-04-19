@@ -33,5 +33,19 @@ RSpec.describe CodexReplyParser do
         suggested_replies: ["幫我再縮短", "整溫和版", "整強硬版"]
       )
     end
+
+    it "extracts text and suggestions from pseudo-json with raw newlines inside text" do
+      raw_reply = <<~TEXT.strip
+        {"text":"簡易版麵包布甸食譜：
+        材料：方包 4 片、雞蛋 2 隻、牛奶 200ml、砂糖 2 湯匙、牛油少許。
+        做法：
+        1. 方包切件，放入焗盤。","suggested_replies":["要焗幾耐？","可以少甜啲嗎？","早餐啱唔啱？"]}
+      TEXT
+
+      expect(parser.parse_reply(raw_reply)).to eq(
+        text: "簡易版麵包布甸食譜：\n材料：方包 4 片、雞蛋 2 隻、牛奶 200ml、砂糖 2 湯匙、牛油少許。\n做法：\n1. 方包切件，放入焗盤。",
+        suggested_replies: ["要焗幾耐？", "可以少甜啲嗎？", "早餐啱唔啱？"]
+      )
+    end
   end
 end

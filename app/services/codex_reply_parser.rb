@@ -25,6 +25,8 @@ class CodexReplyParser
 
   def parse_reply_payload(raw_reply)
     candidate_payloads(raw_reply).each do |candidate|
+      return candidate if candidate.is_a?(Hash) || candidate.is_a?(Array)
+
       payload = parse_json_candidate(candidate)
       return payload if payload.is_a?(Hash) || payload.is_a?(Array)
     rescue JSON::ParserError
@@ -48,8 +50,9 @@ class CodexReplyParser
     normalized_reply = raw_reply.to_s.strip
     unwrapped_reply = unwrap_code_fence(normalized_reply)
     extracted_object = extract_json_object(unwrapped_reply)
+    relaxed_payload = extract_relaxed_payload(extracted_object || unwrapped_reply)
 
-    [normalized_reply, unwrapped_reply, extracted_object].compact.uniq
+    [normalized_reply, unwrapped_reply, extracted_object, relaxed_payload].compact.uniq
   end
 
   def parse_json_candidate(candidate)
@@ -70,6 +73,36 @@ class CodexReplyParser
     return nil if start_index.nil? || end_index.nil? || end_index <= start_index
 
     text[start_index..end_index]
+  end
+
+  def extract_relaxed_payload(text)
+    normalized_text = text.to_s.strip
+    return nil if normalized_text.empty?
+
+    extracted_text = extract_relaxed_text(normalized_text)
+    extracted_suggested_replies = extract_relaxed_suggested_replies(normalized_text)
+    return nil if extracted_text.blank? && extracted_suggested_replies.empty?
+
+    {
+      "text" => extracted_text,
+      "suggested_replies" => extracted_suggested_replies
+    }
+  end
+
+  def extract_relaxed_text(text)
+    match = text.match(/"text"\s*:\s*"(?<value>[\s\S]*?)"\s*,\s*"suggested_replies"\s*:/)
+    return "" unless match
+
+    normalize_reply_text(match[:value].to_s)
+  end
+
+  def extract_relaxed_suggested_replies(text)
+    match = text.match(/"suggested_replies"\s*:\s*\[(?<value>[\s\S]*?)\]/)
+    return [] unless match
+
+    match[:value].scan(/"(?<reply>(?:\\.|[^"\\]|[\r\n])*)"/).flatten.map do |reply|
+      normalize_reply_text(reply)
+    end
   end
 
   def extract_reply_text(payload, raw_reply)

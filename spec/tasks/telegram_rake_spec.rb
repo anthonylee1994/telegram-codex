@@ -25,7 +25,11 @@ RSpec.describe "telegram rake tasks" do
 
       expect(telegram_client).to have_received(:set_my_commands).with(
         [
-          { command: "new", description: "新 session" }
+          { command: "status", description: "Bot 狀態" },
+          { command: "session", description: "目前 session 狀態" },
+          { command: "summary", description: "壓縮目前對話 context" },
+          { command: "new", description: "新 session" },
+          { command: "help", description: "使用說明" }
         ]
       )
     end
