@@ -2,10 +2,6 @@
 namespace :telegram do
   COMMANDS = [
     {
-      command: "help",
-      description: "指令同支援範圍"
-    },
-    {
       command: "status",
       description: "Bot 狀態"
     },
@@ -20,6 +16,10 @@ namespace :telegram do
     {
       command: "new",
       description: "新 session"
+    },
+    {
+      command: "help",
+      description: "使用說明"
     }
   ].freeze
 
