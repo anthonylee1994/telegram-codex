@@ -65,6 +65,78 @@ class WebhookAction
     end
   end
 
+  class ShowHelp < WebhookAction
+    def call(decision, update: nil)
+      message = decision.message
+      telegram_client.send_message(message.chat_id, TelegramWebhookHandler::HELP_MESSAGE, remove_keyboard: true)
+      processed_update_flow.mark_processed(message)
+    end
+  end
+
+  class ShowStatus < WebhookAction
+    def call(decision, update: nil)
+      message = decision.message
+      telegram_client.send_message(message.chat_id, build_status_message(message.chat_id), remove_keyboard: true)
+      processed_update_flow.mark_processed(message)
+    end
+
+    private
+
+    def build_status_message(chat_id)
+      snapshot = conversation_service.session_snapshot(chat_id)
+
+      [
+        "Bot 狀態：OK 🤖",
+        "Session 狀態：#{snapshot[:active] ? "已生效 ✅" : "未生效 ❌"}",
+        "支援：文字、圖片、多圖、圖片 document、PDF、txt/md/html/json/csv、docx/xlsx"
+      ].join("\n")
+    end
+
+    def queue_adapter_label
+      Rails.application.config.active_job.queue_adapter.class.name.demodulize.underscore
+    end
+  end
+
+  class ShowSession < WebhookAction
+    def call(decision, update: nil)
+      message = decision.message
+      telegram_client.send_message(message.chat_id, build_session_message(message.chat_id), remove_keyboard: true)
+      processed_update_flow.mark_processed(message)
+    end
+
+    private
+
+    def build_session_message(chat_id)
+      snapshot = conversation_service.session_snapshot(chat_id)
+      return "目前冇 active session。你可以直接 send 訊息開始，或者之後用 `/summary` 壓縮長對話。" unless snapshot[:active]
+
+      [
+        "目前 session：active",
+        "訊息數：#{snapshot.fetch(:message_count)}",
+        "大概輪數：#{snapshot.fetch(:turn_count)}",
+        "最後更新：#{snapshot.fetch(:last_updated_at).strftime('%Y-%m-%d %H:%M:%S %Z')}",
+        "想壓縮 context 可以打 `/summary`。"
+      ].join("\n")
+    end
+  end
+
+  class SummarizeSession < WebhookAction
+    def initialize(session_summary_job_class:, **)
+      super(**)
+      @session_summary_job_class = session_summary_job_class
+    end
+
+    def call(decision, update: nil)
+      message = decision.message
+      @session_summary_job_class.perform_later(message.chat_id)
+      telegram_client.send_message(message.chat_id, decision.response_text, remove_keyboard: true)
+      processed_update_flow.mark_processed(message)
+    rescue StandardError
+      processed_update_flow.clear_processing(message)
+      raise
+    end
+  end
+
   class RateLimited < WebhookAction
     def call(decision, update: nil)
       message = decision.message

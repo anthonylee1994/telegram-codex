@@ -31,7 +31,9 @@ Demo：https://t.me/On99AppBot
 - 相簿冇 caption 時會自動補 prompt，叫模型逐張描述再比較
 - 相簿太多圖時會先叫用戶縮窄範圍再分析
 - 支援 `/start` 顯示 welcome / help message
+- 支援 `/help`、`/status`、`/session`、`/summary`
 - 支援 `/new` 重開當前 chat session
+- `/summary` 會非同步將長對話壓縮成新 context，再主動 send 摘要返 Telegram
 - 支援最多 3 個 reply keyboard suggested replies
 - 有 session memory
 - 有 duplicate update 保護
@@ -90,9 +92,9 @@ spec/
 
 - `POST /telegram/webhook` 驗證 `X-Telegram-Bot-Api-Secret-Token`
 - `TelegramUpdateParser` 將 Telegram payload 轉成 app message
-- `TelegramWebhookHandler` 做 duplicate、防重送、allowed user、`/start`、`/new`、rate limit
+- `TelegramWebhookHandler` 做 duplicate、防重送、allowed user、commands、rate limit
 - `ConversationService` 管 session TTL，同 `CodexCliClient` 串 `codex exec`
-- `ReplyGenerationJob` 非同步生成回覆同發送 Telegram 訊息
+- `ReplyGenerationJob` / `SessionSummaryJob` 非同步生成回覆或摘要，再發送 Telegram 訊息
 - `ChatSession` / `ProcessedUpdate` 用 SQLite 存狀態
 - `rake telegram:set_webhook` 取代原本 script
 
@@ -106,7 +108,7 @@ spec/
    - 檢查係咪 duplicate update
    - 檢查係咪 pending reply replay
    - 檢查 allowed users
-   - 處理 `/start` 同 `/new`
+   - 處理 `/start`、`/help`、`/status`、`/session`、`/summary`、`/new`
    - 做 chat-level rate limit
 5. 真正要生成回覆時，handler 會 enqueue `ReplyGenerationJob`，Webhook 先即刻回 `200 OK`。
 6. `ReplyGenerationJob` 再 call `ConversationService` 攞返目前 chat 嘅 session state。
@@ -191,6 +193,7 @@ spec/
     - 讀寫 `ProcessedUpdate`
     - 判斷 session TTL
     - call `CodexCliClient`
+    - call `SessionSummaryClient` 壓縮 session context
     - opportunistic prune 舊 `ProcessedUpdate`
   - 如果你想搵「個 bot 記憶點樣管理」，通常由呢個 file 開始睇最啱。
 
@@ -216,6 +219,10 @@ spec/
     - pending reply replay
     - unauthorized user reject
     - `/start`
+    - `/help`
+    - `/status`
+    - `/session`
+    - `/summary`
     - `/new`
     - rate limit
     - typing indicator
@@ -254,7 +261,7 @@ spec/
   - `bundle exec rake telegram:set_webhook`
   - 用而家 ENV 裏面個 `BASE_URL` 直接註冊 Telegram webhook。
   - `bundle exec rake telegram:update_commands`
-  - 將 `/start` 同 `/new` command description 同步去 Telegram bot menu。
+  - 將 `/help`、`/status`、`/session`、`/summary`、`/new` command description 同步去 Telegram bot menu。
 
 - [`auto_annotate_models.rake`](lib/tasks/auto_annotate_models.rake)
   - 同 schema comments / annotate model 有關。
@@ -368,6 +375,10 @@ bundle exec rake telegram:set_webhook
 ## Telegram commands
 
 - `/start`：顯示 welcome / help message，同時清走而家個 reply keyboard
+- `/help`：列出可用 command 同支援輸入類型
+- `/status`：睇 bot runtime 狀態，例如 queue adapter 同 session 是否 active
+- `/session`：睇目前 chat session 狀態，例如訊息數、最後更新時間
+- `/summary`：非同步整理目前對話，壓縮成新 context，整完會再主動 send 摘要
 - `/new`：清除當前 chat 嘅 session memory，下一句重新開始，同時清走而家個 reply keyboard
 
 平時直接 send 文字或者圖片畀 bot 就得，唔需要 command。撳 suggested reply 會由 Telegram client 直接送出一條新 message，所以 chat 入面會見到自己嘅綠色訊息。
@@ -421,6 +432,12 @@ curl -i http://localhost:3000/health
 ```
 
 如果你懷疑 memory / context 搞亂咗，呢個最快。
+
+如果你唔想完全清走，而係想保留重點但瘦身，直接打：
+
+```text
+/summary
+```
 
 ### 4. 睇 logs
 

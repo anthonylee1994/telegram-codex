@@ -2,7 +2,8 @@ require 'rails_helper'
 
 RSpec.describe ConversationService do
   let(:reply_client) { instance_double(CodexCliClient) }
-  let(:service) { described_class.new(reply_client: reply_client) }
+  let(:session_summary_client) { instance_double(SessionSummaryClient) }
+  let(:service) { described_class.new(reply_client: reply_client, session_summary_client: session_summary_client) }
   let(:message) do
     InboundTelegramMessage.new(
       chat_id: 'chat-1',
@@ -161,6 +162,81 @@ RSpec.describe ConversationService do
       )
 
       expect(ProcessedUpdate.find_by(update_id: 2)).to be_present
+    end
+  end
+
+  describe '#session_snapshot' do
+    it 'returns inactive when there is no active session' do
+      expect(service.session_snapshot('chat-1')).to eq(active: false)
+    end
+
+    it 'returns active session metadata' do
+      transcript = [
+        { role: 'user', content: '你好' },
+        { role: 'assistant', content: '你好，有咩幫到你？' },
+        { role: 'user', content: '幫我整理' }
+      ]
+      ChatSession.create!(
+        chat_id: 'chat-1',
+        last_response_id: JSON.generate(transcript),
+        updated_at: current_time_ms
+      )
+
+      snapshot = service.session_snapshot('chat-1')
+
+      expect(snapshot[:active]).to be(true)
+      expect(snapshot[:message_count]).to eq(3)
+      expect(snapshot[:turn_count]).to eq(2)
+      expect(snapshot[:last_updated_at]).to be_a(ActiveSupport::TimeWithZone)
+    end
+  end
+
+  describe '#summarize_session' do
+    it 'returns missing_session when there is no active session' do
+      expect(service.summarize_session('chat-1')).to eq(status: :missing_session)
+    end
+
+    it 'returns too_short when the transcript is too short' do
+      ChatSession.create!(
+        chat_id: 'chat-1',
+        last_response_id: JSON.generate([
+          { role: 'user', content: '你好' },
+          { role: 'assistant', content: '你好' },
+          { role: 'user', content: '再講' }
+        ]),
+        updated_at: current_time_ms
+      )
+
+      expect(service.summarize_session('chat-1')).to eq(status: :too_short, message_count: 3)
+    end
+
+    it 'persists a compressed summary transcript for a long session' do
+      ChatSession.create!(
+        chat_id: 'chat-1',
+        last_response_id: JSON.generate([
+          { role: 'user', content: '我想整 Telegram bot' },
+          { role: 'assistant', content: '可以，講下需求。' },
+          { role: 'user', content: '要支援 PDF' },
+          { role: 'assistant', content: '收到。' }
+        ]),
+        updated_at: current_time_ms
+      )
+      allow(session_summary_client).to receive(:summarize).and_return('用戶想整 Telegram bot，並且要支援 PDF。')
+
+      result = service.summarize_session('chat-1')
+      persisted_transcript = CodexTranscript.from_conversation_state(ChatSession.find('chat-1').last_response_id)
+
+      expect(result).to eq(
+        status: :ok,
+        original_message_count: 4,
+        summary_text: '用戶想整 Telegram bot，並且要支援 PDF。'
+      )
+      expect(session_summary_client).to have_received(:summarize).with(instance_of(CodexTranscript))
+      expect(persisted_transcript.size).to eq(2)
+      expect(persisted_transcript.messages.last).to eq(
+        'role' => 'assistant',
+        'content' => '用戶想整 Telegram bot，並且要支援 PDF。'
+      )
     end
   end
 

@@ -27,6 +27,18 @@ class CodexTranscript
     self.class.new(@messages + [{ "role" => role, "content" => content }])
   end
 
+  def size
+    @messages.size
+  end
+
+  def empty?
+    @messages.empty?
+  end
+
+  def messages
+    @messages.map(&:dup)
+  end
+
   def to_conversation_state
     JSON.generate(@messages)
   end

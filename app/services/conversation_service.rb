@@ -1,6 +1,7 @@
 class ConversationService
   PROCESSED_UPDATE_PRUNE_INTERVAL_MS = 6 * 60 * 60 * 1000
   PROCESSED_UPDATE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
+  SUMMARY_BASELINE_MESSAGE = "以下係之前對話嘅摘要。之後請按呢份摘要延續對話上下文。".freeze
 
   SYSTEM_PROMPT = <<~PROMPT.strip
     你係一個 Telegram AI 助手。
@@ -16,10 +17,12 @@ class ConversationService
 
   def initialize(
     reply_client: CodexCliClient.new,
+    session_summary_client: SessionSummaryClient.new,
     chat_session_repository: ChatSessionRepository.new,
     processed_update_repository: ProcessedUpdateRepository.new
   )
     @reply_client = reply_client
+    @session_summary_client = session_summary_client
     @chat_session_repository = chat_session_repository
     @processed_update_repository = processed_update_repository
   end
@@ -66,6 +69,42 @@ class ConversationService
 
   def reset_session(chat_id)
     @chat_session_repository.reset(chat_id)
+  end
+
+  def session_snapshot(chat_id)
+    session = @chat_session_repository.find_active(chat_id)
+    return { active: false } if session.nil?
+
+    transcript = CodexTranscript.from_conversation_state(session.last_response_id)
+
+    {
+      active: true,
+      last_updated_at: Time.zone.at(session.updated_at / 1000.0),
+      message_count: transcript.size,
+      turn_count: (transcript.size / 2.0).ceil
+    }
+  end
+
+  def summarize_session(chat_id)
+    session = @chat_session_repository.find_active(chat_id)
+    return { status: :missing_session } if session.nil?
+
+    transcript = CodexTranscript.from_conversation_state(session.last_response_id)
+    return { status: :too_short, message_count: transcript.size } if transcript.size < 4
+
+    summary_text = @session_summary_client.summarize(transcript)
+    summary_transcript = CodexTranscript.new([
+      { "role" => "user", "content" => SUMMARY_BASELINE_MESSAGE },
+      { "role" => "assistant", "content" => summary_text }
+    ])
+
+    @chat_session_repository.persist(chat_id, summary_transcript.to_conversation_state)
+
+    {
+      status: :ok,
+      original_message_count: transcript.size,
+      summary_text: summary_text
+    }
   end
 
   def generate_reply(message, image_file_paths: [], text_override: nil)

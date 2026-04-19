@@ -3,8 +3,16 @@ require 'rails_helper'
 RSpec.describe TelegramWebhookHandler do
   let(:reply_client) { instance_double(CodexCliClient) }
   let(:telegram_client) { instance_double(TelegramClient, download_file_to_temp: nil) }
+  let(:session_summary_job_class) { class_double(SessionSummaryJob, perform_later: true) }
   let(:config) { telegram_test_config }
-  let(:handler_bundle) { build_telegram_webhook_handler(reply_client: reply_client, telegram_client: telegram_client, config: config) }
+  let(:handler_bundle) do
+    build_telegram_webhook_handler(
+      reply_client: reply_client,
+      telegram_client: telegram_client,
+      config: config,
+      session_summary_job_class: session_summary_job_class
+    )
+  end
   let(:handler) { handler_bundle.first }
   let(:conversation_service) { handler_bundle.last }
   let(:update) do
@@ -278,6 +286,72 @@ RSpec.describe TelegramWebhookHandler do
     expect(telegram_client).to have_received(:send_message).with(
       '3',
       TelegramWebhookHandler::NEW_SESSION_MESSAGE,
+      remove_keyboard: true
+    )
+  end
+
+  it 'shows help for /help' do
+    help_update = update.deep_merge('message' => { 'text' => '/help' })
+
+    allow(telegram_client).to receive(:send_message)
+
+    handler.handle(help_update)
+
+    expect(telegram_client).to have_received(:send_message).with(
+      '3',
+      TelegramWebhookHandler::HELP_MESSAGE,
+      remove_keyboard: true
+    )
+  end
+
+  it 'shows runtime status for /status' do
+    status_update = update.deep_merge('message' => { 'text' => '/status' })
+
+    allow(telegram_client).to receive(:send_message)
+
+    handler.handle(status_update)
+
+    expect(telegram_client).to have_received(:send_message).with(
+      '3',
+      include('Bot status：ok'),
+      remove_keyboard: true
+    )
+  end
+
+  it 'shows session metadata for /session' do
+    ChatSession.create!(
+      chat_id: '3',
+      last_response_id: JSON.generate([
+        { role: 'user', content: '你好' },
+        { role: 'assistant', content: '你好' },
+        { role: 'user', content: '再講多句' }
+      ]),
+      updated_at: current_time_ms
+    )
+    session_update = update.deep_merge('message' => { 'text' => '/session' })
+
+    allow(telegram_client).to receive(:send_message)
+
+    handler.handle(session_update)
+
+    expect(telegram_client).to have_received(:send_message).with(
+      '3',
+      include('目前 session：active'),
+      remove_keyboard: true
+    )
+  end
+
+  it 'enqueues async summary generation for /summary' do
+    summary_update = update.deep_merge('message' => { 'text' => '/summary' })
+
+    allow(telegram_client).to receive(:send_message)
+
+    handler.handle(summary_update)
+
+    expect(session_summary_job_class).to have_received(:perform_later).with('3')
+    expect(telegram_client).to have_received(:send_message).with(
+      '3',
+      TelegramWebhookHandler::SUMMARY_QUEUED_MESSAGE,
       remove_keyboard: true
     )
   end

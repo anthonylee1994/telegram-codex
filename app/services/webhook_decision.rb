@@ -1,6 +1,10 @@
 class WebhookDecision
   START_COMMAND_PATTERN = %r{\A/start(?:@[\w_]+)?\z}u
+  HELP_COMMAND_PATTERN = %r{\A/help(?:@[\w_]+)?\z}u
   NEW_SESSION_COMMAND_PATTERN = %r{\A/new(?:@[\w_]+)?\z}u
+  SESSION_COMMAND_PATTERN = %r{\A/session(?:@[\w_]+)?\z}u
+  STATUS_COMMAND_PATTERN = %r{\A/status(?:@[\w_]+)?\z}u
+  SUMMARY_COMMAND_PATTERN = %r{\A/summary(?:@[\w_]+)?\z}u
 
   attr_reader :action, :message, :processed_update, :response_text
 
@@ -29,6 +33,22 @@ class WebhookDecision
 
   def self.reset_session(message, response_text)
     new(action: :reset_session, message: message, response_text: response_text)
+  end
+
+  def self.show_help(message)
+    new(action: :show_help, message: message)
+  end
+
+  def self.show_status(message)
+    new(action: :show_status, message: message)
+  end
+
+  def self.show_session(message)
+    new(action: :show_session, message: message)
+  end
+
+  def self.summarize_session(message, response_text)
+    new(action: :summarize_session, message: message, response_text: response_text)
   end
 
   def self.rate_limited(message)
@@ -67,18 +87,43 @@ class WebhookDecision
     action == :rate_limited
   end
 
+  def show_help?
+    action == :show_help
+  end
+
+  def show_status?
+    action == :show_status
+  end
+
+  def show_session?
+    action == :show_session
+  end
+
+  def summarize_session?
+    action == :summarize_session
+  end
+
   def too_many_images?
     action == :too_many_images
   end
 
   class Resolver
-    def initialize(processed_update_flow:, rate_limiter:, config:, start_message:, new_session_message:, too_many_images_message:)
+    def initialize(
+      processed_update_flow:,
+      rate_limiter:,
+      config:,
+      start_message:,
+      new_session_message:,
+      too_many_images_message:,
+      summary_queued_message:
+    )
       @processed_update_flow = processed_update_flow
       @rate_limiter = rate_limiter
       @config = config
       @start_message = start_message
       @new_session_message = new_session_message
       @too_many_images_message = too_many_images_message
+      @summary_queued_message = summary_queued_message
     end
 
     def call(message)
@@ -90,6 +135,10 @@ class WebhookDecision
       return WebhookDecision.reject_unauthorized(message) if unauthorized_user?(message.user_id)
       return WebhookDecision.reset_session(message, @new_session_message) if new_session_command?(message.text)
       return WebhookDecision.reset_session(message, @start_message) if start_command?(message.text)
+      return WebhookDecision.show_help(message) if help_command?(message.text)
+      return WebhookDecision.show_status(message) if status_command?(message.text)
+      return WebhookDecision.show_session(message) if session_command?(message.text)
+      return WebhookDecision.summarize_session(message, @summary_queued_message) if summary_command?(message.text)
       return WebhookDecision.too_many_images(message, @too_many_images_message) if too_many_media_group_images?(message)
       return WebhookDecision.rate_limited(message) unless @rate_limiter.allow(message.chat_id)
       return WebhookDecision.duplicate(message) unless @processed_update_flow.begin_processing(message)
@@ -109,6 +158,22 @@ class WebhookDecision
 
     def new_session_command?(text)
       text.match?(NEW_SESSION_COMMAND_PATTERN)
+    end
+
+    def help_command?(text)
+      text.match?(HELP_COMMAND_PATTERN)
+    end
+
+    def status_command?(text)
+      text.match?(STATUS_COMMAND_PATTERN)
+    end
+
+    def session_command?(text)
+      text.match?(SESSION_COMMAND_PATTERN)
+    end
+
+    def summary_command?(text)
+      text.match?(SUMMARY_COMMAND_PATTERN)
     end
 
     def start_command?(text)
