@@ -14,13 +14,16 @@ RSpec.describe ReplyGenerationJob do
     )
   end
   let(:pdf_page_rasterizer) { instance_double(PdfPageRasterizer) }
+  let(:text_document_extractor) { instance_double(TextDocumentExtractor) }
 
   before do
     allow(TelegramClient).to receive(:new).and_return(telegram_client)
     allow(CodexExecRunner).to receive(:new).and_return(exec_runner)
     allow(PdfPageRasterizer).to receive(:new).and_return(pdf_page_rasterizer)
+    allow(TextDocumentExtractor).to receive(:new).and_return(text_document_extractor)
     allow(telegram_client).to receive(:with_typing_status).and_yield
     allow(pdf_page_rasterizer).to receive(:rasterize).and_return([])
+    allow(text_document_extractor).to receive(:extract)
   end
 
   it "generates the reply in the background and persists the result" do
@@ -117,6 +120,35 @@ RSpec.describe ReplyGenerationJob do
     expect(exec_runner).to have_received(:run).with(
       prompt: kind_of(String),
       image_file_paths: ["/tmp/page-1.png", "/tmp/page-2.png"],
+      output_schema: kind_of(Hash)
+    )
+  end
+
+  it "downloads text documents, extracts their content, and passes them as prompt text" do
+    text_message = InboundTelegramMessage.new(
+      chat_id: "3",
+      image_file_ids: [],
+      message_id: 2,
+      text: "幫我列重點",
+      text_document_file_id: "document-text-file",
+      text_document_name: "notes.txt",
+      user_id: "234392020",
+      update_id: 1
+    )
+    allow(telegram_client).to receive(:download_file_to_temp).with("document-text-file").and_return("/tmp/notes.txt")
+    allow(text_document_extractor).to receive(:extract).with("/tmp/notes.txt").and_return(
+      TextDocumentExtractor::ExtractionResult.new(content: "alpha\nbeta", truncated: false)
+    )
+    allow(exec_runner).to receive(:run).and_return(
+      '{"text":"reply-1","suggested_replies":["下一步可以點做？","幫我列重點。","可唔可以講詳細啲？"]}'
+    )
+    allow(telegram_client).to receive(:send_message)
+
+    described_class.perform_now(text_message.to_job_payload)
+
+    expect(exec_runner).to have_received(:run).with(
+      prompt: include("檔案名稱：notes.txt", "alpha\nbeta"),
+      image_file_paths: [],
       output_schema: kind_of(Hash)
     )
   end

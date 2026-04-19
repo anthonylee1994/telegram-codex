@@ -68,13 +68,13 @@ class ConversationService
     @chat_session_repository.reset(chat_id)
   end
 
-  def generate_reply(message, image_file_paths: [])
+  def generate_reply(message, image_file_paths: [], text_override: nil)
     prune_processed_updates_if_needed
     session = @chat_session_repository.find_active(message.chat_id)
 
     result = @reply_client.generate_reply(
       chat_id: message.chat_id,
-      text: message.text,
+      text: text_override.presence || message.text,
       conversation_state: session&.last_response_id,
       image_file_paths: image_file_paths
     )

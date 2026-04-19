@@ -6,11 +6,13 @@ class ReplyGenerationFlow
   def initialize(
     conversation_service:,
     telegram_client:,
-    pdf_page_rasterizer: PdfPageRasterizer.new(max_pages: AppConfig.fetch.max_pdf_pages)
+    pdf_page_rasterizer: PdfPageRasterizer.new(max_pages: AppConfig.fetch.max_pdf_pages),
+    text_document_extractor: TextDocumentExtractor.new
   )
     @conversation_service = conversation_service
     @telegram_client = telegram_client
     @pdf_page_rasterizer = pdf_page_rasterizer
+    @text_document_extractor = text_document_extractor
   end
 
   def call(message)
@@ -19,9 +21,10 @@ class ReplyGenerationFlow
     begin
       reply = @telegram_client.with_typing_status(message.chat_id) do
         image_file_paths = download_attachments_if_needed(message)
+        text_override = build_text_override(message)
 
         begin
-          build_reply(message, image_file_paths)
+          build_reply(message, image_file_paths, text_override)
         ensure
           cleanup_downloaded_images(image_file_paths)
         end
@@ -50,8 +53,8 @@ class ReplyGenerationFlow
 
   private
 
-  def build_reply(message, image_file_paths)
-    @conversation_service.generate_reply(message, image_file_paths: image_file_paths)
+  def build_reply(message, image_file_paths, text_override)
+    @conversation_service.generate_reply(message, image_file_paths: image_file_paths, text_override: text_override)
   end
 
   def download_attachments_if_needed(message)
@@ -60,6 +63,29 @@ class ReplyGenerationFlow
 
     pdf_path = @telegram_client.download_file_to_temp(message.pdf_file_id)
     image_file_paths + @pdf_page_rasterizer.rasterize(pdf_path)
+  end
+
+  def build_text_override(message)
+    return message.text unless message.text_document?
+
+    document_path = @telegram_client.download_file_to_temp(message.text_document_file_id)
+    extraction_result = @text_document_extractor.extract(document_path)
+    base_prompt = if message.text.present?
+      message.text
+    else
+      "我上載咗一份文字檔。請先概括內容，再按內容回答。"
+    end
+
+    [
+      base_prompt,
+      "",
+      "檔案名稱：#{message.text_document_name.presence || '未命名檔案'}",
+      "以下係檔案內容：",
+      "```text",
+      extraction_result.content,
+      "```",
+      extraction_result.truncated ? "注意：檔案內容已經截短，只包含前面一部分。" : nil
+    ].compact.join("\n")
   end
 
   def download_images_if_needed(message)

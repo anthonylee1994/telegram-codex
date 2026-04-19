@@ -26,6 +26,7 @@ Demo：https://t.me/On99AppBot
 - 支援單張圖片同 caption
 - 支援 Telegram 相簿多圖訊息分析
 - 支援 Telegram PDF document，會先轉頭幾頁做圖片再分析
+- 支援 `.txt`、`.md`、`.html`、`.json`、`.csv` document，會先抽文字再分析
 - 多圖分析會用 `圖 1`、`圖 2` 呢類編號逐張講
 - 相簿冇 caption 時會自動補 prompt，叫模型逐張描述再比較
 - 相簿太多圖時會先叫用戶縮窄範圍再分析
@@ -156,7 +157,7 @@ spec/
 
 - [`telegram_update_parser.rb`](app/services/telegram_update_parser.rb)
   - 將 Telegram 原始 payload 轉成 app 內部用嘅 hash。
-  - 支援文字訊息、單張圖片、圖片 document、PDF document 同 Telegram 相簿訊息。
+  - 支援文字訊息、單張圖片、圖片 document、PDF document、文字 document 同 Telegram 相簿訊息。
   - 每張圖都會揀 Telegram `photo` array 裏面最大嗰張。
 
 - [`chat_rate_limiter.rb`](app/services/chat_rate_limiter.rb)
@@ -181,6 +182,7 @@ spec/
 - [`reply_generation_flow.rb`](app/services/reply_generation_flow.rb)
   - 真正處理 Telegram 附件 download 嗰層。
   - 如果收到 PDF，會先 download，再用 `pdftoppm` 將頭幾頁轉做 PNG，之後先交畀 Codex。
+  - 如果收到 `.txt`、`.md`、`.html`、`.json`、`.csv`，會先抽文字再拼入 prompt。
 
 - [`conversation_service.rb`](app/services/conversation_service.rb)
   - 對話層 orchestration。
@@ -202,6 +204,7 @@ spec/
     - 再用更新後 transcript 生成 suggested replies
     - 如果有圖就加 `--image`
     - PDF 其實係先轉做圖片，所以對 Codex 嚟講都係多圖分析
+    - 文字檔就會先抽內容，再當文字 prompt 一部分交畀 Codex
     - 讀返 `codex exec --output-last-message` 生成嘅最後訊息
   - `codex exec` 仍然係同步 call，但而家係喺 background job 入面跑，唔會再頂住 webhook request。
 

@@ -1,5 +1,6 @@
 class InboundTelegramMessage
-  attr_reader :chat_id, :image_file_ids, :media_group_id, :message_id, :pdf_file_id, :processing_updates, :text, :user_id, :update_id
+  attr_reader :chat_id, :image_file_ids, :media_group_id, :message_id, :pdf_file_id, :processing_updates,
+              :text, :text_document_file_id, :text_document_name, :user_id, :update_id
 
   def initialize(
     chat_id:,
@@ -9,6 +10,8 @@ class InboundTelegramMessage
     pdf_file_id: nil,
     processing_updates: nil,
     text:,
+    text_document_file_id: nil,
+    text_document_name: nil,
     user_id:,
     update_id:
   )
@@ -19,6 +22,8 @@ class InboundTelegramMessage
     @pdf_file_id = normalize_pdf_file_id(pdf_file_id)
     @processing_updates = normalize_processing_updates(processing_updates, update_id, message_id)
     @text = text
+    @text_document_file_id = normalize_text_document_file_id(text_document_file_id)
+    @text_document_name = normalize_text_document_name(text_document_name)
     @user_id = user_id
     @update_id = update_id
   end
@@ -39,8 +44,12 @@ class InboundTelegramMessage
     pdf_file_id.present?
   end
 
+  def text_document?
+    text_document_file_id.present?
+  end
+
   def unsupported?
-    text.blank? && image_file_ids.empty? && pdf_file_id.blank?
+    text.blank? && image_file_ids.empty? && pdf_file_id.blank? && text_document_file_id.blank?
   end
 
   def to_job_payload
@@ -57,6 +66,8 @@ class InboundTelegramMessage
         }
       end,
       "text" => text,
+      "text_document_file_id" => text_document_file_id,
+      "text_document_name" => text_document_name,
       "user_id" => user_id,
       "update_id" => update_id
     }
@@ -71,6 +82,8 @@ class InboundTelegramMessage
       pdf_file_id: payload["pdf_file_id"],
       processing_updates: payload.fetch("processing_updates", []),
       text: payload["text"],
+      text_document_file_id: payload["text_document_file_id"],
+      text_document_name: payload["text_document_name"],
       user_id: payload.fetch("user_id"),
       update_id: payload.fetch("update_id")
     )
@@ -92,6 +105,20 @@ class InboundTelegramMessage
     return nil if normalized_pdf_file_id.empty?
 
     normalized_pdf_file_id
+  end
+
+  def normalize_text_document_file_id(text_document_file_id)
+    normalized_text_document_file_id = text_document_file_id.to_s.strip
+    return nil if normalized_text_document_file_id.empty?
+
+    normalized_text_document_file_id
+  end
+
+  def normalize_text_document_name(text_document_name)
+    normalized_text_document_name = text_document_name.to_s.strip
+    return nil if normalized_text_document_name.empty?
+
+    normalized_text_document_name
   end
 
   def normalize_processing_updates(processing_updates, update_id, message_id)

@@ -70,6 +70,22 @@ RSpec.describe ConversationService do
       )
     end
 
+    it 'passes text override through to the reply client when provided' do
+      allow(reply_client).to receive(:generate_reply).and_return(
+        conversation_state: 'state-new',
+        text: 'reply'
+      )
+
+      service.generate_reply(message, text_override: 'override text')
+
+      expect(reply_client).to have_received(:generate_reply).with(
+        chat_id: 'chat-1',
+        text: 'override text',
+        conversation_state: nil,
+        image_file_paths: []
+      )
+    end
+
     it 'prunes old processed updates that were already sent' do
       old_processed_at = current_time_ms - (31 * 24 * 60 * 60 * 1000)
 

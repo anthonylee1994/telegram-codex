@@ -176,4 +176,76 @@ RSpec.describe TelegramUpdateParser do
       update_id: 15
     )
   end
+
+  it 'parses text documents and keeps the file id for later extraction' do
+    parsed = parser.parse_incoming_telegram_message(
+      {
+        'update_id' => 17,
+        'message' => {
+          'from' => {
+            'id' => 234_392_020
+          },
+          'message_id' => 18,
+          'caption' => '幫我睇內容',
+          'document' => {
+            'file_id' => 'document-text-file',
+            'file_name' => 'notes.md',
+            'mime_type' => 'text/markdown'
+          },
+          'chat' => {
+            'id' => 3
+          }
+        }
+      }
+    )
+
+    expect(parsed).to have_attributes(
+      chat_id: '3',
+      image_file_ids: [],
+      media_group_id: nil,
+      message_id: 18,
+      pdf_file_id: nil,
+      text: '幫我睇內容',
+      text_document_file_id: 'document-text-file',
+      text_document_name: 'notes.md',
+      user_id: '234392020',
+      update_id: 17
+    )
+  end
+
+  it 'parses html documents and keeps the file id for later extraction' do
+    parsed = parser.parse_incoming_telegram_message(
+      {
+        'update_id' => 19,
+        'message' => {
+          'from' => {
+            'id' => 234_392_020
+          },
+          'message_id' => 20,
+          'caption' => '幫我睇 HTML',
+          'document' => {
+            'file_id' => 'document-html-file',
+            'file_name' => 'page.html',
+            'mime_type' => 'text/html'
+          },
+          'chat' => {
+            'id' => 3
+          }
+        }
+      }
+    )
+
+    expect(parsed).to have_attributes(
+      chat_id: '3',
+      image_file_ids: [],
+      media_group_id: nil,
+      message_id: 20,
+      pdf_file_id: nil,
+      text: '幫我睇 HTML',
+      text_document_file_id: 'document-html-file',
+      text_document_name: 'page.html',
+      user_id: '234392020',
+      update_id: 19
+    )
+  end
 end
