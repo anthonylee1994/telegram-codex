@@ -2,6 +2,7 @@ require "fileutils"
 
 class ReplyGenerationFlow
   PDF_UNAVAILABLE_MESSAGE = "而家未開到 PDF 轉圖工具，所以暫時睇唔到 PDF。你可以改為 send screenshot，或者等我開通 PDF 支援。"
+  TEXT_DOCUMENT_UNAVAILABLE_MESSAGE = "而家未開到 Office / 文字檔抽取工具，所以暫時睇唔到份檔案內容。你可以改為貼文字、send PDF，或者等我開通完整支援。"
 
   def initialize(
     conversation_service:,
@@ -43,6 +44,10 @@ class ReplyGenerationFlow
       @conversation_service.clear_processing(message.update_id) unless has_pending_reply
       Rails.logger.error("PDF conversion unavailable update_id=#{message.update_id} chat_id=#{message.chat_id} error=#{e.message}")
       @telegram_client.send_message(message.chat_id, PDF_UNAVAILABLE_MESSAGE)
+    rescue TextDocumentExtractor::MissingDependencyError => e
+      @conversation_service.clear_processing(message.update_id) unless has_pending_reply
+      Rails.logger.error("Text document extraction unavailable update_id=#{message.update_id} chat_id=#{message.chat_id} error=#{e.message}")
+      @telegram_client.send_message(message.chat_id, TEXT_DOCUMENT_UNAVAILABLE_MESSAGE)
     rescue StandardError
       @conversation_service.clear_processing(message.update_id) unless has_pending_reply
       raise if has_pending_reply

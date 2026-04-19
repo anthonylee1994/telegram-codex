@@ -248,4 +248,60 @@ RSpec.describe TelegramUpdateParser do
       update_id: 19
     )
   end
+
+  it 'parses docx documents and keeps the file id for later extraction' do
+    parsed = parser.parse_incoming_telegram_message(
+      {
+        'update_id' => 21,
+        'message' => {
+          'from' => {
+            'id' => 234_392_020
+          },
+          'message_id' => 22,
+          'caption' => '幫我睇 Word',
+          'document' => {
+            'file_id' => 'document-docx-file',
+            'file_name' => 'notes.docx',
+            'mime_type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          },
+          'chat' => {
+            'id' => 3
+          }
+        }
+      }
+    )
+
+    expect(parsed).to have_attributes(
+      text_document_file_id: 'document-docx-file',
+      text_document_name: 'notes.docx'
+    )
+  end
+
+  it 'parses xlsx documents and keeps the file id for later extraction' do
+    parsed = parser.parse_incoming_telegram_message(
+      {
+        'update_id' => 23,
+        'message' => {
+          'from' => {
+            'id' => 234_392_020
+          },
+          'message_id' => 24,
+          'caption' => '幫我睇 Excel',
+          'document' => {
+            'file_id' => 'document-xlsx-file',
+            'file_name' => 'sheet.xlsx',
+            'mime_type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          },
+          'chat' => {
+            'id' => 3
+          }
+        }
+      }
+    )
+
+    expect(parsed).to have_attributes(
+      text_document_file_id: 'document-xlsx-file',
+      text_document_name: 'sheet.xlsx'
+    )
+  end
 end

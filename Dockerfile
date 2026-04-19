@@ -16,7 +16,7 @@ FROM base AS build
 COPY .codex-version /tmp/.codex-version
 
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential ca-certificates curl git libsqlite3-dev libyaml-dev nodejs npm pkg-config poppler-utils sqlite3 && \
+    apt-get install --no-install-recommends -y build-essential ca-certificates curl git libsqlite3-dev libyaml-dev nodejs npm pkg-config poppler-utils sqlite3 unzip && \
     npm install -g @openai/codex@"$(cat /tmp/.codex-version)" && \
     rm -rf /var/lib/apt/lists/* /tmp/.codex-version
 
@@ -30,7 +30,7 @@ FROM base AS runtime
 COPY .codex-version /tmp/.codex-version
 
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y ca-certificates git nodejs npm poppler-utils sqlite3 && \
+    apt-get install --no-install-recommends -y ca-certificates git nodejs npm poppler-utils sqlite3 unzip && \
     npm install -g @openai/codex@"$(cat /tmp/.codex-version)" && \
     mkdir -p /rails/data /root/.codex && \
     rm -rf /var/lib/apt/lists/* /tmp/.codex-version

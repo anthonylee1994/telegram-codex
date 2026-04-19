@@ -112,4 +112,31 @@ RSpec.describe ReplyGenerationFlow do
       text_override: include("幫我整理重點", "檔案名稱：notes.md", "第一行\n第二行", "注意：檔案內容已經截短")
     )
   end
+
+  it "sends a specific message when office extraction tools are unavailable" do
+    message = InboundTelegramMessage.new(
+      chat_id: "3",
+      image_file_ids: [],
+      message_id: 2,
+      text: "幫我睇 Word",
+      text_document_file_id: "document-docx-file",
+      text_document_name: "notes.docx",
+      user_id: "234392020",
+      update_id: 1
+    )
+    allow(telegram_client).to receive(:with_typing_status).and_yield
+    allow(telegram_client).to receive(:download_file_to_temp).with("document-docx-file").and_return("/tmp/notes.docx")
+    allow(text_document_extractor).to receive(:extract).with("/tmp/notes.docx").and_raise(
+      TextDocumentExtractor::MissingDependencyError,
+      "unzip is not installed"
+    )
+    allow(conversation_service).to receive(:clear_processing)
+    allow(telegram_client).to receive(:send_message)
+    allow(Rails.logger).to receive(:error)
+
+    flow.call(message)
+
+    expect(telegram_client).to have_received(:send_message).with("3", ReplyGenerationFlow::TEXT_DOCUMENT_UNAVAILABLE_MESSAGE)
+    expect(conversation_service).to have_received(:clear_processing).with(1)
+  end
 end

@@ -26,7 +26,7 @@ Demo：https://t.me/On99AppBot
 - 支援單張圖片同 caption
 - 支援 Telegram 相簿多圖訊息分析
 - 支援 Telegram PDF document，會先轉頭幾頁做圖片再分析
-- 支援 `.txt`、`.md`、`.html`、`.json`、`.csv` document，會先抽文字再分析
+- 支援 `.txt`、`.md`、`.html`、`.json`、`.csv`、`.docx`、`.xlsx` document，會先抽文字再分析
 - 多圖分析會用 `圖 1`、`圖 2` 呢類編號逐張講
 - 相簿冇 caption 時會自動補 prompt，叫模型逐張描述再比較
 - 相簿太多圖時會先叫用戶縮窄範圍再分析
@@ -182,7 +182,7 @@ spec/
 - [`reply_generation_flow.rb`](app/services/reply_generation_flow.rb)
   - 真正處理 Telegram 附件 download 嗰層。
   - 如果收到 PDF，會先 download，再用 `pdftoppm` 將頭幾頁轉做 PNG，之後先交畀 Codex。
-  - 如果收到 `.txt`、`.md`、`.html`、`.json`、`.csv`，會先抽文字再拼入 prompt。
+  - 如果收到 `.txt`、`.md`、`.html`、`.json`、`.csv`、`.docx`、`.xlsx`，會先抽文字再拼入 prompt。
 
 - [`conversation_service.rb`](app/services/conversation_service.rb)
   - 對話層 orchestration。
@@ -303,6 +303,7 @@ SQLite 而家主要得兩張表：
 - Bundler `4.x`
 - SQLite 3
 - `pdftoppm`（如果要用 PDF 轉圖分析；Docker image 已安裝 `poppler-utils`）
+- `unzip`（如果要抽 `.docx` / `.xlsx` 內容；Docker image 已安裝）
 - 本機或 server 可以直接跑 `codex exec`
 - `~/.codex/config.toml` 同 `~/.codex/auth.json` 已配置好
 - 本機最好用 repo 根目錄 `.codex-version` 指定嗰個 Codex CLI 版本

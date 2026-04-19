@@ -111,9 +111,9 @@ class TelegramUpdateParser
     return false if supported_document_image?(document) || supported_pdf_document?(document)
 
     mime_type = document["mime_type"].to_s.strip.downcase
-    return true if %w[text/plain text/markdown text/html application/xhtml+xml application/json text/csv application/csv].include?(mime_type)
+    return true if %w[text/plain text/markdown text/html application/xhtml+xml application/json text/csv application/csv application/vnd.openxmlformats-officedocument.wordprocessingml.document application/vnd.openxmlformats-officedocument.spreadsheetml.sheet].include?(mime_type)
 
     file_name = document["file_name"].to_s.strip.downcase
-    %w[.txt .md .html .json .csv].any? { |extension| file_name.end_with?(extension) }
+    %w[.txt .md .html .json .csv .docx .xlsx].any? { |extension| file_name.end_with?(extension) }
   end
 end
