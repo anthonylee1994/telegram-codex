@@ -1,12 +1,12 @@
 require 'rails_helper'
 
 RSpec.describe SessionSummaryJob do
-  let(:conversation_service) { instance_double(ConversationService) }
-  let(:telegram_client) { instance_double(TelegramClient) }
+  let(:conversation_service) { instance_double(Conversation::Service) }
+  let(:telegram_client) { instance_double(Telegram::Client) }
 
   before do
-    allow(ConversationService).to receive(:new).and_return(conversation_service)
-    allow(TelegramClient).to receive(:new).and_return(telegram_client)
+    allow(Conversation::Service).to receive(:new).and_return(conversation_service)
+    allow(Telegram::Client).to receive(:new).and_return(telegram_client)
     allow(telegram_client).to receive(:send_message)
   end
 
@@ -30,7 +30,7 @@ RSpec.describe SessionSummaryJob do
 
   it 'sends a timeout-specific fallback when retries are exhausted' do
     allow(conversation_service).to receive(:summarize_session).and_raise(
-      CodexExecRunner::ExecutionTimeoutError,
+      Codex::ExecRunner::ExecutionTimeoutError,
       'timeout'
     )
 

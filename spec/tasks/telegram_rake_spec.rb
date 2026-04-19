@@ -17,9 +17,9 @@ RSpec.describe "telegram rake tasks" do
 
   describe "telegram:update_commands" do
     it "updates Telegram bot commands" do
-      telegram_client = instance_double(TelegramClient, set_my_commands: true)
+      telegram_client = instance_double(Telegram::Client, set_my_commands: true)
 
-      allow(TelegramClient).to receive(:new).and_return(telegram_client)
+      allow(Telegram::Client).to receive(:new).and_return(telegram_client)
 
       Rake::Task["telegram:update_commands"].invoke
 

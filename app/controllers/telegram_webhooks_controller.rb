@@ -6,7 +6,7 @@ class TelegramWebhooksController < ApplicationController
       return
     end
 
-    TelegramWebhookHandlerFactory.build.handle(request.request_parameters.presence || parsed_raw_body)
+    Telegram::WebhookHandlerFactory.build.handle(request.request_parameters.presence || parsed_raw_body)
     render json: { ok: true }
   rescue StandardError => e
     Rails.logger.error("Failed to process Telegram webhook: #{e.message}")

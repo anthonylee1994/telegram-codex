@@ -7,7 +7,7 @@ class ReplyGenerationJob < ApplicationJob
 
   def perform(message_payload)
     @message_payload = message_payload
-    message = InboundTelegramMessage.from_job_payload(message_payload)
+    message = Telegram::InboundMessage.from_job_payload(message_payload)
     processed_update_flow = build_processed_update_flow
     processed_update = processed_update_flow.find(message.update_id)
 
@@ -18,7 +18,7 @@ class ReplyGenerationJob < ApplicationJob
   end
 
   def handle_retry_exhausted(error)
-    message = InboundTelegramMessage.from_job_payload(@message_payload)
+    message = Telegram::InboundMessage.from_job_payload(@message_payload)
     processed_update_flow = build_processed_update_flow
     processed_update = processed_update_flow.find(message.update_id)
 
@@ -43,27 +43,27 @@ class ReplyGenerationJob < ApplicationJob
   private
 
   def build_processed_update_flow
-    ProcessedUpdateFlow.new(conversation_service: conversation_service)
+    Conversation::ProcessedUpdateFlow.new(conversation_service: conversation_service)
   end
 
   def conversation_service
-    @conversation_service ||= ConversationService.new
+    @conversation_service ||= Conversation::Service.new
   end
 
   def reply_generation_flow
-    @reply_generation_flow ||= ReplyGenerationFlow.new(
+    @reply_generation_flow ||= Conversation::ReplyGenerationFlow.new(
       conversation_service: conversation_service,
       telegram_client: telegram_client
     )
   end
 
   def telegram_client
-    @telegram_client ||= TelegramClient.new
+    @telegram_client ||= Telegram::Client.new
   end
 
   def error_message_for(error)
-    return TIMEOUT_ERROR_MESSAGE if error.is_a?(CodexExecRunner::ExecutionTimeoutError)
+    return TIMEOUT_ERROR_MESSAGE if error.is_a?(Codex::ExecRunner::ExecutionTimeoutError)
 
-    TelegramWebhookHandler::GENERIC_ERROR_MESSAGE
+    Telegram::WebhookHandler::GENERIC_ERROR_MESSAGE
   end
 end

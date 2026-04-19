@@ -58,12 +58,11 @@ app/
 │   └── processed_update.rb
 └── services/
     ├── app_config.rb
-    ├── chat_rate_limiter.rb
-    ├── codex_cli_client.rb
-    ├── conversation_service.rb
-    ├── telegram_client.rb
-    ├── telegram_update_parser.rb
-    └── telegram_webhook_handler.rb
+    ├── codex/
+    ├── conversation/
+    │   └── webhooks/
+    ├── documents/
+    └── telegram/
 db/
 ├── migrate/
 │   ├── create_chat_sessions.rb
@@ -93,9 +92,9 @@ spec/
 由 Telegram 打入嚟，到 bot 回覆，用緊以下條 path：
 
 - `POST /telegram/webhook` 驗證 `X-Telegram-Bot-Api-Secret-Token`
-- `TelegramUpdateParser` 將 Telegram payload 轉成 app message
-- `TelegramWebhookHandler` 做 duplicate、防重送、allowed user、commands、rate limit
-- `ConversationService` 管 session TTL，同 `CodexCliClient` 串 `codex exec`
+- `Telegram::UpdateParser` 將 Telegram payload 轉成 app message
+- `Telegram::WebhookHandler` 做 duplicate、防重送、allowed user、commands、rate limit
+- `Conversation::Service` 管 session TTL，同 `Codex::CliClient` 串 `codex exec`
 - `ReplyGenerationJob` / `SessionSummaryJob` 非同步生成回覆或摘要，再發送 Telegram 訊息
 - `ChatSession` / `ProcessedUpdate` 用 SQLite 存狀態
 - `rake telegram:set_webhook` 取代原本 script
@@ -104,7 +103,7 @@ spec/
 
 1. Telegram webhook 打入 Rails。
 2. `TelegramWebhooksController` 先驗證 secret token。
-3. 驗證通過後，controller 將 payload 交畀 `TelegramWebhookHandler`。
+3. 驗證通過後，controller 將 payload 交畀 `Telegram::WebhookHandler`。
 4. handler 會：
    - parse 文字 / 圖片 message
    - parse `reply_to_message`，抽返被引用文字或者文件 context
@@ -114,10 +113,10 @@ spec/
    - 處理 `/start`、`/help`、`/status`、`/session`、`/summary`、`/new`
    - 做 chat-level rate limit
 5. 真正要生成回覆時，handler 會 enqueue `ReplyGenerationJob`，Webhook 先即刻回 `200 OK`。
-6. `ReplyGenerationJob` 再 call `ConversationService` 攞返目前 chat 嘅 session state。
-7. `ConversationService` call `CodexCliClient`。
-8. `CodexCliClient` 用 transcript + system prompt 組 prompt，然後跑 `codex exec`。
-9. `CodexCliClient` 會再生成 3 個 suggested replies。
+6. `ReplyGenerationJob` 再 call `Conversation::Service` 攞返目前 chat 嘅 session state。
+7. `Conversation::Service` call `Codex::CliClient`。
+8. `Codex::CliClient` 用 transcript + system prompt 組 prompt，然後跑 `codex exec`。
+9. `Codex::CliClient` 會再生成 3 個 suggested replies。
 10. job 將主答案同 suggested replies send 番 Telegram，並將新 session state 寫返 SQLite。
 
 ## 主要檔案點運作
@@ -160,18 +159,18 @@ spec/
   - 同時會確保 SQLite directory 存在。
   - 呢層等你唔使到處直接 `ENV.fetch`。
 
-- [`telegram_update_parser.rb`](app/services/telegram_update_parser.rb)
+- [`update_parser.rb`](app/services/telegram/update_parser.rb)
   - 將 Telegram 原始 payload 轉成 app 內部用嘅 hash。
   - 支援文字訊息、單張圖片、圖片 document、PDF document、文字 document 同 Telegram 相簿訊息。
   - 如果 user 用 reply 功能引用之前一則 message，呢層會一齊抽返被引用文字、相、PDF、文字檔嘅 context。
   - 每張圖都會揀 Telegram `photo` array 裏面最大嗰張。
 
-- [`chat_rate_limiter.rb`](app/services/chat_rate_limiter.rb)
+- [`chat_rate_limiter.rb`](app/services/conversation/chat_rate_limiter.rb)
   - in-memory rate limiter。
   - 粒度係 `chat_id`，唔係 global。
   - 適合單機、小流量 bot；如果之後多 instances，就要改成 shared store。
 
-- [`telegram_client.rb`](app/services/telegram_client.rb)
+- [`client.rb`](app/services/telegram/client.rb)
   - 包住 Telegram Bot API。
   - 主要做：
     - send message
@@ -185,24 +184,24 @@ spec/
   - 將原本同步 reply generation flow 搬去 background job。
   - webhook claim 咗個 update 之後，就由呢個 job 負責真正生成 reply、send Telegram，同埋 pending reply replay。
 
-- [`reply_generation_flow.rb`](app/services/reply_generation_flow.rb)
+- [`reply_generation_flow.rb`](app/services/conversation/reply_generation_flow.rb)
   - 真正處理 Telegram 附件 download 嗰層。
   - 如果收到 PDF，會先 download，再用 `pdftoppm` 將頭幾頁轉做 PNG，之後先交畀 Codex。
   - 如果收到 `.txt`、`.md`、`.html`、`.json`、`.csv`、`.docx`、`.xlsx`，會先抽文字再拼入 prompt。
   - 如果今次訊息本身冇新附件，但係 reply 咗之前一份相 / PDF / 文字檔，亦會 fallback download 嗰份被引用文件再分析。
 
-- [`conversation_service.rb`](app/services/conversation_service.rb)
+- [`service.rb`](app/services/conversation/service.rb)
   - 對話層 orchestration。
   - 主要責任：
     - 讀寫 `ChatSession`
     - 讀寫 `ProcessedUpdate`
     - 判斷 session TTL
-    - call `CodexCliClient`
-    - call `SessionSummaryClient` 壓縮 session context
+    - call `Codex::CliClient`
+    - call `Conversation::SessionSummaryClient` 壓縮 session context
     - opportunistic prune 舊 `ProcessedUpdate`
   - 如果你想搵「個 bot 記憶點樣管理」，通常由呢個 file 開始睇最啱。
 
-- [`codex_cli_client.rb`](app/services/codex_cli_client.rb)
+- [`cli_client.rb`](app/services/codex/cli_client.rb)
   - 真正同 `codex exec` 接軌嗰層。
   - 佢會：
     - parse 上次 conversation state
@@ -217,7 +216,7 @@ spec/
     - 讀返 `codex exec --output-last-message` 生成嘅最後訊息
   - `codex exec` 仍然係同步 call，但而家係喺 background job 入面跑，唔會再頂住 webhook request。
 
-- [`telegram_webhook_handler.rb`](app/services/telegram_webhook_handler.rb)
+- [`webhook_handler.rb`](app/services/telegram/webhook_handler.rb)
   - 成個 bot flow 最核心嘅 file。
   - 大部分 Telegram 行為都喺呢度：
     - unsupported message fallback
@@ -278,13 +277,13 @@ spec/
 - [`app_spec.rb`](spec/requests/app_spec.rb)
   - 驗 HTTP 層：`/health` 同 webhook secret 驗證。
 
-- [`conversation_service_spec.rb`](spec/services/conversation_service_spec.rb)
+- [`service_spec.rb`](spec/services/conversation/service_spec.rb)
   - 驗 session TTL、reply generation input、processed update prune。
 
-- [`telegram_update_parser_spec.rb`](spec/services/telegram_update_parser_spec.rb)
+- [`update_parser_spec.rb`](spec/services/telegram/update_parser_spec.rb)
   - 驗 Telegram payload parsing，包括 `reply_to_message` 嘅文字 / 相 / PDF / 文字檔引用情況。
 
-- [`telegram_webhook_handler_spec.rb`](spec/services/telegram_webhook_handler_spec.rb)
+- [`webhook_handler_spec.rb`](spec/services/telegram/webhook_handler_spec.rb)
   - 驗 pending reply replay 呢種最易出事嘅邊界情況。
 
 ## 資料點存
@@ -307,7 +306,7 @@ SQLite 而家主要得兩張表：
 
 - `ProcessedUpdate`
   - reply send 成功後會保留
-  - `ConversationService` 會 opportunistic 清走已送出而且夠舊嘅 records
+  - `Conversation::Service` 會 opportunistic 清走已送出而且夠舊嘅 records
   - 唔需要額外 cron job 都可以慢慢瘦身
 
 ## 需求

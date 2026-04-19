@@ -19,11 +19,11 @@ class SessionSummaryJob < ApplicationJob
   private
 
   def conversation_service
-    @conversation_service ||= ConversationService.new
+    @conversation_service ||= Conversation::Service.new
   end
 
   def telegram_client
-    @telegram_client ||= TelegramClient.new
+    @telegram_client ||= Telegram::Client.new
   end
 
   def build_message(result)
@@ -40,13 +40,13 @@ class SessionSummaryJob < ApplicationJob
         result.fetch(:summary_text)
       ].join("\n")
     else
-      TelegramWebhookHandler::GENERIC_ERROR_MESSAGE
+      Telegram::WebhookHandler::GENERIC_ERROR_MESSAGE
     end
   end
 
   def error_message_for(error)
-    return TIMEOUT_ERROR_MESSAGE if error.is_a?(CodexExecRunner::ExecutionTimeoutError)
+    return TIMEOUT_ERROR_MESSAGE if error.is_a?(Codex::ExecRunner::ExecutionTimeoutError)
 
-    TelegramWebhookHandler::GENERIC_ERROR_MESSAGE
+    Telegram::WebhookHandler::GENERIC_ERROR_MESSAGE
   end
 end

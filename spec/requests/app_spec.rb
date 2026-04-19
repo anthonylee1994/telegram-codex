@@ -20,7 +20,7 @@ RSpec.describe 'App', type: :request do
     let(:secret) { 'expected-secret' }
 
     it 'processes webhook with valid secret' do
-      handler = instance_double(TelegramWebhookHandler, handle: nil)
+      handler = instance_double(Telegram::WebhookHandler, handle: nil)
       update = {
         update_id: 1,
         message: {
@@ -32,7 +32,7 @@ RSpec.describe 'App', type: :request do
         }
       }
 
-      allow(TelegramWebhookHandlerFactory).to receive(:build).and_return(handler)
+      allow(Telegram::WebhookHandlerFactory).to receive(:build).and_return(handler)
 
       post '/telegram/webhook', params: update.to_json, headers: headers
 
@@ -52,9 +52,9 @@ RSpec.describe 'App', type: :request do
     end
 
     it 'returns 500 when handler fails' do
-      handler = instance_double(TelegramWebhookHandler)
+      handler = instance_double(Telegram::WebhookHandler)
 
-      allow(TelegramWebhookHandlerFactory).to receive(:build).and_return(handler)
+      allow(Telegram::WebhookHandlerFactory).to receive(:build).and_return(handler)
       allow(handler).to receive(:handle).and_raise(StandardError, 'boom')
       allow(Rails.logger).to receive(:error)
 

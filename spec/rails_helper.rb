@@ -33,8 +33,8 @@ RSpec.configure do |config|
 
   config.before do
     AppConfig.reset!
-    ChatRateLimiter.instance.reset!
-    MediaGroupAggregator.reset!
+    Conversation::ChatRateLimiter.instance.reset!
+    Telegram::MediaGroupAggregator.reset!
     clear_enqueued_jobs
     clear_performed_jobs
   end

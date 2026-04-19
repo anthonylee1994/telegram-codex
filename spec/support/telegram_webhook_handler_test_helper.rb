@@ -6,34 +6,34 @@ module TelegramWebhookHandlerTestHelper
     reply_generation_job_class: ReplyGenerationJob,
     session_summary_job_class: SessionSummaryJob
   )
-    MediaGroupAggregator.reset!
-    conversation_service = ConversationService.new(reply_client: reply_client)
-    processed_update_flow = ProcessedUpdateFlow.new(conversation_service: conversation_service)
-    decision_resolver = WebhookDecision::Resolver.new(
+    Telegram::MediaGroupAggregator.reset!
+    conversation_service = Conversation::Service.new(reply_client: reply_client)
+    processed_update_flow = Conversation::ProcessedUpdateFlow.new(conversation_service: conversation_service)
+    decision_resolver = Conversation::Webhooks::Decision::Resolver.new(
       processed_update_flow: processed_update_flow,
-      rate_limiter: ChatRateLimiter.instance,
+      rate_limiter: Conversation::ChatRateLimiter.instance,
       config: config,
-      start_message: TelegramWebhookHandler::START_MESSAGE,
-      new_session_message: TelegramWebhookHandler::NEW_SESSION_MESSAGE,
-      too_many_images_message: TelegramWebhookHandler::TOO_MANY_IMAGES_MESSAGE,
-      summary_queued_message: TelegramWebhookHandler::SUMMARY_QUEUED_MESSAGE
+      start_message: Telegram::WebhookHandler::START_MESSAGE,
+      new_session_message: Telegram::WebhookHandler::NEW_SESSION_MESSAGE,
+      too_many_images_message: Telegram::WebhookHandler::TOO_MANY_IMAGES_MESSAGE,
+      summary_queued_message: Telegram::WebhookHandler::SUMMARY_QUEUED_MESSAGE
     )
-    action_executor = WebhookActionExecutor.new(
+    action_executor = Conversation::Webhooks::ActionExecutor.new(
       conversation_service: conversation_service,
       telegram_client: telegram_client,
       processed_update_flow: processed_update_flow,
       reply_generation_job_class: reply_generation_job_class,
       session_summary_job_class: session_summary_job_class,
-      generic_error_message: TelegramWebhookHandler::GENERIC_ERROR_MESSAGE,
-      unauthorized_message: TelegramWebhookHandler::UNAUTHORIZED_MESSAGE,
-      rate_limit_message: TelegramWebhookHandler::RATE_LIMIT_MESSAGE,
-      unsupported_message: TelegramWebhookHandler::UNSUPPORTED_MESSAGE
+      generic_error_message: Telegram::WebhookHandler::GENERIC_ERROR_MESSAGE,
+      unauthorized_message: Telegram::WebhookHandler::UNAUTHORIZED_MESSAGE,
+      rate_limit_message: Telegram::WebhookHandler::RATE_LIMIT_MESSAGE,
+      unsupported_message: Telegram::WebhookHandler::UNSUPPORTED_MESSAGE
     )
 
     [
-      TelegramWebhookHandler.new(
-        telegram_update_parser: TelegramUpdateParser.new,
-        media_group_aggregator: MediaGroupAggregator.new(wait_duration_seconds: 0.05),
+      Telegram::WebhookHandler.new(
+        telegram_update_parser: Telegram::UpdateParser.new,
+        media_group_aggregator: Telegram::MediaGroupAggregator.new(wait_duration_seconds: 0.05),
         decision_resolver: decision_resolver,
         action_executor: action_executor
       ),
