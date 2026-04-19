@@ -64,7 +64,7 @@ RSpec.describe TelegramUpdateParser do
     expect(parsed).to have_attributes(
       callback_query_id: nil,
       chat_id: '3',
-      image_file_ids: [ 'large-file' ],
+      image_file_ids: ['large-file'],
       media_group_id: nil,
       message_id: 2,
       text: '睇下呢張圖',
@@ -106,7 +106,7 @@ RSpec.describe TelegramUpdateParser do
     expect(parsed).to have_attributes(
       callback_query_id: nil,
       chat_id: '3',
-      image_file_ids: [ 'album-large' ],
+      image_file_ids: ['album-large'],
       media_group_id: 'album-1',
       message_id: 12,
       text: '一齊睇',

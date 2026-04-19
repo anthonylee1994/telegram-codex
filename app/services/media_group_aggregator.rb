@@ -82,16 +82,16 @@ class MediaGroupAggregator
   def finalize_if_ready(key)
     self.class.send(:mutex).synchronize do
       entry = self.class.send(:entries)[key]
-      return [ nil, nil ] if entry.nil?
-      return [ nil, nil ] if monotonic_now < entry[:deadline_at]
+      return [nil, nil] if entry.nil?
+      return [nil, nil] if monotonic_now < entry[:deadline_at]
 
       self.class.send(:entries).delete(key)
-      [ entry[:processor], aggregate_messages(entry.fetch(:messages).values) ]
+      [entry[:processor], aggregate_messages(entry.fetch(:messages).values)]
     end
   end
 
   def aggregate_messages(messages)
-    ordered_messages = Array(messages).sort_by { |message| [ message.message_id, message.update_id ] }
+    ordered_messages = Array(messages).sort_by { |message| [message.message_id, message.update_id] }
     primary_message = ordered_messages.first
     aggregated_text = ordered_messages.filter_map { |message| message.text.presence }.first.to_s
     aggregated_image_file_ids = ordered_messages.flat_map(&:image_file_ids).uniq

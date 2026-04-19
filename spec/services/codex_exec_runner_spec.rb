@@ -13,7 +13,7 @@ RSpec.describe CodexExecRunner do
         expect(chdir).to eq(Rails.root.to_s)
         output_path = command[command.index("--output-last-message") + 1]
         File.write(output_path, "reply text\n")
-        [ "", "", status ]
+        ["", "", status]
       end
 
       expect(runner.run(prompt: "prompt text", image_file_paths: [])).to eq("reply text")
@@ -26,7 +26,7 @@ RSpec.describe CodexExecRunner do
         expect(JSON.parse(File.read(schema_path))).to eq({ "type" => "object" })
         output_path = command[command.index("--output-last-message") + 1]
         File.write(output_path, "reply text")
-        [ "", "", status ]
+        ["", "", status]
       end
 
       runner.run(prompt: "prompt text", image_file_paths: [], output_schema: { type: "object" })
@@ -38,14 +38,14 @@ RSpec.describe CodexExecRunner do
         expect(command).to include("--image", "/tmp/test-image-b.png")
         output_path = command[command.index("--output-last-message") + 1]
         File.write(output_path, "reply text")
-        [ "", "", status ]
+        ["", "", status]
       end
 
-      runner.run(prompt: "prompt text", image_file_paths: [ "/tmp/test-image-a.png", "/tmp/test-image-b.png" ])
+      runner.run(prompt: "prompt text", image_file_paths: ["/tmp/test-image-a.png", "/tmp/test-image-b.png"])
     end
 
     it "raises when codex exec fails" do
-      allow(Open3).to receive(:capture3).and_return([ "", "boom", instance_double(Process::Status, success?: false) ])
+      allow(Open3).to receive(:capture3).and_return(["", "boom", instance_double(Process::Status, success?: false)])
 
       expect {
         runner.run(prompt: "prompt text", image_file_paths: [])

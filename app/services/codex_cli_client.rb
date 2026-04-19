@@ -49,7 +49,7 @@ class CodexCliClient
     {
       type: "object",
       additionalProperties: false,
-      required: [ "text", "suggested_replies" ],
+      required: ["text", "suggested_replies"],
       properties: {
         text: {
           type: "string",

@@ -9,7 +9,7 @@ RSpec.describe ProcessedUpdateFlow do
       message = InboundTelegramMessage.new(
         callback_query_id: nil,
         chat_id: "chat-1",
-        image_file_ids: [ "image-1", "image-2" ],
+        image_file_ids: ["image-1", "image-2"],
         inline_callback: false,
         media_group_id: "album-1",
         message_id: 10,

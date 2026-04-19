@@ -21,7 +21,7 @@ RSpec.describe CodexReplyParser do
 
       expect(parser.parse_reply(raw_reply)).to eq(
         text: "第一段\n第二段",
-        suggested_replies: [ "講多少少", "列個重點", "下一步呢？" ]
+        suggested_replies: ["講多少少", "列個重點", "下一步呢？"]
       )
     end
 
@@ -30,7 +30,7 @@ RSpec.describe CodexReplyParser do
 
       expect(parser.parse_reply(raw_reply)).to eq(
         text: "第一點\n第二點",
-        suggested_replies: [ "幫我再縮短", "整溫和版", "整強硬版" ]
+        suggested_replies: ["幫我再縮短", "整溫和版", "整強硬版"]
       )
     end
   end

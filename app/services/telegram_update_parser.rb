@@ -87,6 +87,6 @@ class TelegramUpdateParser
 
   def build_image_file_ids(message)
     largest_photo = Array(message["photo"]).max_by { |photo| photo["file_size"].to_i }
-    largest_photo&.then { |photo| [ photo.fetch("file_id", nil) ] }.to_a
+    largest_photo&.then { |photo| [photo.fetch("file_id", nil)] }.to_a
   end
 end

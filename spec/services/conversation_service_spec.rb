@@ -173,7 +173,7 @@ RSpec.describe ConversationService do
         10,
         {
           conversation_state: 'state-new',
-          suggested_replies: [ '列重點', '下一步' ],
+          suggested_replies: ['列重點', '下一步'],
           text: 'reply'
         }
       )
@@ -183,7 +183,7 @@ RSpec.describe ConversationService do
       processed_update = ProcessedUpdate.find(100)
       expect(processed_update.reply_text).to eq('reply')
       expect(processed_update.conversation_state).to eq('state-new')
-      expect(JSON.parse(processed_update.suggested_replies)).to eq([ '列重點', '下一步' ])
+      expect(JSON.parse(processed_update.suggested_replies)).to eq(['列重點', '下一步'])
       expect(processed_update.sent_at).to be_present
     end
   end

@@ -24,7 +24,7 @@ class CodexTranscript
   end
 
   def append(role, content)
-    self.class.new(@messages + [ { "role" => role, "content" => content } ])
+    self.class.new(@messages + [{ "role" => role, "content" => content }])
   end
 
   def to_conversation_state

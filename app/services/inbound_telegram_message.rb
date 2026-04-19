@@ -54,7 +54,7 @@ class InboundTelegramMessage
 
   def normalize_processing_updates(processing_updates, update_id, message_id)
     updates = Array(processing_updates)
-    updates = [ { update_id: update_id, message_id: message_id } ] if updates.empty?
+    updates = [{ update_id: update_id, message_id: message_id }] if updates.empty?
 
     updates.filter_map do |processing_update|
       next unless processing_update.is_a?(Hash)
@@ -64,6 +64,6 @@ class InboundTelegramMessage
       { update_id: normalized_update_id, message_id: normalized_message_id }
     rescue ArgumentError, TypeError
       nil
-    end.sort_by { |processing_update| [ processing_update[:message_id], processing_update[:update_id] ] }
+    end.sort_by { |processing_update| [processing_update[:message_id], processing_update[:update_id]] }
   end
 end

@@ -29,7 +29,7 @@ RSpec.describe TelegramClient do
         call_order << :yield
       end
 
-      expect(call_order.first(2)).to eq([ :typing, :yield ])
+      expect(call_order.first(2)).to eq([:typing, :yield])
     end
   end
 
@@ -42,7 +42,7 @@ RSpec.describe TelegramClient do
       client.send_message(
         "chat-1",
         '{"text":"淨係出呢句","suggested_replies":["一","二","三"]}',
-        suggested_replies: [ "一", "二", "三" ]
+        suggested_replies: ["一", "二", "三"]
       )
 
       expect(client).to have_received(:post_form).with(
@@ -53,9 +53,9 @@ RSpec.describe TelegramClient do
           parse_mode: "HTML",
           reply_markup: JSON.generate(
             keyboard: [
-              [ { text: "一" } ],
-              [ { text: "二" } ],
-              [ { text: "三" } ]
+              [{ text: "一" }],
+              [{ text: "二" }],
+              [{ text: "三" }]
             ],
             resize_keyboard: true,
             one_time_keyboard: true

@@ -33,9 +33,9 @@ class CodexExecRunner
       "--color", "never",
       "--output-last-message", output_path
     ]
-    command += [ "--output-schema", schema_path ] if schema_path.present?
+    command += ["--output-schema", schema_path] if schema_path.present?
     Array(image_file_paths).each do |image_file_path|
-      command += [ "--image", image_file_path ] if image_file_path.present?
+      command += ["--image", image_file_path] if image_file_path.present?
     end
     command << "-"
     command

@@ -96,7 +96,7 @@ class TelegramClient
       "setWebhook",
       url: url,
       secret_token: secret_token,
-      allowed_updates: JSON.generate([ "message" ])
+      allowed_updates: JSON.generate(["message"])
     )
 
     Rails.logger.info("Telegram webhook configured url=#{url}")
@@ -176,7 +176,7 @@ class TelegramClient
     return nil if cleaned_replies.empty?
 
     {
-      keyboard: cleaned_replies.map { |reply| [ { text: reply } ] },
+      keyboard: cleaned_replies.map { |reply| [{ text: reply }] },
       resize_keyboard: true,
       one_time_keyboard: true
     }
@@ -184,7 +184,7 @@ class TelegramClient
 
   def normalize_outbound_reply(text, suggested_replies)
     payload = parse_structured_reply_payload(text)
-    return [ text.to_s, suggested_replies ] unless payload.is_a?(Hash)
+    return [text.to_s, suggested_replies] unless payload.is_a?(Hash)
 
     normalized_text = payload["text"].to_s.strip
     normalized_text = text.to_s if normalized_text.empty?
@@ -194,9 +194,9 @@ class TelegramClient
       normalized_suggested_replies = payload["suggested_replies"]
     end
 
-    [ normalized_text, normalized_suggested_replies ]
+    [normalized_text, normalized_suggested_replies]
   rescue JSON::ParserError
-    [ text.to_s, suggested_replies ]
+    [text.to_s, suggested_replies]
   end
 
   def parse_structured_reply_payload(text)

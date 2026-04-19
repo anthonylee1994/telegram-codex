@@ -38,13 +38,13 @@ RSpec.describe TelegramWebhookHandlerFactory do
     expect(telegram_client).to have_received(:send_message).with(
       "3",
       "reply-1",
-      suggested_replies: [ "下一步可以點做？", "幫我列重點。", "可唔可以講詳細啲？" ]
+      suggested_replies: ["下一步可以點做？", "幫我列重點。", "可唔可以講詳細啲？"]
     )
     expect(ChatSession.find_by(chat_id: "3")&.last_response_id).to be_present
 
     processed_update = ProcessedUpdate.find_by(update_id: 1)
     expect(processed_update&.reply_text).to eq("reply-1")
-    expect(JSON.parse(processed_update&.suggested_replies)).to eq([ "下一步可以點做？", "幫我列重點。", "可唔可以講詳細啲？" ])
+    expect(JSON.parse(processed_update&.suggested_replies)).to eq(["下一步可以點做？", "幫我列重點。", "可唔可以講詳細啲？"])
     expect(processed_update&.sent_at).to be_present
   end
 
@@ -67,7 +67,7 @@ RSpec.describe TelegramWebhookHandlerFactory do
     expect(telegram_client).to have_received(:send_message).with(
       "3",
       "reply-1",
-      suggested_replies: [ "下一步可以點做？", "幫我列重點。", "可唔可以講詳細啲？" ]
+      suggested_replies: ["下一步可以點做？", "幫我列重點。", "可唔可以講詳細啲？"]
     ).twice
     expect(ProcessedUpdate.find_by(update_id: 1)&.sent_at).to be_present
   end

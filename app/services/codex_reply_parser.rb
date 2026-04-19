@@ -49,7 +49,7 @@ class CodexReplyParser
     unwrapped_reply = unwrap_code_fence(normalized_reply)
     extracted_object = extract_json_object(unwrapped_reply)
 
-    [ normalized_reply, unwrapped_reply, extracted_object ].compact.uniq
+    [normalized_reply, unwrapped_reply, extracted_object].compact.uniq
   end
 
   def parse_json_candidate(candidate)

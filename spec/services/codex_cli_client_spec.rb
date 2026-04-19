@@ -20,7 +20,7 @@ RSpec.describe CodexCliClient do
 
       expect(reply).to include(
         text: "第一段\n\n第二段",
-        suggested_replies: [ "講多少少", "列個重點", "下一步呢？" ]
+        suggested_replies: ["講多少少", "列個重點", "下一步呢？"]
       )
     end
 
@@ -38,7 +38,7 @@ RSpec.describe CodexCliClient do
 
       expect(reply).to include(
         text: "第一段\n第二段",
-        suggested_replies: [ "講多少少", "列個重點", "下一步呢？" ]
+        suggested_replies: ["講多少少", "列個重點", "下一步呢？"]
       )
     end
 
@@ -56,7 +56,7 @@ RSpec.describe CodexCliClient do
 
       expect(reply).to include(
         text: "第一點\n第二點",
-        suggested_replies: [ "幫我再縮短", "整溫和版", "整強硬版" ]
+        suggested_replies: ["幫我再縮短", "整溫和版", "整強硬版"]
       )
     end
   end
@@ -67,13 +67,13 @@ RSpec.describe CodexCliClient do
     client.generate_reply(
       chat_id: "chat-1",
       conversation_state: nil,
-      image_file_paths: [ "/tmp/a.png", "/tmp/b.png" ],
+      image_file_paths: ["/tmp/a.png", "/tmp/b.png"],
       text: ""
     )
 
     expect(exec_runner).to have_received(:run).with(
       prompt: include("請描述呢啲圖"),
-      image_file_paths: [ "/tmp/a.png", "/tmp/b.png" ],
+      image_file_paths: ["/tmp/a.png", "/tmp/b.png"],
       output_schema: kind_of(Hash)
     )
   end
