@@ -8,7 +8,8 @@ module TelegramWebhookHandlerTestHelper
       rate_limiter: ChatRateLimiter.instance,
       config: config,
       start_message: TelegramWebhookHandler::START_MESSAGE,
-      new_session_message: TelegramWebhookHandler::NEW_SESSION_MESSAGE
+      new_session_message: TelegramWebhookHandler::NEW_SESSION_MESSAGE,
+      too_many_images_message: TelegramWebhookHandler::TOO_MANY_IMAGES_MESSAGE
     )
     action_executor = WebhookActionExecutor.new(
       conversation_service: conversation_service,
@@ -36,6 +37,8 @@ module TelegramWebhookHandlerTestHelper
     AppConfig::Config.new(
       allowed_telegram_user_ids: [],
       base_url: 'https://example.com',
+      codex_exec_timeout_seconds: 300,
+      max_media_group_images: 6,
       media_group_wait_ms: 1200,
       port: 3000,
       rate_limit_max_messages: 5,

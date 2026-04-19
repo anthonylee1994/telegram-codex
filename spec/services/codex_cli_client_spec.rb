@@ -72,8 +72,25 @@ RSpec.describe CodexCliClient do
     )
 
     expect(exec_runner).to have_received(:run).with(
-      prompt: include("請描述呢啲圖"),
+      prompt: include("我上載咗 2 張圖。請按 圖 1、圖 2 逐張描述"),
       image_file_paths: ["/tmp/a.png", "/tmp/b.png"],
+      output_schema: kind_of(Hash)
+    )
+  end
+
+  it "adds per-image numbering instructions for multi-image analysis" do
+    allow(exec_runner).to receive(:run).and_return("圖像分析結果")
+
+    client.generate_reply(
+      chat_id: "chat-1",
+      conversation_state: nil,
+      image_file_paths: ["/tmp/a.png", "/tmp/b.png", "/tmp/c.png"],
+      text: "幫我比較"
+    )
+
+    expect(exec_runner).to have_received(:run).with(
+      prompt: include("分析時要用圖 1、圖 2、圖 3 呢類編號逐張講。"),
+      image_file_paths: ["/tmp/a.png", "/tmp/b.png", "/tmp/c.png"],
       output_schema: kind_of(Hash)
     )
   end

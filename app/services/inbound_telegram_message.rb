@@ -25,6 +25,10 @@ class InboundTelegramMessage
     image_file_ids.first
   end
 
+  def image_count
+    image_file_ids.length
+  end
+
   def media_group?
     media_group_id.present?
   end

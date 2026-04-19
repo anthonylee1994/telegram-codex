@@ -73,6 +73,31 @@ RSpec.describe TelegramWebhookHandler do
       }
     }
   end
+  let(:album_update_3) do
+    {
+      'update_id' => 23,
+      'message' => {
+        'from' => {
+          'id' => 234_392_020
+        },
+        'media_group_id' => 'album-1',
+        'message_id' => 24,
+        'photo' => [
+          {
+            'file_id' => 'album-3-small',
+            'file_size' => 100
+          },
+          {
+            'file_id' => 'album-3-large',
+            'file_size' => 400
+          }
+        ],
+        'chat' => {
+          'id' => 3
+        }
+      }
+    }
+  end
   it 'ignores an update that was already marked as sent' do
     conversation_service.mark_processed(1, '3', 2)
 
@@ -135,6 +160,27 @@ RSpec.describe TelegramWebhookHandler do
     )
     expect(ProcessedUpdate.find_by(update_id: 21)&.sent_at).to be_nil
     expect(ProcessedUpdate.find_by(update_id: 22)&.sent_at).to be_nil
+  end
+
+  it 'asks the user to narrow focus when an album contains too many images' do
+    tight_config = telegram_test_config.tap { |config| config.max_media_group_images = 2 }
+    tight_handler = build_telegram_webhook_handler(
+      reply_client: reply_client,
+      telegram_client: telegram_client,
+      config: tight_config
+    ).first
+    allow(telegram_client).to receive(:send_message)
+
+    tight_handler.handle(album_update_1)
+    tight_handler.handle(album_update_2)
+    tight_handler.handle(album_update_3)
+    sleep(0.08)
+
+    expect(telegram_client).to have_received(:send_message).with("3", TelegramWebhookHandler::TOO_MANY_IMAGES_MESSAGE)
+    expect(enqueued_jobs).to be_empty
+    expect(ProcessedUpdate.find_by(update_id: 21)&.sent_at).to be_present
+    expect(ProcessedUpdate.find_by(update_id: 22)&.sent_at).to be_present
+    expect(ProcessedUpdate.find_by(update_id: 23)&.sent_at).to be_present
   end
 
   it 'resets session and replies with start message for /start' do

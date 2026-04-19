@@ -27,6 +27,7 @@ class WebhookActionExecutor
       reject_unauthorized: WebhookAction::RejectUnauthorized.new(**shared_dependencies),
       replay: WebhookAction::Replay.new(**shared_dependencies),
       reset_session: WebhookAction::ResetSession.new(**shared_dependencies),
+      too_many_images: WebhookAction::TooManyImages.new(**shared_dependencies),
       unsupported: WebhookAction::Unsupported.new(**shared_dependencies)
     }
   end

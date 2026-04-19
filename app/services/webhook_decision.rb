@@ -35,6 +35,10 @@ class WebhookDecision
     new(action: :rate_limited, message: message)
   end
 
+  def self.too_many_images(message, response_text)
+    new(action: :too_many_images, message: message, response_text: response_text)
+  end
+
   def self.generate_reply(message)
     new(action: :generate_reply, message: message)
   end
@@ -63,13 +67,18 @@ class WebhookDecision
     action == :rate_limited
   end
 
+  def too_many_images?
+    action == :too_many_images
+  end
+
   class Resolver
-    def initialize(processed_update_flow:, rate_limiter:, config:, start_message:, new_session_message:)
+    def initialize(processed_update_flow:, rate_limiter:, config:, start_message:, new_session_message:, too_many_images_message:)
       @processed_update_flow = processed_update_flow
       @rate_limiter = rate_limiter
       @config = config
       @start_message = start_message
       @new_session_message = new_session_message
+      @too_many_images_message = too_many_images_message
     end
 
     def call(message)
@@ -81,6 +90,7 @@ class WebhookDecision
       return WebhookDecision.reject_unauthorized(message) if unauthorized_user?(message.user_id)
       return WebhookDecision.reset_session(message, @new_session_message) if new_session_command?(message.text)
       return WebhookDecision.reset_session(message, @start_message) if start_command?(message.text)
+      return WebhookDecision.too_many_images(message, @too_many_images_message) if too_many_media_group_images?(message)
       return WebhookDecision.rate_limited(message) unless @rate_limiter.allow(message.chat_id)
       return WebhookDecision.duplicate(message) unless @processed_update_flow.begin_processing(message)
 
@@ -103,6 +113,10 @@ class WebhookDecision
 
     def start_command?(text)
       text.match?(START_COMMAND_PATTERN)
+    end
+
+    def too_many_media_group_images?(message)
+      message.media_group? && message.image_count > @config.max_media_group_images
     end
   end
 end

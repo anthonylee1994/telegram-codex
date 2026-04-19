@@ -25,6 +25,9 @@ Demo：https://t.me/On99AppBot
 - 支援 Telegram 文字訊息
 - 支援單張圖片同 caption
 - 支援 Telegram 相簿多圖訊息分析
+- 多圖分析會用 `圖 1`、`圖 2` 呢類編號逐張講
+- 相簿冇 caption 時會自動補 prompt，叫模型逐張描述再比較
+- 相簿太多圖時會先叫用戶縮窄範圍再分析
 - 支援 `/start` 顯示 welcome / help message
 - 支援 `/new` 重開當前 chat session
 - 支援最多 3 個 reply keyboard suggested replies
@@ -190,6 +193,8 @@ spec/
   - 佢會：
     - parse 上次 conversation state
     - 先同 system prompt 拼埋做 prompt 生成主答案
+    - 多圖時會要求模型用 `圖 1`、`圖 2` 呢類編號逐張分析
+    - 冇 caption 但有圖時會自動補一段分析 prompt
     - 再用更新後 transcript 生成 suggested replies
     - 如果有圖就加 `--image`
     - 讀返 `codex exec --output-last-message` 生成嘅最後訊息
@@ -207,6 +212,7 @@ spec/
     - rate limit
     - typing indicator
     - media group aggregation
+    - album 過多圖片時先提示 user 揀重點
     - reply keyboard suggested replies
     - 圖片 download + cleanup
     - generic error fallback
@@ -302,7 +308,8 @@ SQLite 而家主要得兩張表：
 | `TELEGRAM_WEBHOOK_SECRET` | Telegram webhook secret header | 無 |
 | `ALLOWED_TELEGRAM_USER_IDS` | 限定可用 Telegram user id，逗號分隔 | 空 |
 | `SQLITE_DB_PATH` | SQLite database path | `./data/app.db` |
-| `CODEX_EXEC_TIMEOUT_SECONDS` | `codex exec` 最多跑幾多秒先當 timeout | `90` |
+| `CODEX_EXEC_TIMEOUT_SECONDS` | `codex exec` 最多跑幾多秒先當 timeout | `300` |
+| `MAX_MEDIA_GROUP_IMAGES` | 相簿最多接受幾多張圖先叫 user 縮窄範圍 | `6` |
 | `SESSION_TTL_DAYS` | session 過期日數 | `7` |
 | `MEDIA_GROUP_WAIT_MS` | Telegram 相簿多圖聚合等待時間 | `1200` |
 | `RATE_LIMIT_WINDOW_MS` | rate limit window | `10000` |
@@ -518,7 +525,7 @@ dokku config:set telegram-codex \
   TELEGRAM_BOT_TOKEN=replace-me \
   TELEGRAM_WEBHOOK_SECRET=replace-me \
   SQLITE_DB_PATH=/rails/data/app.db \
-  CODEX_EXEC_TIMEOUT_SECONDS=90
+  CODEX_EXEC_TIMEOUT_SECONDS=300
 ```
 
 可選設定（如要限制指定 user 或調整 rate limit）：
@@ -526,7 +533,8 @@ dokku config:set telegram-codex \
 ```bash
 dokku config:set telegram-codex \
   ALLOWED_TELEGRAM_USER_IDS=123456789,987654321 \
-  CODEX_EXEC_TIMEOUT_SECONDS=90 \
+  CODEX_EXEC_TIMEOUT_SECONDS=300 \
+  MAX_MEDIA_GROUP_IMAGES=6 \
   SESSION_TTL_DAYS=7 \
   MEDIA_GROUP_WAIT_MS=1200 \
   RATE_LIMIT_WINDOW_MS=10000 \

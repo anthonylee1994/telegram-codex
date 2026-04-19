@@ -19,7 +19,11 @@ class CodexCliClient
     transcript = CodexTranscript.from_conversation_state(conversation_state)
     user_message = build_user_message(text, image_file_paths)
     next_transcript = transcript.append("user", user_message)
-    prompt = @prompt_builder.build_reply_prompt(next_transcript, has_image: image_file_paths.present?)
+    prompt = @prompt_builder.build_reply_prompt(
+      next_transcript,
+      has_image: image_file_paths.present?,
+      image_count: Array(image_file_paths).length
+    )
     raw_reply = execute_prompt(prompt, image_file_paths, output_schema: reply_output_schema)
     parsed_reply = @reply_parser.parse_reply(raw_reply)
     reply_text = parsed_reply.fetch(:text)
@@ -35,10 +39,19 @@ class CodexCliClient
   private
 
   def build_user_message(text, image_file_paths)
+    image_count = Array(image_file_paths).length
+
     return text if text.present?
-    return "請描述呢啲圖，並按我需要幫我分析。" if Array(image_file_paths).any?
+    return build_unprompted_image_message(image_count) if image_count.positive?
 
     ""
+  end
+
+  def build_unprompted_image_message(image_count)
+    return "我上載咗 1 張圖。請先描述圖 1，再按內容幫我分析重點。" if image_count == 1
+
+    image_labels = (1..image_count).map { |index| "圖 #{index}" }.join("、")
+    "我上載咗 #{image_count} 張圖。請按 #{image_labels} 逐張描述，再比較異同同整理重點。"
   end
 
   def execute_prompt(prompt, image_file_paths = [], output_schema: nil)

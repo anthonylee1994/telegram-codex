@@ -12,7 +12,8 @@ class TelegramWebhookHandlerFactory
       rate_limiter: rate_limiter,
       config: config,
       start_message: TelegramWebhookHandler::START_MESSAGE,
-      new_session_message: TelegramWebhookHandler::NEW_SESSION_MESSAGE
+      new_session_message: TelegramWebhookHandler::NEW_SESSION_MESSAGE,
+      too_many_images_message: TelegramWebhookHandler::TOO_MANY_IMAGES_MESSAGE
     )
     action_executor = WebhookActionExecutor.new(
       conversation_service: conversation_service,

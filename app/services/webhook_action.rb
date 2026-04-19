@@ -73,6 +73,14 @@ class WebhookAction
     end
   end
 
+  class TooManyImages < WebhookAction
+    def call(decision, update: nil)
+      message = decision.message
+      telegram_client.send_message(message.chat_id, decision.response_text)
+      processed_update_flow.mark_processed(message)
+    end
+  end
+
   class GenerateReply < WebhookAction
     def call(decision, update: nil)
       message = decision.message

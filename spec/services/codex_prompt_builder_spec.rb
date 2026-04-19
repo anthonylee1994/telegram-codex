@@ -13,7 +13,7 @@ RSpec.describe CodexPromptBuilder do
 
   describe "#build_reply_prompt" do
     it "includes the system prompt, transcript, and structured reply instructions" do
-      prompt = builder.build_reply_prompt(transcript, has_image: true)
+      prompt = builder.build_reply_prompt(transcript, has_image: true, image_count: 1)
 
       expect(prompt).to include(ConversationService::SYSTEM_PROMPT)
       expect(prompt).to include("最新一條用戶訊息有附圖。")
@@ -22,6 +22,12 @@ RSpec.describe CodexPromptBuilder do
       expect(prompt).to include('格式一定要包含 `text` 同 `suggested_replies` 兩個欄位。')
       expect(prompt).to include('格式例子：{"text":"主答案","suggested_replies":["建議回覆 1","建議回覆 2","建議回覆 3"]}。')
       expect(prompt).to include("唔好輸出任何額外文字，唔好用 markdown code fence。")
+    end
+
+    it "adds numbered image instructions when multiple images are attached" do
+      prompt = builder.build_reply_prompt(transcript, has_image: true, image_count: 3)
+
+      expect(prompt).to include("今次總共有 3 張圖，分析時要用圖 1、圖 2、圖 3 呢類編號逐張講。")
     end
   end
 end
