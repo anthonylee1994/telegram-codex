@@ -1,11 +1,12 @@
 class InboundTelegramMessage
-  attr_reader :chat_id, :image_file_ids, :media_group_id, :message_id, :processing_updates, :text, :user_id, :update_id
+  attr_reader :chat_id, :image_file_ids, :media_group_id, :message_id, :pdf_file_id, :processing_updates, :text, :user_id, :update_id
 
   def initialize(
     chat_id:,
     image_file_ids:,
     media_group_id: nil,
     message_id:,
+    pdf_file_id: nil,
     processing_updates: nil,
     text:,
     user_id:,
@@ -15,6 +16,7 @@ class InboundTelegramMessage
     @image_file_ids = normalize_image_file_ids(image_file_ids)
     @media_group_id = media_group_id
     @message_id = message_id
+    @pdf_file_id = normalize_pdf_file_id(pdf_file_id)
     @processing_updates = normalize_processing_updates(processing_updates, update_id, message_id)
     @text = text
     @user_id = user_id
@@ -33,8 +35,12 @@ class InboundTelegramMessage
     media_group_id.present?
   end
 
+  def pdf?
+    pdf_file_id.present?
+  end
+
   def unsupported?
-    text.blank? && image_file_ids.empty?
+    text.blank? && image_file_ids.empty? && pdf_file_id.blank?
   end
 
   def to_job_payload
@@ -43,6 +49,7 @@ class InboundTelegramMessage
       "image_file_ids" => image_file_ids,
       "media_group_id" => media_group_id,
       "message_id" => message_id,
+      "pdf_file_id" => pdf_file_id,
       "processing_updates" => processing_updates.map do |processing_update|
         {
           "update_id" => processing_update.fetch(:update_id),
@@ -61,6 +68,7 @@ class InboundTelegramMessage
       image_file_ids: payload.fetch("image_file_ids", []),
       media_group_id: payload["media_group_id"],
       message_id: payload.fetch("message_id"),
+      pdf_file_id: payload["pdf_file_id"],
       processing_updates: payload.fetch("processing_updates", []),
       text: payload["text"],
       user_id: payload.fetch("user_id"),
@@ -77,6 +85,13 @@ class InboundTelegramMessage
 
       normalized_image_file_id
     end.uniq
+  end
+
+  def normalize_pdf_file_id(pdf_file_id)
+    normalized_pdf_file_id = pdf_file_id.to_s.strip
+    return nil if normalized_pdf_file_id.empty?
+
+    normalized_pdf_file_id
   end
 
   def normalize_processing_updates(processing_updates, update_id, message_id)

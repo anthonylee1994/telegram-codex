@@ -13,11 +13,14 @@ RSpec.describe ReplyGenerationJob do
       update_id: 1
     )
   end
+  let(:pdf_page_rasterizer) { instance_double(PdfPageRasterizer) }
 
   before do
     allow(TelegramClient).to receive(:new).and_return(telegram_client)
     allow(CodexExecRunner).to receive(:new).and_return(exec_runner)
+    allow(PdfPageRasterizer).to receive(:new).and_return(pdf_page_rasterizer)
     allow(telegram_client).to receive(:with_typing_status).and_yield
+    allow(pdf_page_rasterizer).to receive(:rasterize).and_return([])
   end
 
   it "generates the reply in the background and persists the result" do
@@ -90,5 +93,31 @@ RSpec.describe ReplyGenerationJob do
 
     expect(telegram_client).to have_received(:send_message).with("3", ReplyGenerationJob::TIMEOUT_ERROR_MESSAGE)
     expect(ProcessedUpdate.find_by(update_id: 1)).to be_nil
+  end
+
+  it "downloads pdf documents, rasterizes pages, and sends them to codex as images" do
+    pdf_message = InboundTelegramMessage.new(
+      chat_id: "3",
+      image_file_ids: [],
+      message_id: 2,
+      pdf_file_id: "document-pdf-file",
+      text: "幫我睇呢份 PDF",
+      user_id: "234392020",
+      update_id: 1
+    )
+    allow(telegram_client).to receive(:download_file_to_temp).with("document-pdf-file").and_return("/tmp/report.pdf")
+    allow(pdf_page_rasterizer).to receive(:rasterize).with("/tmp/report.pdf").and_return(["/tmp/page-1.png", "/tmp/page-2.png"])
+    allow(exec_runner).to receive(:run).and_return(
+      '{"text":"reply-1","suggested_replies":["下一步可以點做？","幫我列重點。","可唔可以講詳細啲？"]}'
+    )
+    allow(telegram_client).to receive(:send_message)
+
+    described_class.perform_now(pdf_message.to_job_payload)
+
+    expect(exec_runner).to have_received(:run).with(
+      prompt: kind_of(String),
+      image_file_paths: ["/tmp/page-1.png", "/tmp/page-2.png"],
+      output_schema: kind_of(Hash)
+    )
   end
 end

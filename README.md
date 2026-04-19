@@ -25,6 +25,7 @@ Demo：https://t.me/On99AppBot
 - 支援 Telegram 文字訊息
 - 支援單張圖片同 caption
 - 支援 Telegram 相簿多圖訊息分析
+- 支援 Telegram PDF document，會先轉頭幾頁做圖片再分析
 - 多圖分析會用 `圖 1`、`圖 2` 呢類編號逐張講
 - 相簿冇 caption 時會自動補 prompt，叫模型逐張描述再比較
 - 相簿太多圖時會先叫用戶縮窄範圍再分析
@@ -155,7 +156,7 @@ spec/
 
 - [`telegram_update_parser.rb`](app/services/telegram_update_parser.rb)
   - 將 Telegram 原始 payload 轉成 app 內部用嘅 hash。
-  - 支援文字訊息、單張圖片同 Telegram 相簿訊息。
+  - 支援文字訊息、單張圖片、圖片 document、PDF document 同 Telegram 相簿訊息。
   - 每張圖都會揀 Telegram `photo` array 裏面最大嗰張。
 
 - [`chat_rate_limiter.rb`](app/services/chat_rate_limiter.rb)
@@ -177,6 +178,10 @@ spec/
   - 將原本同步 reply generation flow 搬去 background job。
   - webhook claim 咗個 update 之後，就由呢個 job 負責真正生成 reply、send Telegram，同埋 pending reply replay。
 
+- [`reply_generation_flow.rb`](app/services/reply_generation_flow.rb)
+  - 真正處理 Telegram 附件 download 嗰層。
+  - 如果收到 PDF，會先 download，再用 `pdftoppm` 將頭幾頁轉做 PNG，之後先交畀 Codex。
+
 - [`conversation_service.rb`](app/services/conversation_service.rb)
   - 對話層 orchestration。
   - 主要責任：
@@ -196,6 +201,7 @@ spec/
     - 冇 caption 但有圖時會自動補一段分析 prompt
     - 再用更新後 transcript 生成 suggested replies
     - 如果有圖就加 `--image`
+    - PDF 其實係先轉做圖片，所以對 Codex 嚟講都係多圖分析
     - 讀返 `codex exec --output-last-message` 生成嘅最後訊息
   - `codex exec` 仍然係同步 call，但而家係喺 background job 入面跑，唔會再頂住 webhook request。
 
@@ -293,6 +299,7 @@ SQLite 而家主要得兩張表：
 - Ruby `4.0.2`
 - Bundler `4.x`
 - SQLite 3
+- `pdftoppm`（如果要用 PDF 轉圖分析；Docker image 已安裝 `poppler-utils`）
 - 本機或 server 可以直接跑 `codex exec`
 - `~/.codex/config.toml` 同 `~/.codex/auth.json` 已配置好
 - 本機最好用 repo 根目錄 `.codex-version` 指定嗰個 Codex CLI 版本
@@ -309,6 +316,7 @@ SQLite 而家主要得兩張表：
 | `SQLITE_DB_PATH` | SQLite database path | `./data/app.db` |
 | `CODEX_EXEC_TIMEOUT_SECONDS` | `codex exec` 最多跑幾多秒先當 timeout | `300` |
 | `MAX_MEDIA_GROUP_IMAGES` | 相簿最多接受幾多張圖先叫 user 縮窄範圍 | `6` |
+| `MAX_PDF_PAGES` | 每份 PDF 最多轉幾頁做圖片分析 | `4` |
 | `SESSION_TTL_DAYS` | session 過期日數 | `7` |
 | `MEDIA_GROUP_WAIT_MS` | Telegram 相簿多圖聚合等待時間 | `1200` |
 | `RATE_LIMIT_WINDOW_MS` | rate limit window | `10000` |

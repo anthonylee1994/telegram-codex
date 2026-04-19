@@ -143,7 +143,7 @@ RSpec.describe TelegramUpdateParser do
     )
   end
 
-  it 'does not parse non-image documents such as pdf' do
+  it 'parses pdf documents and keeps the file id for later rasterization' do
     parsed = parser.parse_incoming_telegram_message(
       {
         'update_id' => 15,
@@ -165,6 +165,15 @@ RSpec.describe TelegramUpdateParser do
       }
     )
 
-    expect(parsed).to be_nil
+    expect(parsed).to have_attributes(
+      chat_id: '3',
+      image_file_ids: [],
+      media_group_id: nil,
+      message_id: 16,
+      pdf_file_id: 'document-pdf-file',
+      text: '呢份 PDF 幫我睇',
+      user_id: '234392020',
+      update_id: 15
+    )
   end
 end

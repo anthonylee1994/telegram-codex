@@ -19,9 +19,10 @@ class TelegramUpdateParser
 
     text = message["text"].is_a?(String)
     document_image = supported_document_image?(message["document"])
+    pdf_document = supported_pdf_document?(message["document"])
     photo = message["photo"].is_a?(Array) && message["photo"].any?
 
-    text || photo || document_image
+    text || photo || document_image || pdf_document
   end
 
   def build_message(update)
@@ -33,17 +34,19 @@ class TelegramUpdateParser
       image_file_ids: build_image_file_ids(message),
       media_group_id: message["media_group_id"].to_s.presence,
       message_id: message["message_id"],
+      pdf_file_id: build_pdf_file_id(message),
       text: message["text"].presence || message["caption"].to_s.strip,
       user_id: message.dig("from", "id")
     )
   end
 
-  def build_inbound_message(update:, chat_id:, image_file_ids:, media_group_id:, message_id:, text:, user_id:)
+  def build_inbound_message(update:, chat_id:, image_file_ids:, media_group_id:, message_id:, pdf_file_id:, text:, user_id:)
     InboundTelegramMessage.new(
       chat_id: chat_id.to_s,
       image_file_ids: image_file_ids,
       media_group_id: media_group_id,
       message_id: message_id,
+      pdf_file_id: pdf_file_id,
       text: text,
       user_id: user_id.to_s,
       update_id: update.fetch("update_id")
@@ -57,6 +60,12 @@ class TelegramUpdateParser
     largest_photo&.then { |photo| [photo.fetch("file_id", nil)] }.to_a
   end
 
+  def build_pdf_file_id(message)
+    return nil unless supported_pdf_document?(message["document"])
+
+    message.fetch("document").fetch("file_id")
+  end
+
   def supported_document_image?(document)
     return false unless document.is_a?(Hash)
     return false unless document["file_id"].is_a?(String)
@@ -66,5 +75,15 @@ class TelegramUpdateParser
 
     file_name = document["file_name"].to_s.strip.downcase
     %w[.jpg .jpeg .png .webp].any? { |extension| file_name.end_with?(extension) }
+  end
+
+  def supported_pdf_document?(document)
+    return false unless document.is_a?(Hash)
+    return false unless document["file_id"].is_a?(String)
+
+    mime_type = document["mime_type"].to_s.strip.downcase
+    return true if mime_type == "application/pdf"
+
+    document["file_name"].to_s.strip.downcase.end_with?(".pdf")
   end
 end

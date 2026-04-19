@@ -48,6 +48,7 @@ RSpec.describe ConversationService do
           base_url: 'https://example.com',
           codex_exec_timeout_seconds: 300,
           max_media_group_images: 6,
+          max_pdf_pages: 4,
           media_group_wait_ms: 1200,
           port: 3000,
           rate_limit_max_messages: 5,

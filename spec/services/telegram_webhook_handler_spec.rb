@@ -118,6 +118,26 @@ RSpec.describe TelegramWebhookHandler do
       }
     }
   end
+  let(:pdf_document_update) do
+    {
+      'update_id' => 41,
+      'message' => {
+        'from' => {
+          'id' => 234_392_020
+        },
+        'message_id' => 42,
+        'caption' => '幫我睇呢份 PDF',
+        'document' => {
+          'file_id' => 'document-pdf-file',
+          'file_name' => 'report.pdf',
+          'mime_type' => 'application/pdf'
+        },
+        'chat' => {
+          'id' => 3
+        }
+      }
+    }
+  end
   it 'ignores an update that was already marked as sent' do
     conversation_service.mark_processed(1, '3', 2)
 
@@ -192,6 +212,21 @@ RSpec.describe TelegramWebhookHandler do
         "message_id" => 32,
         "text" => "呢張 screenshot 幫我睇",
         "update_id" => 31
+      )
+    )
+  end
+
+  it 'enqueues Telegram pdf documents for pdf-to-image preprocessing' do
+    handler.handle(pdf_document_update)
+
+    expect(ReplyGenerationJob).to have_been_enqueued.with(
+      hash_including(
+        "chat_id" => "3",
+        "image_file_ids" => [],
+        "message_id" => 42,
+        "pdf_file_id" => "document-pdf-file",
+        "text" => "幫我睇呢份 PDF",
+        "update_id" => 41
       )
     )
   end
