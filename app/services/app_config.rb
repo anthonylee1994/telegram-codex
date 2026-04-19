@@ -38,7 +38,7 @@ class AppConfig
         allowed_telegram_user_ids: allowed_telegram_user_ids,
         base_url: fetch_url("BASE_URL"),
         codex_exec_timeout_seconds: fetch_integer("CODEX_EXEC_TIMEOUT_SECONDS", default: 300),
-        max_media_group_images: fetch_integer("MAX_MEDIA_GROUP_IMAGES", default: 6),
+        max_media_group_images: fetch_integer("MAX_MEDIA_GROUP_IMAGES", default: 10),
         max_pdf_pages: fetch_integer("MAX_PDF_PAGES", default: 4),
         media_group_wait_ms: fetch_integer("MEDIA_GROUP_WAIT_MS", default: 1200),
         port: fetch_integer("PORT", default: 3000),
