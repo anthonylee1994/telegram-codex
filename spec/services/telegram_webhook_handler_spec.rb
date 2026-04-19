@@ -73,45 +73,6 @@ RSpec.describe TelegramWebhookHandler do
       }
     }
   end
-  let(:callback_update) do
-    {
-      'update_id' => 9,
-      'callback_query' => {
-        'id' => 'callback-1',
-        'data' => '再濃縮',
-        'from' => {
-          'id' => 234_392_020
-        },
-        'message' => {
-          'message_id' => 7,
-          'chat' => {
-            'id' => 3
-          }
-        }
-      }
-    }
-  end
-  let(:start_callback_update) do
-    callback_update.deep_merge(
-      'callback_query' => {
-        'data' => '/start',
-        'message' => {
-          'message_id' => 8
-        }
-      }
-    )
-  end
-  let(:new_callback_update) do
-    callback_update.deep_merge(
-      'callback_query' => {
-        'data' => '/new',
-        'message' => {
-          'message_id' => 9
-        }
-      }
-    )
-  end
-
   it 're-sends a persisted pending reply without regenerating it' do
     attempt = 0
     suggested_replies = ['下一步可以點做？', '幫我列重點。', '可唔可以講詳細啲？']
@@ -207,29 +168,6 @@ RSpec.describe TelegramWebhookHandler do
     expect(telegram_client).not_to have_received(:send_message).with('3', 'reply-1', any_args)
   end
 
-  it 'answers callback queries and treats the button text as a new message' do
-    allow(reply_client).to receive(:generate_reply).and_return(
-      conversation_state: 'state-2',
-      suggested_replies: ['再直接啲', '舉個例', '改短啲'],
-      text: 'reply-from-button'
-    )
-    allow(telegram_client).to receive(:answer_callback_query)
-    allow(telegram_client).to receive(:clear_message_reply_markup)
-    allow(telegram_client).to receive(:with_typing_status).and_yield
-    allow(telegram_client).to receive(:send_message)
-
-    handler.handle(callback_update)
-
-    expect(telegram_client).to have_received(:answer_callback_query).with('callback-1')
-    expect(telegram_client).to have_received(:clear_message_reply_markup).with('3', 7)
-    expect(reply_client).to have_received(:generate_reply).with(
-      chat_id: '3',
-      text: '再濃縮',
-      conversation_state: nil,
-      image_file_paths: []
-    )
-  end
-
   it 'aggregates album updates into one multi-image reply' do
     allow(reply_client).to receive(:generate_reply).and_return(
       conversation_state: 'state-album',
@@ -301,37 +239,6 @@ RSpec.describe TelegramWebhookHandler do
     expect(telegram_client).to have_received(:send_message).with('3', TelegramWebhookHandler::UNSUPPORTED_MESSAGE)
     expect(reply_client).not_to have_received(:generate_reply)
   end
-
-  it 'clears callback keyboard when /start is triggered from an inline button' do
-    allow(telegram_client).to receive(:answer_callback_query)
-    allow(telegram_client).to receive(:clear_message_reply_markup)
-    allow(telegram_client).to receive(:send_message)
-
-    handler.handle(start_callback_update)
-
-    expect(telegram_client).to have_received(:clear_message_reply_markup).with('3', 8)
-    expect(telegram_client).to have_received(:send_message).with(
-      '3',
-      TelegramWebhookHandler::START_MESSAGE,
-      remove_keyboard: true
-    )
-  end
-
-  it 'clears callback keyboard when /new is triggered from an inline button' do
-    allow(telegram_client).to receive(:answer_callback_query)
-    allow(telegram_client).to receive(:clear_message_reply_markup)
-    allow(telegram_client).to receive(:send_message)
-
-    handler.handle(new_callback_update)
-
-    expect(telegram_client).to have_received(:clear_message_reply_markup).with('3', 9)
-    expect(telegram_client).to have_received(:send_message).with(
-      '3',
-      TelegramWebhookHandler::NEW_SESSION_MESSAGE,
-      remove_keyboard: true
-    )
-  end
-
   def current_time_ms
     (Time.now.to_f * 1000).to_i
   end

@@ -41,29 +41,6 @@ class TelegramClient
     post_form("sendChatAction", chat_id: chat_id, action: action)
   end
 
-  def answer_callback_query(callback_query_id)
-    post_form("answerCallbackQuery", callback_query_id: callback_query_id)
-  end
-
-  def edit_message_reply_markup(chat_id, message_id, suggested_replies: [])
-    params = {
-      chat_id: chat_id,
-      message_id: message_id
-    }
-    reply_markup = build_reply_markup(suggested_replies)
-    params[:reply_markup] = JSON.generate(reply_markup) if reply_markup.present?
-    post_form("editMessageReplyMarkup", params)
-  end
-
-  def clear_message_reply_markup(chat_id, message_id)
-    post_form(
-      "editMessageReplyMarkup",
-      chat_id: chat_id,
-      message_id: message_id,
-      reply_markup: JSON.generate(inline_keyboard: [])
-    )
-  end
-
   def with_typing_status(chat_id)
     begin
       send_chat_action(chat_id, "typing")
@@ -92,12 +69,7 @@ class TelegramClient
   end
 
   def set_webhook(url, secret_token)
-    post_form(
-      "setWebhook",
-      url: url,
-      secret_token: secret_token,
-      allowed_updates: JSON.generate(["message"])
-    )
+    post_form("setWebhook", url: url, secret_token: secret_token)
 
     Rails.logger.info("Telegram webhook configured url=#{url}")
   end

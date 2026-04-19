@@ -100,10 +100,8 @@ class MediaGroupAggregator
     end
 
     InboundTelegramMessage.new(
-      callback_query_id: primary_message.callback_query_id,
       chat_id: primary_message.chat_id,
       image_file_ids: aggregated_image_file_ids,
-      inline_callback: primary_message.inline_callback?,
       media_group_id: primary_message.media_group_id,
       message_id: primary_message.message_id,
       processing_updates: processing_updates,

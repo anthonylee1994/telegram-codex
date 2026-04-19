@@ -21,7 +21,6 @@ RSpec.describe TelegramUpdateParser do
     )
 
     expect(parsed).to have_attributes(
-      callback_query_id: nil,
       chat_id: '3',
       image_file_ids: [],
       media_group_id: nil,
@@ -31,7 +30,6 @@ RSpec.describe TelegramUpdateParser do
       update_id: 1
     )
     expect(parsed.image_file_id).to be_nil
-    expect(parsed.inline_callback?).to eq(false)
   end
 
   it 'parses Telegram photo message with caption' do
@@ -62,7 +60,6 @@ RSpec.describe TelegramUpdateParser do
     )
 
     expect(parsed).to have_attributes(
-      callback_query_id: nil,
       chat_id: '3',
       image_file_ids: ['large-file'],
       media_group_id: nil,
@@ -72,7 +69,6 @@ RSpec.describe TelegramUpdateParser do
       update_id: 1
     )
     expect(parsed.image_file_id).to eq('large-file')
-    expect(parsed.inline_callback?).to eq(false)
   end
 
   it 'parses Telegram album message and keeps the media group id' do
@@ -104,7 +100,6 @@ RSpec.describe TelegramUpdateParser do
     )
 
     expect(parsed).to have_attributes(
-      callback_query_id: nil,
       chat_id: '3',
       image_file_ids: ['album-large'],
       media_group_id: 'album-1',
@@ -113,39 +108,5 @@ RSpec.describe TelegramUpdateParser do
       user_id: '234392020',
       update_id: 11
     )
-    expect(parsed.inline_callback?).to eq(false)
-  end
-
-  it 'parses callback query from inline keyboard' do
-    parsed = parser.parse_incoming_telegram_message(
-      {
-        'update_id' => 9,
-        'callback_query' => {
-          'id' => 'callback-1',
-          'data' => '再濃縮',
-          'from' => {
-            'id' => 234_392_020
-          },
-          'message' => {
-            'message_id' => 7,
-            'chat' => {
-              'id' => 3
-            }
-          }
-        }
-      }
-    )
-
-    expect(parsed).to have_attributes(
-      callback_query_id: 'callback-1',
-      chat_id: '3',
-      image_file_ids: [],
-      media_group_id: nil,
-      message_id: 7,
-      text: '再濃縮',
-      user_id: '234392020',
-      update_id: 9
-    )
-    expect(parsed.inline_callback?).to eq(true)
   end
 end

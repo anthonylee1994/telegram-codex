@@ -24,6 +24,7 @@ Demo：https://t.me/On99AppBot
 
 - 支援 Telegram 文字訊息
 - 支援單張圖片同 caption
+- 支援 Telegram 相簿多圖訊息分析
 - 支援 `/start` 顯示 welcome / help message
 - 支援 `/new` 重開當前 chat session
 - 支援最多 3 個 reply keyboard suggested replies
@@ -34,7 +35,6 @@ Demo：https://t.me/On99AppBot
 
 未支援：
 
-- 多圖 message 一齊分析
 - document 類型圖片
 - 語音、影片、其他檔案
 
@@ -150,8 +150,8 @@ spec/
 
 - [`telegram_update_parser.rb`](app/services/telegram_update_parser.rb)
   - 將 Telegram 原始 payload 轉成 app 內部用嘅 hash。
-  - 支援文字訊息同單張圖片訊息。
-  - 圖片會揀 Telegram `photo` array 裏面最大嗰張。
+  - 支援文字訊息、單張圖片同 Telegram 相簿訊息。
+  - 每張圖都會揀 Telegram `photo` array 裏面最大嗰張。
 
 - [`chat_rate_limiter.rb`](app/services/chat_rate_limiter.rb)
   - in-memory rate limiter。
@@ -199,6 +199,7 @@ spec/
     - `/new`
     - rate limit
     - typing indicator
+    - media group aggregation
     - reply keyboard suggested replies
     - 圖片 download + cleanup
     - generic error fallback

@@ -5,10 +5,8 @@ RSpec.describe ConversationService do
   let(:service) { described_class.new(reply_client: reply_client) }
   let(:message) do
     InboundTelegramMessage.new(
-      callback_query_id: nil,
       chat_id: 'chat-1',
       image_file_ids: [],
-      inline_callback: false,
       message_id: 10,
       text: 'hello',
       user_id: '234392020',
@@ -134,10 +132,8 @@ RSpec.describe ConversationService do
 
       service.generate_reply(
         InboundTelegramMessage.new(
-          callback_query_id: nil,
           chat_id: 'chat-1',
           image_file_ids: [],
-          inline_callback: false,
           message_id: 11,
           text: 'hello again',
           user_id: '234392020',

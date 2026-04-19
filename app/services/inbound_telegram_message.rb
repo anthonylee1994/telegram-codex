@@ -1,11 +1,9 @@
 class InboundTelegramMessage
-  attr_reader :callback_query_id, :chat_id, :image_file_ids, :media_group_id, :message_id, :processing_updates, :text, :user_id, :update_id
+  attr_reader :chat_id, :image_file_ids, :media_group_id, :message_id, :processing_updates, :text, :user_id, :update_id
 
   def initialize(
-    callback_query_id:,
     chat_id:,
     image_file_ids:,
-    inline_callback:,
     media_group_id: nil,
     message_id:,
     processing_updates: nil,
@@ -13,20 +11,14 @@ class InboundTelegramMessage
     user_id:,
     update_id:
   )
-    @callback_query_id = callback_query_id
     @chat_id = chat_id
     @image_file_ids = normalize_image_file_ids(image_file_ids)
-    @inline_callback = inline_callback
     @media_group_id = media_group_id
     @message_id = message_id
     @processing_updates = normalize_processing_updates(processing_updates, update_id, message_id)
     @text = text
     @user_id = user_id
     @update_id = update_id
-  end
-
-  def inline_callback?
-    @inline_callback
   end
 
   def image_file_id
