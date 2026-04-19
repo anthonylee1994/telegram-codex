@@ -38,7 +38,6 @@ Demo：https://t.me/On99AppBot
 
 未支援：
 
-- document 類型圖片
 - 語音、影片、其他檔案
 
 ## Rails API 架構

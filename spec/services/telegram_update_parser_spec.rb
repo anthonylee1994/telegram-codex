@@ -109,4 +109,62 @@ RSpec.describe TelegramUpdateParser do
       update_id: 11
     )
   end
+
+  it 'parses Telegram image document message with caption' do
+    parsed = parser.parse_incoming_telegram_message(
+      {
+        'update_id' => 13,
+        'message' => {
+          'from' => {
+            'id' => 234_392_020
+          },
+          'message_id' => 14,
+          'caption' => '睇下張 scan',
+          'document' => {
+            'file_id' => 'document-image-file',
+            'file_name' => 'scan.png',
+            'mime_type' => 'image/png'
+          },
+          'chat' => {
+            'id' => 3
+          }
+        }
+      }
+    )
+
+    expect(parsed).to have_attributes(
+      chat_id: '3',
+      image_file_ids: ['document-image-file'],
+      media_group_id: nil,
+      message_id: 14,
+      text: '睇下張 scan',
+      user_id: '234392020',
+      update_id: 13
+    )
+  end
+
+  it 'does not parse non-image documents such as pdf' do
+    parsed = parser.parse_incoming_telegram_message(
+      {
+        'update_id' => 15,
+        'message' => {
+          'from' => {
+            'id' => 234_392_020
+          },
+          'message_id' => 16,
+          'caption' => '呢份 PDF 幫我睇',
+          'document' => {
+            'file_id' => 'document-pdf-file',
+            'file_name' => 'report.pdf',
+            'mime_type' => 'application/pdf'
+          },
+          'chat' => {
+            'id' => 3
+          }
+        }
+      }
+    )
+
+    expect(parsed).to be_nil
+  end
 end

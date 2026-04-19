@@ -18,9 +18,10 @@ class TelegramUpdateParser
     return false unless message["message_id"].is_a?(Integer)
 
     text = message["text"].is_a?(String)
+    document_image = supported_document_image?(message["document"])
     photo = message["photo"].is_a?(Array) && message["photo"].any?
 
-    text || photo
+    text || photo || document_image
   end
 
   def build_message(update)
@@ -50,7 +51,20 @@ class TelegramUpdateParser
   end
 
   def build_image_file_ids(message)
+    return [message.fetch("document").fetch("file_id")] if supported_document_image?(message["document"])
+
     largest_photo = Array(message["photo"]).max_by { |photo| photo["file_size"].to_i }
     largest_photo&.then { |photo| [photo.fetch("file_id", nil)] }.to_a
+  end
+
+  def supported_document_image?(document)
+    return false unless document.is_a?(Hash)
+    return false unless document["file_id"].is_a?(String)
+
+    mime_type = document["mime_type"].to_s.strip.downcase
+    return true if mime_type.start_with?("image/")
+
+    file_name = document["file_name"].to_s.strip.downcase
+    %w[.jpg .jpeg .png .webp].any? { |extension| file_name.end_with?(extension) }
   end
 end

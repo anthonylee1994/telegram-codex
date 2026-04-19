@@ -98,6 +98,26 @@ RSpec.describe TelegramWebhookHandler do
       }
     }
   end
+  let(:document_image_update) do
+    {
+      'update_id' => 31,
+      'message' => {
+        'from' => {
+          'id' => 234_392_020
+        },
+        'message_id' => 32,
+        'caption' => '呢張 screenshot 幫我睇',
+        'document' => {
+          'file_id' => 'document-image-file',
+          'file_name' => 'screenshot.png',
+          'mime_type' => 'image/png'
+        },
+        'chat' => {
+          'id' => 3
+        }
+      }
+    }
+  end
   it 'ignores an update that was already marked as sent' do
     conversation_service.mark_processed(1, '3', 2)
 
@@ -160,6 +180,20 @@ RSpec.describe TelegramWebhookHandler do
     )
     expect(ProcessedUpdate.find_by(update_id: 21)&.sent_at).to be_nil
     expect(ProcessedUpdate.find_by(update_id: 22)&.sent_at).to be_nil
+  end
+
+  it 'treats Telegram image documents as image analysis input' do
+    handler.handle(document_image_update)
+
+    expect(ReplyGenerationJob).to have_been_enqueued.with(
+      hash_including(
+        "chat_id" => "3",
+        "image_file_ids" => ["document-image-file"],
+        "message_id" => 32,
+        "text" => "呢張 screenshot 幫我睇",
+        "update_id" => 31
+      )
+    )
   end
 
   it 'asks the user to narrow focus when an album contains too many images' do
