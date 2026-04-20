@@ -336,7 +336,7 @@ RSpec.describe Telegram::WebhookHandler do
 
     expect(telegram_client).to have_received(:send_message).with(
       '3',
-      include('目前 session：active'),
+      include('目前 session：已生效'),
       remove_keyboard: true
     )
   end

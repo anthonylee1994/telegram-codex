@@ -108,10 +108,10 @@ class Conversation::Webhooks::Action
 
     def build_session_message(chat_id)
       snapshot = conversation_service.session_snapshot(chat_id)
-      return "目前冇 active session。你可以直接 send 訊息開始，或者之後用 `/summary` 壓縮長對話。" unless snapshot[:active]
+      return "目前未有已生效 session。你可以直接 send 訊息開始，或者之後用 `/summary` 壓縮長對話。" unless snapshot[:active]
 
       [
-        "目前 session：active",
+        "目前 session：已生效",
         "訊息數：#{snapshot.fetch(:message_count)}",
         "大概輪數：#{snapshot.fetch(:turn_count)}",
         "最後更新：#{snapshot.fetch(:last_updated_at).strftime('%Y-%m-%d %H:%M:%S %Z')}",
