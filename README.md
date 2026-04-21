@@ -55,7 +55,13 @@ app/
 ├── controllers/
 │   ├── health_controller.rb
 │   └── telegram_webhooks_controller.rb
+├── jobs/
+│   ├── media_group_flush_job.rb
+│   ├── reply_generation_job.rb
+│   └── session_summary_job.rb
 ├── models/
+│   ├── media_group_buffer.rb
+│   ├── media_group_message.rb
 │   ├── chat_session.rb
 │   ├── chat_memory.rb
 │   └── processed_update.rb
@@ -97,10 +103,11 @@ spec/
 
 - `POST /telegram/webhook` 驗證 `X-Telegram-Bot-Api-Secret-Token`
 - `Telegram::UpdateParser` 將 Telegram payload 轉成 app message
+- `Telegram::MediaGroupAggregator` 將 Telegram 相簿訊息寫入 shared store，並排 delayed flush job
 - `Telegram::WebhookHandler` 做 duplicate、防重送、allowed user、commands、rate limit
 - `Conversation::Service` 管 session TTL、長期記憶，同 `Codex::CliClient` 串 `codex exec`
-- `ReplyGenerationJob` / `SessionSummaryJob` 非同步生成回覆或摘要，再發送 Telegram 訊息
-- `ChatSession` / `ProcessedUpdate` 用 SQLite 存狀態
+- `MediaGroupFlushJob` / `ReplyGenerationJob` / `SessionSummaryJob` 非同步做相簿 flush、生成回覆、生成摘要
+- `ChatSession` / `ChatMemory` / `ProcessedUpdate` / `MediaGroupBuffer` / `MediaGroupMessage` 用 SQLite 存狀態
 - `rake telegram:set_webhook` 取代原本 script
 
 拆開少少講：
@@ -111,18 +118,20 @@ spec/
 4. handler 會：
    - parse 文字 / 圖片 message
    - parse `reply_to_message`，抽返被引用文字或者文件 context
+   - 如果係 Telegram 相簿，先寫入 shared store，然後排 delayed flush job
    - 檢查係咪 duplicate update
    - 檢查係咪 pending reply replay
    - 檢查 allowed users
    - 處理 `/start`、`/help`、`/status`、`/session`、`/memory`、`/forget`、`/summary`、`/new`
    - 做 chat-level rate limit
-5. 真正要生成回覆時，handler 會 enqueue `ReplyGenerationJob`，Webhook 先即刻回 `200 OK`。
-6. `ReplyGenerationJob` 再 call `Conversation::Service` 攞返目前 chat 嘅 session state。
-7. `Conversation::Service` call `Codex::CliClient`。
-8. `Codex::CliClient` 用 transcript + system prompt 組 prompt，然後跑 `codex exec`。
-9. `Codex::CliClient` 會再生成 3 個 suggested replies。
-10. job 將主答案同 suggested replies send 番 Telegram，並將新 session state 寫返 SQLite。
-11. reply 成功送出後，system 會再用同一輪 user message + assistant reply 嘗試更新長期記憶。
+5. 如果唔係相簿，真正要生成回覆時，handler 會 enqueue `ReplyGenerationJob`，Webhook 先即刻回 `200 OK`。
+6. 如果係相簿，`MediaGroupFlushJob` 會喺 deadline 到咗之後將同一個 album 聚合返做一條 app message，再交返 `Telegram::WebhookHandler`。
+7. `ReplyGenerationJob` 再 call `Conversation::Service` 攞返目前 chat 嘅 session state。
+8. `Conversation::Service` call `Codex::CliClient`。
+9. `Codex::CliClient` 用 transcript + system prompt 組 prompt，然後跑 `codex exec`。
+10. `Codex::CliClient` 會再生成 3 個 suggested replies。
+11. job 將主答案同 suggested replies send 番 Telegram，並將新 session state 寫返 SQLite。
+12. reply 成功送出後，system 會再用同一輪 user message + assistant reply 嘗試更新長期記憶。
 
 ## 主要檔案點運作
 
@@ -163,6 +172,15 @@ spec/
   - 主要係防 duplicate webhook，仲有 pending reply replay。
   - 如果 reply 已生成但 send Telegram 失敗，下次 Telegram resend 同一個 update，app 可以直接補送主答案同 suggested replies，唔使再 call 一次 Codex。
 
+- [`media_group_buffer.rb`](app/models/media_group_buffer.rb)
+  - 每個 pending Telegram album 一條 row。
+  - 用 `chat_id:media_group_id` 做 key，存最新 flush deadline。
+  - 作用係將 media group aggregation 搬去 shared store，跨 process / worker 都睇到同一份狀態。
+
+- [`media_group_message.rb`](app/models/media_group_message.rb)
+  - 每個屬於 album 嘅 Telegram update 一條 row。
+  - 存原始 app payload，等 flush job 到鐘之後可以重新組返 aggregated message。
+
 ### Service 層
 
 - [`app_config.rb`](app/services/app_config.rb)
@@ -175,6 +193,15 @@ spec/
   - 支援文字訊息、單張圖片、圖片 document、PDF document、文字 document 同 Telegram 相簿訊息。
   - 如果 user 用 reply 功能引用之前一則 message，呢層會一齊抽返被引用文字、相、PDF、文字檔嘅 context。
   - 每張圖都會揀 Telegram `photo` array 裏面最大嗰張。
+
+- [`media_group_aggregator.rb`](app/services/telegram/media_group_aggregator.rb)
+  - 唔再喺 memory 入面等 album flush。
+  - 而家會將 Telegram 相簿訊息寫入 SQLite shared store，再排 `MediaGroupFlushJob`。
+  - 咁做之後，就算開多個 Puma worker，album updates 都仲可以聚合到。
+
+- [`media_group_store.rb`](app/services/telegram/media_group_store.rb)
+  - 包住 `media_group_buffers` 同 `media_group_messages`。
+  - 負責 enqueue album update、判斷 flush deadline、同到鐘之後 aggregate 成一條 `Telegram::InboundMessage`。
 
 - [`chat_rate_limiter.rb`](app/services/conversation/chat_rate_limiter.rb)
   - in-memory rate limiter。
@@ -194,6 +221,11 @@ spec/
 - [`reply_generation_job.rb`](app/jobs/reply_generation_job.rb)
   - 將原本同步 reply generation flow 搬去 background job。
   - webhook claim 咗個 update 之後，就由呢個 job 負責真正生成 reply、send Telegram，同埋 pending reply replay。
+
+- [`media_group_flush_job.rb`](app/jobs/media_group_flush_job.rb)
+  - 專責 flush Telegram 相簿。
+  - 如果 deadline 未到，會按最新 deadline 再排一次自己。
+  - 如果 deadline 到咗，就會 aggregate 同一個 album，然後交返 `Telegram::WebhookHandler` 做正常 decision / action flow。
 
 - [`reply_generation_flow.rb`](app/services/conversation/reply_generation_flow.rb)
   - 真正處理 Telegram 附件 download 嗰層。
@@ -251,12 +283,9 @@ spec/
     - `/summary`
     - `/new`
     - rate limit
-    - typing indicator
     - media group aggregation
     - album 過多圖片時先提示 user 揀重點
-    - reply keyboard suggested replies
-    - 圖片 download + cleanup
-    - generic error fallback
+  - 真正附件 download、typing status、reply keyboard suggested replies、generic fallback 呢啲已經拆咗去其他 service / job。
 
 ### Config / Tasks
 
@@ -279,6 +308,7 @@ spec/
 
 - [`development.rb`](config/environments/development.rb)
   - development 保持用 `:async` job adapter，唔使另外開 Solid Queue worker 都可以本機試 flow。
+  - Telegram 相簿 flush 都會經 Active Job，所以本機開發一樣會走 delayed job path。
 
 - [`production.rb`](config/environments/production.rb)
   - production 用 `:solid_queue`，並連去 `queue` database。
@@ -305,11 +335,17 @@ spec/
   - 驗 Telegram payload parsing，包括 `reply_to_message` 嘅文字 / 相 / PDF / 文字檔引用情況。
 
 - [`webhook_handler_spec.rb`](spec/services/telegram/webhook_handler_spec.rb)
-  - 驗 pending reply replay 呢種最易出事嘅邊界情況。
+  - 驗 Telegram webhook 核心行為，包括 duplicate、防重入、相簿聚合後 enqueue、多圖過多時 fallback、commands。
+
+- [`media_group_store_spec.rb`](spec/services/telegram/media_group_store_spec.rb)
+  - 驗 shared-store album aggregation，包括 stale deadline、pending deadline、到鐘 flush。
+
+- [`media_group_flush_job_spec.rb`](spec/jobs/media_group_flush_job_spec.rb)
+  - 驗 delayed flush job 點樣將 album 交返 handler，或者按最新 deadline 重排。
 
 ## 資料點存
 
-SQLite 而家主要得三張表：
+SQLite 而家主要有五張表：
 
 - `chat_sessions`
   - 每個 chat 一條 session state
@@ -322,6 +358,14 @@ SQLite 而家主要得三張表：
 - `processed_updates`
   - 每個 Telegram `update_id` 一條處理記錄
   - 用嚟防 duplicate，同埋保留 pending reply replay 所需資料
+
+- `media_group_buffers`
+  - 每個 pending Telegram album 一條 buffer
+  - 用嚟記最新 flush deadline
+
+- `media_group_messages`
+  - 每個屬於 album 嘅 Telegram update 一條記錄
+  - 用嚟喺 flush 時 aggregate 返成一條 multi-image message
 
 實際 lifecycle 係：
 
@@ -338,6 +382,11 @@ SQLite 而家主要得三張表：
   - reply send 成功後會保留
   - `Conversation::Service` 會 opportunistic 清走已送出而且夠舊嘅 records
   - 唔需要額外 cron job 都可以慢慢瘦身
+
+- `MediaGroupBuffer` / `MediaGroupMessage`
+  - album update 入 webhook 時建立 / 更新
+  - flush 成功後會即刻刪走
+  - 主要作用係做短暫 debounce buffer，唔係長期資料
 
 ## 需求
 
@@ -466,6 +515,12 @@ ProcessedUpdate.find_by(update_id: 123456789)
 
 # 睇最近 updates
 ProcessedUpdate.order(update_id: :desc).limit(20)
+
+# 睇 pending media groups
+MediaGroupBuffer.all
+
+# 睇某個 album 入面收咗幾多 message
+MediaGroupMessage.where(media_group_key: "123456:album-1")
 
 # 睇所有 sessions
 ChatSession.all
