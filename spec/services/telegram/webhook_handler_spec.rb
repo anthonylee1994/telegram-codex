@@ -193,9 +193,14 @@ RSpec.describe Telegram::WebhookHandler do
   end
 
   it 'aggregates album updates into one multi-image job' do
+    allow(Telegram::WebhookHandlerFactory).to receive(:build).and_return(handler)
+
     handler.handle(album_update_1)
     handler.handle(album_update_2)
-    sleep(0.08)
+    travel 1.second
+    buffer = MediaGroupBuffer.find("3:album-1")
+
+    MediaGroupFlushJob.perform_now(buffer.key, buffer.deadline_at)
 
     expect(ReplyGenerationJob).to have_been_enqueued.with(
       hash_including(
@@ -247,14 +252,18 @@ RSpec.describe Telegram::WebhookHandler do
       config: tight_config
     ).first
     allow(telegram_client).to receive(:send_message)
+    allow(Telegram::WebhookHandlerFactory).to receive(:build).and_return(tight_handler)
 
     tight_handler.handle(album_update_1)
     tight_handler.handle(album_update_2)
     tight_handler.handle(album_update_3)
-    sleep(0.08)
+    travel 1.second
+    buffer = MediaGroupBuffer.find("3:album-1")
+
+    MediaGroupFlushJob.perform_now(buffer.key, buffer.deadline_at)
 
     expect(telegram_client).to have_received(:send_message).with("3", Telegram::WebhookHandler::TOO_MANY_IMAGES_MESSAGE)
-    expect(enqueued_jobs).to be_empty
+    expect(ReplyGenerationJob).not_to have_been_enqueued
     expect(ProcessedUpdate.find_by(update_id: 21)&.sent_at).to be_present
     expect(ProcessedUpdate.find_by(update_id: 22)&.sent_at).to be_present
     expect(ProcessedUpdate.find_by(update_id: 23)&.sent_at).to be_present

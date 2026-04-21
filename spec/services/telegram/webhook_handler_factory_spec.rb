@@ -25,6 +25,19 @@ RSpec.describe Telegram::WebhookHandlerFactory do
     allow(telegram_client).to receive(:with_typing_status).and_yield
   end
 
+  it "memoizes the handler until reset is called" do
+    first_handler = described_class.build
+    second_handler = described_class.build
+
+    expect(first_handler).to equal(second_handler)
+
+    described_class.reset!
+
+    third_handler = described_class.build
+
+    expect(third_handler).not_to equal(first_handler)
+  end
+
   it "wires the full webhook flow and persists reply state asynchronously" do
     allow(exec_runner).to receive(:run).and_return(
       '{"text":"reply-1","suggested_replies":["下一步可以點做？","幫我列重點。","可唔可以講詳細啲？"]}',

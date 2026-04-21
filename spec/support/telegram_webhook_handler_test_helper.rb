@@ -3,10 +3,10 @@ module TelegramWebhookHandlerTestHelper
     reply_client:,
     telegram_client:,
     config:,
+    flush_job_class: MediaGroupFlushJob,
     reply_generation_job_class: ReplyGenerationJob,
     session_summary_job_class: SessionSummaryJob
   )
-    Telegram::MediaGroupAggregator.reset!
     conversation_service = Conversation::Service.new(reply_client: reply_client)
     processed_update_flow = Conversation::ProcessedUpdateFlow.new(conversation_service: conversation_service)
     decision_resolver = Conversation::Webhooks::Decision::Resolver.new(
@@ -34,7 +34,10 @@ module TelegramWebhookHandlerTestHelper
     [
       Telegram::WebhookHandler.new(
         telegram_update_parser: Telegram::UpdateParser.new,
-        media_group_aggregator: Telegram::MediaGroupAggregator.new(wait_duration_seconds: 0.05),
+        media_group_aggregator: Telegram::MediaGroupAggregator.new(
+          wait_duration_seconds: 0.05,
+          flush_job_class: flush_job_class
+        ),
         decision_resolver: decision_resolver,
         action_executor: action_executor
       ),

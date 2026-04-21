@@ -29,3 +29,11 @@ class SessionSummaryJob < ApplicationJob
   def build_message: (summarize_result result) -> String
   def error_message_for: (StandardError error) -> String
 end
+
+class MediaGroupFlushJob < ApplicationJob
+  def perform: (String key, Integer expected_deadline_at) -> void
+
+  private
+
+  def media_group_store: () -> Telegram::MediaGroupStore
+end

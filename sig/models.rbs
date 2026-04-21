@@ -25,3 +25,15 @@ class ProcessedUpdate < ApplicationRecord
   attr_accessor sent_at: Integer?
   attr_accessor suggested_replies: String?
 end
+
+class MediaGroupBuffer < ApplicationRecord
+  attr_accessor key: String
+  attr_accessor deadline_at: Integer
+end
+
+class MediaGroupMessage < ApplicationRecord
+  attr_accessor update_id: Integer
+  attr_accessor media_group_key: String
+  attr_accessor message_id: Integer
+  attr_accessor payload: String
+end

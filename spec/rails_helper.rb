@@ -16,6 +16,7 @@ abort('The Rails environment is running in production mode!') if Rails.env.produ
 
 require 'rspec/rails'
 require 'active_job/test_helper'
+require 'active_support/testing/time_helpers'
 Dir[Rails.root.join('spec/support/**/*.rb')].sort.each { |file| require file }
 
 begin
@@ -30,11 +31,12 @@ RSpec.configure do |config|
   config.filter_rails_from_backtrace!
   config.include TelegramWebhookHandlerTestHelper
   config.include ActiveJob::TestHelper
+  config.include ActiveSupport::Testing::TimeHelpers
 
   config.before do
     AppConfig.reset!
     Conversation::ChatRateLimiter.instance.reset!
-    Telegram::MediaGroupAggregator.reset!
+    Telegram::WebhookHandlerFactory.reset!
     clear_enqueued_jobs
     clear_performed_jobs
   end

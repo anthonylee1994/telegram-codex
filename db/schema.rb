@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_21_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_21_000001) do
   create_table "chat_memories", primary_key: "chat_id", id: :string, force: :cascade do |t|
     t.text "memory_text"
     t.integer "updated_at", null: false
@@ -25,6 +25,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_21_000000) do
     t.index ["chat_id"], name: "index_chat_sessions_on_chat_id", unique: true
   end
 
+  create_table "media_group_buffers", primary_key: "key", id: :text, force: :cascade do |t|
+    t.integer "deadline_at", null: false
+    t.index ["key"], name: "index_media_group_buffers_on_key", unique: true
+  end
+
+  create_table "media_group_messages", primary_key: "update_id", force: :cascade do |t|
+    t.text "media_group_key", null: false
+    t.integer "message_id", null: false
+    t.text "payload", null: false
+    t.index ["media_group_key"], name: "index_media_group_messages_on_media_group_key"
+  end
+
   create_table "processed_updates", primary_key: "update_id", force: :cascade do |t|
     t.text "chat_id", null: false
     t.text "conversation_state"
@@ -35,4 +47,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_21_000000) do
     t.text "suggested_replies"
     t.index ["update_id"], name: "index_processed_updates_on_update_id", unique: true
   end
+
+  add_foreign_key "media_group_messages", "media_group_buffers", column: "media_group_key", primary_key: "key", on_delete: :cascade
 end

@@ -97,17 +97,26 @@ class Telegram::MediaGroupAggregator
 
   def self.reset!: () -> nil
 
-  def initialize: (?wait_duration_seconds: Float) -> void
-  def call: (Telegram::InboundMessage? message) { (Telegram::InboundMessage) -> untyped } -> untyped
+  def initialize: (
+    ?wait_duration_seconds: Float,
+    ?media_group_store: Telegram::MediaGroupStore,
+    ?flush_job_class: singleton(MediaGroupFlushJob)
+  ) -> void
+  def reset!: () -> nil
+  def call: (Telegram::InboundMessage? message) -> untyped
+end
+
+class Telegram::MediaGroupStore
+  def enqueue: (Telegram::InboundMessage message, wait_duration_seconds: Float) -> { key: String, deadline_at: Integer }
+  def flush: (String key, expected_deadline_at: Integer) -> { status: Symbol, ?wait_duration_seconds: Float, ?message: Telegram::InboundMessage }
+  def clear!: () -> void
 
   private
 
-  def enqueue_message: (String key, Telegram::InboundMessage message, ^(Telegram::InboundMessage) -> untyped processor) -> void
-  def schedule_flush: (String key) -> Thread
-  def finalize_if_ready: (String key) -> [Proc? , Telegram::InboundMessage?]
-  def aggregate_messages: (Array[Telegram::InboundMessage] messages) -> Telegram::InboundMessage
+  def aggregate_messages: (Array[MediaGroupMessage] rows) -> Telegram::InboundMessage
   def build_key: (Telegram::InboundMessage message) -> String
-  def monotonic_now: () -> Float
+  def current_time_ms: () -> Integer
+  def wait_duration_ms: (Float wait_duration_seconds) -> Integer
 end
 
 class Telegram::UpdateParser
@@ -169,12 +178,10 @@ class Telegram::WebhookHandler
     action_executor: Conversation::Webhooks::ActionExecutor
   ) -> void
   def handle: (Hash[String, untyped] update) -> void
-
-  private
-
-  def process_message: (Telegram::InboundMessage? message, update: Hash[String, untyped]) -> void
+  def handle_inbound_message: (Telegram::InboundMessage? message, ?update: Hash[String, untyped]?) -> void
 end
 
 class Telegram::WebhookHandlerFactory
+  def self.reset!: () -> nil
   def self.build: () -> Telegram::WebhookHandler
 end
