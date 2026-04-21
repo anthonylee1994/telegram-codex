@@ -15,7 +15,7 @@ Demo：https://t.me/On99AppBot
 所以最後就變成一個 Telegram bot backend：
 
 - Telegram 負責做最順手嘅輸入入口
-- server 負責收 webhook、做 session memory、控 rate limit
+- server 負責收 webhook、做 session / 長期記憶、控 rate limit
 - `codex exec` 負責真正生成回覆
 
 簡單講，呢個 project 係想將本機用緊嘅 Codex CLI，包成一個可以長期運行、日常真係用得着嘅 bot，而唔係淨係做 demo。
@@ -33,11 +33,13 @@ Demo：https://t.me/On99AppBot
 - 相簿冇 caption 時會自動補 prompt，叫模型逐張描述再比較
 - 相簿太多圖時會先叫用戶縮窄範圍再分析
 - 支援 `/start` 顯示 welcome / help message
-- 支援 `/help`、`/status`、`/session`、`/summary`
+- 支援 `/help`、`/status`、`/session`、`/memory`、`/summary`
+- 支援 `/forget` 清除長期記憶
 - 支援 `/new` 重開當前 chat session
 - `/summary` 會非同步將長對話壓縮成新 context，再主動 send 摘要返 Telegram
 - 支援最多 3 個 reply keyboard suggested replies
 - 有 session memory
+- 有獨立長期記憶，會自動整理用戶偏好、背景、持續目標，再喺之後對話 relevant 時帶返入 prompt
 - 有 duplicate update 保護
 - 有簡單 rate limit
 - 可限制指定 Telegram user id
@@ -55,6 +57,7 @@ app/
 │   └── telegram_webhooks_controller.rb
 ├── models/
 │   ├── chat_session.rb
+│   ├── chat_memory.rb
 │   └── processed_update.rb
 └── services/
     ├── app_config.rb
@@ -65,6 +68,7 @@ app/
     └── telegram/
 db/
 ├── migrate/
+│   ├── create_chat_memories.rb
 │   ├── create_chat_sessions.rb
 │   └── create_processed_updates.rb
 └── schema.rb
@@ -94,7 +98,7 @@ spec/
 - `POST /telegram/webhook` 驗證 `X-Telegram-Bot-Api-Secret-Token`
 - `Telegram::UpdateParser` 將 Telegram payload 轉成 app message
 - `Telegram::WebhookHandler` 做 duplicate、防重送、allowed user、commands、rate limit
-- `Conversation::Service` 管 session TTL，同 `Codex::CliClient` 串 `codex exec`
+- `Conversation::Service` 管 session TTL、長期記憶，同 `Codex::CliClient` 串 `codex exec`
 - `ReplyGenerationJob` / `SessionSummaryJob` 非同步生成回覆或摘要，再發送 Telegram 訊息
 - `ChatSession` / `ProcessedUpdate` 用 SQLite 存狀態
 - `rake telegram:set_webhook` 取代原本 script
@@ -110,7 +114,7 @@ spec/
    - 檢查係咪 duplicate update
    - 檢查係咪 pending reply replay
    - 檢查 allowed users
-   - 處理 `/start`、`/help`、`/status`、`/session`、`/summary`、`/new`
+   - 處理 `/start`、`/help`、`/status`、`/session`、`/memory`、`/forget`、`/summary`、`/new`
    - 做 chat-level rate limit
 5. 真正要生成回覆時，handler 會 enqueue `ReplyGenerationJob`，Webhook 先即刻回 `200 OK`。
 6. `ReplyGenerationJob` 再 call `Conversation::Service` 攞返目前 chat 嘅 session state。
@@ -118,6 +122,7 @@ spec/
 8. `Codex::CliClient` 用 transcript + system prompt 組 prompt，然後跑 `codex exec`。
 9. `Codex::CliClient` 會再生成 3 個 suggested replies。
 10. job 將主答案同 suggested replies send 番 Telegram，並將新 session state 寫返 SQLite。
+11. reply 成功送出後，system 會再用同一輪 user message + assistant reply 嘗試更新長期記憶。
 
 ## 主要檔案點運作
 
@@ -146,6 +151,12 @@ spec/
   - 作用係畀下次 `codex exec` 知道上一輪對話狀態。
   - `/new` 會清走目前 chat 嘅 session。
   - session 過期唔係靠 cron，而係下次個 chat 再講嘢時 lazy cleanup。
+
+- [`chat_memory.rb`](app/models/chat_memory.rb)
+  - 每個 Telegram chat 一條 row。
+  - 存獨立長期記憶摘要，唔受 session TTL 影響。
+  - 內容主要係穩定偏好、背景、持續目標之類值得之後帶返入 prompt 嘅資料。
+  - `/forget` 會清走目前 chat 嘅長期記憶。
 
 - [`processed_update.rb`](app/models/processed_update.rb)
   - 用 Telegram `update_id` 做主鍵。
@@ -194,17 +205,25 @@ spec/
   - 對話層 orchestration。
   - 主要責任：
     - 讀寫 `ChatSession`
+    - 讀寫 `ChatMemory`
     - 讀寫 `ProcessedUpdate`
     - 判斷 session TTL
     - call `Codex::CliClient`
+    - call `Conversation::MemoryClient` 更新長期記憶
     - call `Conversation::SessionSummaryClient` 壓縮 session context
     - opportunistic prune 舊 `ProcessedUpdate`
   - 如果你想搵「個 bot 記憶點樣管理」，通常由呢個 file 開始睇最啱。
+
+- [`memory_client.rb`](app/services/conversation/memory_client.rb)
+  - 專責將最新 user message 同 assistant reply merge 入長期記憶。
+  - 只會保留長期有用嘅 user facts / preferences / 持續目標，唔會將短期 task context 成段照抄落去。
+  - 如果 merge 後應該清空記憶，會回傳空字串，repository 會刪 row。
 
 - [`cli_client.rb`](app/services/codex/cli_client.rb)
   - 真正同 `codex exec` 接軌嗰層。
   - 佢會：
     - parse 上次 conversation state
+    - relevant 時將長期記憶一齊拼入 prompt
     - 先同 system prompt 拼埋做 prompt 生成主答案
     - 如果今次係 reply 舊訊息，會將被引用內容一齊拼入最新 user message
     - 多圖時會要求模型用 `圖 1`、`圖 2` 呢類編號逐張分析
@@ -227,6 +246,8 @@ spec/
     - `/help`
     - `/status`
     - `/session`
+    - `/memory`
+    - `/forget`
     - `/summary`
     - `/new`
     - rate limit
@@ -266,7 +287,7 @@ spec/
   - `bundle exec rake telegram:set_webhook`
   - 用而家 ENV 裏面個 `BASE_URL` 直接註冊 Telegram webhook。
   - `bundle exec rake telegram:update_commands`
-  - 將 `/help`、`/status`、`/session`、`/summary`、`/new` command description 同步去 Telegram bot menu。
+  - 將 `/help`、`/status`、`/session`、`/memory`、`/forget`、`/summary`、`/new` command description 同步去 Telegram bot menu。
 
 - [`auto_annotate_models.rake`](lib/tasks/auto_annotate_models.rake)
   - 同 schema comments / annotate model 有關。
@@ -278,7 +299,7 @@ spec/
   - 驗 HTTP 層：`/health` 同 webhook secret 驗證。
 
 - [`service_spec.rb`](spec/services/conversation/service_spec.rb)
-  - 驗 session TTL、reply generation input、processed update prune。
+  - 驗 session TTL、reply generation input、長期記憶讀寫、processed update prune。
 
 - [`update_parser_spec.rb`](spec/services/telegram/update_parser_spec.rb)
   - 驗 Telegram payload parsing，包括 `reply_to_message` 嘅文字 / 相 / PDF / 文字檔引用情況。
@@ -288,11 +309,15 @@ spec/
 
 ## 資料點存
 
-SQLite 而家主要得兩張表：
+SQLite 而家主要得三張表：
 
 - `chat_sessions`
   - 每個 chat 一條 session state
   - 用嚟保留對話上下文
+
+- `chat_memories`
+  - 每個 chat 一條長期記憶
+  - 用嚟保留穩定偏好、背景、持續目標等可跨 session 重用嘅摘要
 
 - `processed_updates`
   - 每個 Telegram `update_id` 一條處理記錄
@@ -303,6 +328,11 @@ SQLite 而家主要得兩張表：
 - `ChatSession`
   - `/new` 會清
   - 過咗 `SESSION_TTL_DAYS` 會喺下次用到嗰個 chat 時被清
+
+- `ChatMemory`
+  - `/forget` 會清
+  - `/new` 唔會清，因為長期記憶係獨立設計
+  - 只會喺 reply 成功送出後先更新，避免 send fail 時寫咗半套狀態
 
 - `ProcessedUpdate`
   - reply send 成功後會保留
@@ -383,8 +413,12 @@ bundle exec rake telegram:set_webhook
 - `/help`：列出可用 command 同支援輸入類型
 - `/status`：睇 bot runtime 狀態，例如 queue adapter 同 session 是否 active
 - `/session`：睇目前 chat session 狀態，例如訊息數、最後更新時間
+- `/memory`：睇目前 chat 嘅長期記憶內容
+- `/forget`：清除目前 chat 嘅長期記憶
 - `/summary`：非同步整理目前對話，壓縮成新 context，整完會再主動 send 摘要
 - `/new`：清除當前 chat 嘅 session memory，下一句重新開始，同時清走而家個 reply keyboard
+
+`/new` 只會重開短期 session，唔會刪長期記憶；如果你連長期記憶都想清走，要另外打 `/forget`。
 
 平時直接 send 文字或者圖片畀 bot 就得，唔需要 command。撳 suggested reply 會由 Telegram client 直接送出一條新 message，所以 chat 入面會見到自己嘅綠色訊息。
 
@@ -424,6 +458,9 @@ dokku run telegram-codex bundle exec rails console
 # 睇特定 chat session
 ChatSession.find_by(chat_id: "123456")
 
+# 睇特定 chat 長期記憶
+ChatMemory.find_by(chat_id: "123456")
+
 # 睇特定 update
 ProcessedUpdate.find_by(update_id: 123456789)
 
@@ -432,6 +469,9 @@ ProcessedUpdate.order(update_id: :desc).limit(20)
 
 # 睇所有 sessions
 ChatSession.all
+
+# 睇所有長期記憶
+ChatMemory.all
 ```
 
 ### 2. 本地打 health check
@@ -449,6 +489,12 @@ curl -i http://localhost:3000/health
 ```
 
 如果你懷疑 memory / context 搞亂咗，呢個最快。
+
+如果你懷疑係長期記憶記錯咗 user preference / 背景，而唔係 session context 爛咗，打：
+
+```text
+/forget
+```
 
 如果你唔想完全清走，而係想保留重點但瘦身，直接打：
 
@@ -646,6 +692,7 @@ RSpec 覆蓋咗以下核心行為：
 - webhook handler failure path
 - session TTL
 - pending reply replay
+- 長期記憶注入 / 更新 / 清除
 - reply keyboard suggested replies
 - Telegram update parser
 - reply-to-message context，包括引用舊文字 / 相 / PDF / 文字檔
