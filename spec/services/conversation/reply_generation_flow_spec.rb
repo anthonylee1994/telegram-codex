@@ -14,6 +14,10 @@ RSpec.describe Conversation::ReplyGenerationFlow do
     )
   end
 
+  before do
+    allow(conversation_service).to receive(:refresh_long_term_memory)
+  end
+
   it "downloads a pdf, rasterizes its pages, and sends the generated reply" do
     message = Telegram::InboundMessage.new(
       chat_id: "3",
@@ -50,6 +54,11 @@ RSpec.describe Conversation::ReplyGenerationFlow do
       "3",
       "pdf reply",
       suggested_replies: ["下一步", "列重點", "講結論"]
+    )
+    expect(conversation_service).to have_received(:refresh_long_term_memory).with(
+      "3",
+      user_message: "幫我睇呢份 PDF",
+      assistant_reply: "pdf reply"
     )
   end
 

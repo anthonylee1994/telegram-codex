@@ -29,5 +29,17 @@ RSpec.describe Codex::PromptBuilder do
 
       expect(prompt).to include("今次總共有 3 張圖，分析時要用圖 1、圖 2、圖 3 呢類編號逐張講。")
     end
+
+    it "injects long-term memory when present" do
+      prompt = builder.build_reply_prompt(
+        transcript,
+        has_image: false,
+        long_term_memory: "- 偏好用廣東話\n- 正在整 Telegram bot"
+      )
+
+      expect(prompt).to include("長期記憶：")
+      expect(prompt).to include("- 偏好用廣東話")
+      expect(prompt).to include("請只喺相關時自然利用以上記憶")
+    end
   end
 end

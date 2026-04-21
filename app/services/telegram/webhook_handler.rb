@@ -5,6 +5,8 @@ class Telegram::WebhookHandler
     "/help - 顯示指令同支援範圍",
     "/status - 睇 bot 狀態",
     "/session - 睇目前 session 狀態",
+    "/memory - 睇長期記憶",
+    "/forget - 清除長期記憶",
     "/summary - 將長對話壓縮成新 context",
     "/new - 開新 session",
     "",

@@ -11,10 +11,13 @@ class Codex::PromptBuilder
     "唔好輸出任何額外文字，唔好用 markdown code fence。"
   ].freeze
 
-  def build_reply_prompt(transcript, has_image:, image_count: 0)
+  def build_reply_prompt(transcript, has_image:, image_count: 0, long_term_memory: nil)
     prefix_sections = []
     prefix_sections << "最新一條用戶訊息有附圖。" if has_image
     prefix_sections << "今次總共有 #{image_count} 張圖，分析時要用圖 1、圖 2、圖 3 呢類編號逐張講。" if image_count > 1
+    if long_term_memory.present?
+      prefix_sections << "長期記憶：\n#{long_term_memory}\n請只喺相關時自然利用以上記憶，唔好主動背誦或者逐條重複。"
+    end
 
     build_prompt(transcript, REPLY_PROMPT_INSTRUCTIONS, prefix_sections: prefix_sections)
   end

@@ -341,6 +341,37 @@ RSpec.describe Telegram::WebhookHandler do
     )
   end
 
+  it 'shows memory metadata for /memory' do
+    ChatMemory.create!(chat_id: '3', memory_text: "- 偏好用廣東話", updated_at: current_time_ms)
+    memory_update = update.deep_merge('message' => { 'text' => '/memory' })
+
+    allow(telegram_client).to receive(:send_message)
+
+    handler.handle(memory_update)
+
+    expect(telegram_client).to have_received(:send_message).with(
+      '3',
+      include('長期記憶：已生效', '- 偏好用廣東話'),
+      remove_keyboard: true
+    )
+  end
+
+  it 'clears memory for /forget' do
+    ChatMemory.create!(chat_id: '3', memory_text: "- 偏好用廣東話", updated_at: current_time_ms)
+    forget_update = update.deep_merge('message' => { 'text' => '/forget' })
+
+    allow(telegram_client).to receive(:send_message)
+
+    handler.handle(forget_update)
+
+    expect(ChatMemory.find_by(chat_id: '3')).to be_nil
+    expect(telegram_client).to have_received(:send_message).with(
+      '3',
+      '已經刪除長期記憶。',
+      remove_keyboard: true
+    )
+  end
+
   it 'enqueues async summary generation for /summary' do
     summary_update = update.deep_merge('message' => { 'text' => '/summary' })
 

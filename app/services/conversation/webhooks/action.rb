@@ -65,6 +65,15 @@ class Conversation::Webhooks::Action
     end
   end
 
+  class ResetMemory < Conversation::Webhooks::Action
+    def call(decision, update: nil)
+      message = decision.message
+      conversation_service.reset_memory(message.chat_id)
+      telegram_client.send_message(message.chat_id, decision.response_text, remove_keyboard: true)
+      processed_update_flow.mark_processed(message)
+    end
+  end
+
   class ShowHelp < Conversation::Webhooks::Action
     def call(decision, update: nil)
       message = decision.message
@@ -116,6 +125,30 @@ class Conversation::Webhooks::Action
         "大概輪數：#{snapshot.fetch(:turn_count)}",
         "最後更新：#{snapshot.fetch(:last_updated_at).strftime('%Y-%m-%d %H:%M:%S %Z')}",
         "想壓縮 context 可以打 `/summary`。"
+      ].join("\n")
+    end
+  end
+
+  class ShowMemory < Conversation::Webhooks::Action
+    def call(decision, update: nil)
+      message = decision.message
+      telegram_client.send_message(message.chat_id, build_memory_message(message.chat_id), remove_keyboard: true)
+      processed_update_flow.mark_processed(message)
+    end
+
+    private
+
+    def build_memory_message(chat_id)
+      snapshot = conversation_service.memory_snapshot(chat_id)
+      return "目前未有長期記憶。之後我會自動記低穩定偏好同持續背景；想清除可以打 `/forget`。" unless snapshot[:active]
+
+      [
+        "長期記憶：已生效",
+        "最後更新：#{snapshot.fetch(:last_updated_at).strftime('%Y-%m-%d %H:%M:%S %Z')}",
+        "",
+        snapshot.fetch(:memory_text),
+        "",
+        "想清除可以打 `/forget`。"
       ].join("\n")
     end
   end

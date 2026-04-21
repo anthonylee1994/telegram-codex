@@ -34,7 +34,7 @@ RSpec.describe ReplyGenerationJob do
 
     described_class.perform_now(message.to_job_payload)
 
-    expect(exec_runner).to have_received(:run).once
+    expect(exec_runner).to have_received(:run).at_least(:once)
     expect(telegram_client).to have_received(:send_message).with(
       "3",
       "reply-1",

@@ -2,6 +2,8 @@ class Conversation::Webhooks::Decision
   START_COMMAND_PATTERN = %r{\A/start(?:@[\w_]+)?\z}u
   HELP_COMMAND_PATTERN = %r{\A/help(?:@[\w_]+)?\z}u
   NEW_SESSION_COMMAND_PATTERN = %r{\A/new(?:@[\w_]+)?\z}u
+  FORGET_COMMAND_PATTERN = %r{\A/forget(?:@[\w_]+)?\z}u
+  MEMORY_COMMAND_PATTERN = %r{\A/memory(?:@[\w_]+)?\z}u
   SESSION_COMMAND_PATTERN = %r{\A/session(?:@[\w_]+)?\z}u
   STATUS_COMMAND_PATTERN = %r{\A/status(?:@[\w_]+)?\z}u
   SUMMARY_COMMAND_PATTERN = %r{\A/summary(?:@[\w_]+)?\z}u
@@ -45,6 +47,14 @@ class Conversation::Webhooks::Decision
 
   def self.show_session(message)
     new(action: :show_session, message: message)
+  end
+
+  def self.show_memory(message)
+    new(action: :show_memory, message: message)
+  end
+
+  def self.reset_memory(message, response_text)
+    new(action: :reset_memory, message: message, response_text: response_text)
   end
 
   def self.summarize_session(message, response_text)
@@ -99,6 +109,14 @@ class Conversation::Webhooks::Decision
     action == :show_session
   end
 
+  def show_memory?
+    action == :show_memory
+  end
+
+  def reset_memory?
+    action == :reset_memory
+  end
+
   def summarize_session?
     action == :summarize_session
   end
@@ -138,6 +156,8 @@ class Conversation::Webhooks::Decision
       return Conversation::Webhooks::Decision.show_help(message) if help_command?(message.text)
       return Conversation::Webhooks::Decision.show_status(message) if status_command?(message.text)
       return Conversation::Webhooks::Decision.show_session(message) if session_command?(message.text)
+      return Conversation::Webhooks::Decision.show_memory(message) if memory_command?(message.text)
+      return Conversation::Webhooks::Decision.reset_memory(message, "已經刪除長期記憶。") if forget_command?(message.text)
       return Conversation::Webhooks::Decision.summarize_session(message, @summary_queued_message) if summary_command?(message.text)
       return Conversation::Webhooks::Decision.too_many_images(message, @too_many_images_message) if too_many_media_group_images?(message)
       return Conversation::Webhooks::Decision.rate_limited(message) unless @rate_limiter.allow(message.chat_id)
@@ -170,6 +190,14 @@ class Conversation::Webhooks::Decision
 
     def session_command?(text)
       text.match?(SESSION_COMMAND_PATTERN)
+    end
+
+    def memory_command?(text)
+      text.match?(MEMORY_COMMAND_PATTERN)
+    end
+
+    def forget_command?(text)
+      text.match?(FORGET_COMMAND_PATTERN)
     end
 
     def summary_command?(text)

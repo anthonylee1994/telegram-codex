@@ -2,8 +2,15 @@ require 'rails_helper'
 
 RSpec.describe Conversation::Service do
   let(:reply_client) { instance_double(Codex::CliClient) }
+  let(:memory_client) { instance_double(Conversation::MemoryClient) }
   let(:session_summary_client) { instance_double(Conversation::SessionSummaryClient) }
-  let(:service) { described_class.new(reply_client: reply_client, session_summary_client: session_summary_client) }
+  let(:service) do
+    described_class.new(
+      reply_client: reply_client,
+      memory_client: memory_client,
+      session_summary_client: session_summary_client
+    )
+  end
   let(:message) do
     Telegram::InboundMessage.new(
       chat_id: 'chat-1',
@@ -17,6 +24,7 @@ RSpec.describe Conversation::Service do
 
   before do
     described_class.reset_prune_state!
+    allow(memory_client).to receive(:merge)
   end
 
   describe '#generate_reply' do
@@ -34,7 +42,8 @@ RSpec.describe Conversation::Service do
         text: 'hello',
         conversation_state: 'state-old',
         image_file_paths: [],
-        reply_to_text: nil
+        reply_to_text: nil,
+        long_term_memory: nil
       )
     end
 
@@ -69,7 +78,8 @@ RSpec.describe Conversation::Service do
         text: 'hello',
         conversation_state: nil,
         image_file_paths: [],
-        reply_to_text: nil
+        reply_to_text: nil,
+        long_term_memory: nil
       )
     end
 
@@ -86,7 +96,8 @@ RSpec.describe Conversation::Service do
         text: 'override text',
         conversation_state: nil,
         image_file_paths: [],
-        reply_to_text: nil
+        reply_to_text: nil,
+        long_term_memory: nil
       )
     end
 
@@ -113,7 +124,27 @@ RSpec.describe Conversation::Service do
         text: '咁之後呢？',
         conversation_state: nil,
         image_file_paths: [],
-        reply_to_text: '你應該先重設 webhook。'
+        reply_to_text: '你應該先重設 webhook。',
+        long_term_memory: nil
+      )
+    end
+
+    it 'passes long-term memory through to the reply client when available' do
+      ChatMemory.create!(chat_id: 'chat-1', memory_text: "- 偏好用廣東話", updated_at: current_time_ms)
+      allow(reply_client).to receive(:generate_reply).and_return(
+        conversation_state: 'state-new',
+        text: 'reply'
+      )
+
+      service.generate_reply(message)
+
+      expect(reply_client).to have_received(:generate_reply).with(
+        chat_id: 'chat-1',
+        text: 'hello',
+        conversation_state: nil,
+        image_file_paths: [],
+        reply_to_text: nil,
+        long_term_memory: "- 偏好用廣東話"
       )
     end
 
@@ -218,6 +249,46 @@ RSpec.describe Conversation::Service do
       expect(snapshot[:message_count]).to eq(3)
       expect(snapshot[:turn_count]).to eq(2)
       expect(snapshot[:last_updated_at]).to be_a(ActiveSupport::TimeWithZone)
+    end
+  end
+
+  describe '#memory_snapshot' do
+    it 'returns inactive when there is no stored memory' do
+      expect(service.memory_snapshot('chat-1')).to eq(active: false)
+    end
+
+    it 'returns active memory metadata' do
+      ChatMemory.create!(chat_id: 'chat-1', memory_text: "- 偏好用廣東話", updated_at: current_time_ms)
+
+      snapshot = service.memory_snapshot('chat-1')
+
+      expect(snapshot[:active]).to be(true)
+      expect(snapshot[:memory_text]).to eq("- 偏好用廣東話")
+      expect(snapshot[:last_updated_at]).to be_a(ActiveSupport::TimeWithZone)
+    end
+  end
+
+  describe '#refresh_long_term_memory' do
+    it 'persists merged memory text' do
+      allow(memory_client).to receive(:merge).and_return("- 偏好用廣東話\n- 正在整 Telegram bot")
+
+      service.refresh_long_term_memory('chat-1', user_message: '我平時想你用廣東話。', assistant_reply: '收到。')
+
+      expect(memory_client).to have_received(:merge).with(
+        existing_memory: '',
+        user_message: '我平時想你用廣東話。',
+        assistant_reply: '收到。'
+      )
+      expect(ChatMemory.find('chat-1').memory_text).to eq("- 偏好用廣東話\n- 正在整 Telegram bot")
+    end
+
+    it 'clears memory when the merge result is empty' do
+      ChatMemory.create!(chat_id: 'chat-1', memory_text: "- 舊資料", updated_at: current_time_ms)
+      allow(memory_client).to receive(:merge).and_return('')
+
+      service.refresh_long_term_memory('chat-1', user_message: '唔使記住。', assistant_reply: '收到。')
+
+      expect(ChatMemory.find_by(chat_id: 'chat-1')).to be_nil
     end
   end
 

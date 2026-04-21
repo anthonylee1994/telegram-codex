@@ -11,14 +11,15 @@ class Codex::CliClient
     @prompt_builder = prompt_builder
   end
 
-  def generate_reply(chat_id:, text:, conversation_state:, image_file_paths:, reply_to_text: nil)
+  def generate_reply(chat_id:, text:, conversation_state:, image_file_paths:, reply_to_text: nil, long_term_memory: nil)
     transcript = Codex::Transcript.from_conversation_state(conversation_state)
     user_message = build_user_message(text, image_file_paths, reply_to_text: reply_to_text)
     next_transcript = transcript.append("user", user_message)
     prompt = @prompt_builder.build_reply_prompt(
       next_transcript,
       has_image: image_file_paths.present?,
-      image_count: Array(image_file_paths).length
+      image_count: Array(image_file_paths).length,
+      long_term_memory: long_term_memory
     )
     raw_reply = execute_prompt(prompt, image_file_paths, output_schema: reply_output_schema)
     parsed_reply = @reply_parser.parse_reply(raw_reply)

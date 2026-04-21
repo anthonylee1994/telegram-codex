@@ -27,6 +27,8 @@ RSpec.describe "telegram rake tasks" do
         [
           { command: "status", description: "Bot 狀態" },
           { command: "session", description: "目前 session 狀態" },
+          { command: "memory", description: "長期記憶狀態" },
+          { command: "forget", description: "清除長期記憶" },
           { command: "summary", description: "壓縮目前對話 context" },
           { command: "new", description: "新 session" },
           { command: "help", description: "使用說明" }

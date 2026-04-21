@@ -39,6 +39,7 @@ class Conversation::ReplyGenerationFlow
         suggested_replies: reply.fetch(:suggested_replies)
       )
       @conversation_service.persist_conversation_state(message.chat_id, reply.fetch(:conversation_state))
+      refresh_long_term_memory(message, reply.fetch(:text))
       @conversation_service.mark_processed(message.update_id, message.chat_id, message.message_id)
     rescue Documents::PdfPageRasterizer::MissingDependencyError => e
       @conversation_service.clear_processing(message.update_id) unless has_pending_reply
@@ -113,5 +114,17 @@ class Conversation::ReplyGenerationFlow
     Array(image_file_paths).map { |image_file_path| File.dirname(image_file_path) }.uniq.each do |directory_path|
       FileUtils.rm_rf(directory_path)
     end
+  end
+
+  def refresh_long_term_memory(message, reply_text)
+    return if message.text.blank?
+
+    @conversation_service.refresh_long_term_memory(
+      message.chat_id,
+      user_message: message.text,
+      assistant_reply: reply_text
+    )
+  rescue StandardError => e
+    Rails.logger.warn("Failed to refresh long-term memory chat_id=#{message.chat_id} error=#{e.message}")
   end
 end

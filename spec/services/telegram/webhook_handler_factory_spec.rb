@@ -27,7 +27,8 @@ RSpec.describe Telegram::WebhookHandlerFactory do
 
   it "wires the full webhook flow and persists reply state asynchronously" do
     allow(exec_runner).to receive(:run).and_return(
-      '{"text":"reply-1","suggested_replies":["下一步可以點做？","幫我列重點。","可唔可以講詳細啲？"]}'
+      '{"text":"reply-1","suggested_replies":["下一步可以點做？","幫我列重點。","可唔可以講詳細啲？"]}',
+      '{"memory":"- 偏好用廣東話"}'
     )
     allow(telegram_client).to receive(:send_message)
 
@@ -36,13 +37,22 @@ RSpec.describe Telegram::WebhookHandlerFactory do
       handler.handle(update)
     end
 
-    expect(exec_runner).to have_received(:run).once
+    expect(exec_runner).to have_received(:run).with(
+      prompt: include("對話紀錄："),
+      image_file_paths: [],
+      output_schema: kind_of(Hash)
+    )
+    expect(exec_runner).to have_received(:run).with(
+      prompt: include("你而家負責維護一份 Telegram 用戶嘅長期記憶。", "最新用戶訊息：", "hello", "助手回覆：", "reply-1"),
+      output_schema: kind_of(Hash)
+    )
     expect(telegram_client).to have_received(:send_message).with(
       "3",
       "reply-1",
       suggested_replies: ["下一步可以點做？", "幫我列重點。", "可唔可以講詳細啲？"]
     )
     expect(ChatSession.find_by(chat_id: "3")&.last_response_id).to be_present
+    expect(ChatMemory.find_by(chat_id: "3")&.memory_text).to eq("- 偏好用廣東話")
 
     processed_update = ProcessedUpdate.find_by(update_id: 1)
     expect(processed_update&.reply_text).to eq("reply-1")
@@ -53,7 +63,8 @@ RSpec.describe Telegram::WebhookHandlerFactory do
   it "replays a pending reply without re-running codex" do
     attempt = 0
     allow(exec_runner).to receive(:run).and_return(
-      '{"text":"reply-1","suggested_replies":["下一步可以點做？","幫我列重點。","可唔可以講詳細啲？"]}'
+      '{"text":"reply-1","suggested_replies":["下一步可以點做？","幫我列重點。","可唔可以講詳細啲？"]}',
+      '{"memory":"- 偏好用廣東話"}'
     )
     allow(telegram_client).to receive(:send_message) do |chat_id, text, suggested_replies: [], remove_keyboard: false|
       attempt += 1 if text == "reply-1"
@@ -73,5 +84,6 @@ RSpec.describe Telegram::WebhookHandlerFactory do
       suggested_replies: ["下一步可以點做？", "幫我列重點。", "可唔可以講詳細啲？"]
     ).twice
     expect(ProcessedUpdate.find_by(update_id: 1)&.sent_at).to be_present
+    expect(ChatMemory.find_by(chat_id: "3")).to be_nil
   end
 end
