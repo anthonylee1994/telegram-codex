@@ -1,10 +1,6 @@
 class Codex::CliClient
   MAX_SUGGESTED_REPLIES = 3
-  DEFAULT_SUGGESTED_REPLIES = [
-    "可唔可以講詳細啲？",
-    "幫我列重點。",
-    "下一步可以點做？"
-  ].freeze
+  DEFAULT_SUGGESTED_REPLIES = %w[可唔可以講詳細啲？ 幫我列重點。 下一步可以點做？].freeze
 
   def initialize(reply_parser: Codex::ReplyParser.new(
     default_suggested_replies: DEFAULT_SUGGESTED_REPLIES,
