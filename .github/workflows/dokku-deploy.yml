@@ -16,25 +16,6 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - name: Create SSH directory
-        run: mkdir -p ~/.ssh
-
-      - name: Configure SSH key
-        env:
-          DOKKU_SSH_PRIVATE_KEY: ${{ secrets.DOKKU_SSH_PRIVATE_KEY }}
-        run: |
-          printf '%s\n' "$DOKKU_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-
-      - name: Configure known_hosts
-        env:
-          DOKKU_HOST: ${{ secrets.DOKKU_HOST }}
-          DOKKU_PORT: ${{ secrets.DOKKU_PORT || '22' }}
-          DOKKU_SSH_HOST_KEY: ${{ secrets.DOKKU_SSH_HOST_KEY }}
-        run: |
-          printf '[%s]:%s %s\n' "$DOKKU_HOST" "$DOKKU_PORT" "$DOKKU_SSH_HOST_KEY" > ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -46,7 +27,18 @@ jobs:
           branch: master
           git_remote_url: ssh://dokku@${{ secrets.DOKKU_HOST }}:${{ secrets.DOKKU_PORT || '22' }}/${{ secrets.DOKKU_APP_NAME }}
           ssh_private_key: ${{ secrets.DOKKU_SSH_PRIVATE_KEY }}
-          ssh_host_key: ${{ secrets.DOKKU_SSH_HOST_KEY }}
+
+      - name: Configure SSH for database prepare
+        env:
+          DOKKU_SSH_PRIVATE_KEY: ${{ secrets.DOKKU_SSH_PRIVATE_KEY }}
+          DOKKU_HOST: ${{ secrets.DOKKU_HOST }}
+          DOKKU_PORT: ${{ secrets.DOKKU_PORT || '22' }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DOKKU_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "$DOKKU_PORT" -H "$DOKKU_HOST" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
 
       - name: Run database prepare
         env:
@@ -54,5 +46,5 @@ jobs:
           DOKKU_HOST: ${{ secrets.DOKKU_HOST }}
           DOKKU_PORT: ${{ secrets.DOKKU_PORT || '22' }}
         run: |
-          ssh -p "$DOKKU_PORT" dokku@"$DOKKU_HOST" -- \
+          ssh -i ~/.ssh/id_ed25519 -p "$DOKKU_PORT" dokku@"$DOKKU_HOST" -- \
             dokku run "$DOKKU_APP_NAME" bundle exec rails db:prepare
