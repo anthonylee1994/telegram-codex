@@ -1,0 +1,14 @@
+class ApplicationController < ActionController::API
+end
+
+class HealthController < ApplicationController
+  def show: () -> void
+end
+
+class TelegramWebhooksController < ApplicationController
+  def create: () -> void
+
+  private
+
+  def parsed_raw_body: () -> Hash[String, untyped]
+end

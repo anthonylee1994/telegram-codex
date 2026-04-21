@@ -14,6 +14,7 @@ class Telegram::WebhookHandler
   ].join("\n").freeze
   NEW_SESSION_MESSAGE = "已經開咗個新 session，你可以重新開始。"
   RATE_LIMIT_MESSAGE = "你打得太快，等一陣再試。"
+  RESET_MEMORY_MESSAGE = "已經刪除長期記憶。"
   SUMMARY_QUEUED_MESSAGE = "開始整理目前 session。整完之後我會再主動 send 摘要畀你。"
   START_MESSAGE = [
     "您好，我係您嘅 AI 助手。",

@@ -130,6 +130,7 @@ class Conversation::Webhooks::Decision
       processed_update_flow:,
       rate_limiter:,
       config:,
+      reset_memory_message:,
       start_message:,
       new_session_message:,
       too_many_images_message:,
@@ -138,6 +139,7 @@ class Conversation::Webhooks::Decision
       @processed_update_flow = processed_update_flow
       @rate_limiter = rate_limiter
       @config = config
+      @reset_memory_message = reset_memory_message
       @start_message = start_message
       @new_session_message = new_session_message
       @too_many_images_message = too_many_images_message
@@ -157,7 +159,7 @@ class Conversation::Webhooks::Decision
       return Conversation::Webhooks::Decision.show_status(message) if status_command?(message.text)
       return Conversation::Webhooks::Decision.show_session(message) if session_command?(message.text)
       return Conversation::Webhooks::Decision.show_memory(message) if memory_command?(message.text)
-      return Conversation::Webhooks::Decision.reset_memory(message, "已經刪除長期記憶。") if forget_command?(message.text)
+      return Conversation::Webhooks::Decision.reset_memory(message, @reset_memory_message) if forget_command?(message.text)
       return Conversation::Webhooks::Decision.summarize_session(message, @summary_queued_message) if summary_command?(message.text)
       return Conversation::Webhooks::Decision.too_many_images(message, @too_many_images_message) if too_many_media_group_images?(message)
       return Conversation::Webhooks::Decision.rate_limited(message) unless @rate_limiter.allow(message.chat_id)

@@ -100,7 +100,7 @@ class Codex::ReplyParser
     match = text.match(/"suggested_replies"\s*:\s*\[(?<value>[\s\S]*?)\]/)
     return [] unless match
 
-    match[:value].scan(/"(?<reply>(?:\\.|[^"\\]|[\r\n])*)"/).flatten.map do |reply|
+    match[:value].to_s.scan(/"(?<reply>(?:\\.|[^"\\]|[\r\n])*)"/).flatten.map do |reply|
       normalize_reply_text(reply)
     end
   end

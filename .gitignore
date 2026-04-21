@@ -18,3 +18,5 @@
 !/tmp/storage/.keep
 .claude
 .idea
+.gem_rbs_collection
+.ruby-lsp

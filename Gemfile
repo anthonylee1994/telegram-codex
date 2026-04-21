@@ -11,7 +11,10 @@ gem "tzinfo-data", platforms: %i[windows jruby]
 
 group :development, :test do
   gem "debug", platforms: %i[mri windows], require: "debug/prelude"
+  gem "rbs", require: false
   gem "rspec-rails"
+  gem "steep", require: false
+  gem "strscan", "3.1.6", require: false
   gem "rubocop", require: false
   gem "rubocop-performance", require: false
   gem "rubocop-rails-omakase", require: false

@@ -1,0 +1,105 @@
+module Codex
+end
+
+class Codex::CliClient
+  MAX_SUGGESTED_REPLIES: Integer
+  DEFAULT_SUGGESTED_REPLIES: Array[String]
+
+  def initialize: (
+    ?reply_parser: Codex::ReplyParser,
+    ?exec_runner: Codex::ExecRunner,
+    ?prompt_builder: Codex::PromptBuilder
+  ) -> void
+  def generate_reply: (
+    chat_id: String,
+    text: String?,
+    conversation_state: String?,
+    image_file_paths: Array[String],
+    ?reply_to_text: String?,
+    ?long_term_memory: String?
+  ) -> reply_result
+
+  private
+
+  def build_user_message: (String? text, Array[String] image_file_paths, ?reply_to_text: String?) -> String?
+  def build_unprompted_image_message: (Integer image_count) -> String
+  def execute_prompt: (String prompt, ?Array[String] image_file_paths, ?output_schema: Hash[Symbol | String, untyped]?) -> String
+  def reply_output_schema: () -> Hash[Symbol | String, untyped]
+end
+
+class Codex::ExecRunner
+  DEFAULT_SANDBOX_MODE: String
+  class ExecutionError < StandardError
+  end
+  class ExecutionTimeoutError < ExecutionError
+  end
+
+  def initialize: (?timeout_seconds: Integer) -> void
+  def run: (
+    prompt: String,
+    ?image_file_paths: Array[String],
+    ?output_schema: Hash[Symbol | String, untyped]?
+  ) -> String
+
+  private
+
+  attr_reader timeout_seconds: Integer
+
+  def run_command: (Array[String] command, String prompt) -> [String, String, Process::Status?]
+  def terminate_process: (Integer pid) -> untyped
+  def build_command: (String output_path, Array[String] image_file_paths, String? schema_path) -> Array[String]
+  def build_schema_file: (String dir, Hash[Symbol | String, untyped]? output_schema) -> String?
+end
+
+class Codex::PromptBuilder
+  REPLY_PROMPT_INSTRUCTIONS: Array[String]
+
+  def build_reply_prompt: (Codex::Transcript transcript, has_image: bool, ?image_count: Integer, ?long_term_memory: String?) -> String
+
+  private
+
+  def build_prompt: (Codex::Transcript transcript, Array[String] instructions, ?prefix_sections: Array[String]) -> String
+end
+
+class Codex::ReplyParser
+  def initialize: (default_suggested_replies: Array[String], max_suggested_replies: Integer) -> void
+  def parse_reply: (String raw_reply) -> { suggested_replies: Array[String], text: String }
+
+  private
+
+  attr_reader default_suggested_replies: Array[String]
+  attr_reader max_suggested_replies: Integer
+
+  def parse_reply_payload: (String raw_reply) -> (Hash[String, untyped] | Array[untyped])
+  def normalize_reply_text: (String text) -> String
+  def candidate_payloads: (String raw_reply) -> Array[untyped]
+  def parse_json_candidate: (String candidate) -> (Hash[String, untyped] | Array[untyped])
+  def unwrap_code_fence: (String text) -> String
+  def extract_json_object: (String text) -> String?
+  def extract_relaxed_payload: (String text) -> Hash[String, untyped]?
+  def extract_relaxed_text: (String text) -> String
+  def extract_relaxed_suggested_replies: (String text) -> Array[String]
+  def extract_reply_text: (Hash[String, untyped] | Array[untyped] payload, String raw_reply) -> String
+  def extract_suggested_replies: (Hash[String, untyped] | Array[untyped] payload, String raw_reply) -> Array[String]
+  def longest_string_value: (Hash[String, untyped] payload) -> String
+  def fallback_reply_text: (String raw_reply) -> String
+  def sanitize_suggested_replies: (Array[untyped] | String suggested_replies) -> Array[String]
+end
+
+class Codex::Transcript
+  MAX_MESSAGES: Integer
+
+  def self.from_conversation_state: (String? conversation_state) -> Codex::Transcript
+
+  def initialize: (Array[Hash[String, String]] messages) -> void
+  def append: (String role, String? content) -> Codex::Transcript
+  def size: () -> Integer
+  def empty?: () -> bool
+  def messages: () -> Array[Hash[String, String]]
+  def to_conversation_state: () -> String
+  def to_prompt_lines: () -> Array[String]
+
+  private
+
+  def trim: (Array[Hash[String, String]] messages) -> Array[Hash[String, String]]
+end

@@ -1,0 +1,27 @@
+class ApplicationRecord < ActiveRecord::Base
+end
+
+class ChatMemory < ApplicationRecord
+  attr_accessor chat_id: String
+  attr_accessor memory_text: String?
+  attr_accessor updated_at: Integer
+end
+
+class ChatSession < ApplicationRecord
+  attr_accessor chat_id: String
+  attr_accessor last_response_id: String?
+  attr_accessor updated_at: Integer
+  attr_accessor inflight_update_id: Integer?
+  attr_accessor inflight_started_at: Integer?
+end
+
+class ProcessedUpdate < ApplicationRecord
+  attr_accessor update_id: Integer
+  attr_accessor chat_id: String
+  attr_accessor message_id: Integer
+  attr_accessor processed_at: Integer
+  attr_accessor reply_text: String?
+  attr_accessor conversation_state: String?
+  attr_accessor sent_at: Integer?
+  attr_accessor suggested_replies: String?
+end

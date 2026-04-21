@@ -367,7 +367,7 @@ RSpec.describe Telegram::WebhookHandler do
     expect(ChatMemory.find_by(chat_id: '3')).to be_nil
     expect(telegram_client).to have_received(:send_message).with(
       '3',
-      '已經刪除長期記憶。',
+      Telegram::WebhookHandler::RESET_MEMORY_MESSAGE,
       remove_keyboard: true
     )
   end

@@ -13,6 +13,7 @@ module TelegramWebhookHandlerTestHelper
       processed_update_flow: processed_update_flow,
       rate_limiter: Conversation::ChatRateLimiter.instance,
       config: config,
+      reset_memory_message: Telegram::WebhookHandler::RESET_MEMORY_MESSAGE,
       start_message: Telegram::WebhookHandler::START_MESSAGE,
       new_session_message: Telegram::WebhookHandler::NEW_SESSION_MESSAGE,
       too_many_images_message: Telegram::WebhookHandler::TOO_MANY_IMAGES_MESSAGE,

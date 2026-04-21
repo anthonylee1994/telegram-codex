@@ -1,0 +1,154 @@
+module Conversation
+end
+
+class Conversation::ChatMemoryRepository
+  def find: (String chat_id) -> ChatMemory?
+  def persist: (String chat_id, String? memory_text) -> void
+  def reset: (String chat_id) -> void
+
+  private
+
+  def current_time_ms: () -> Integer
+end
+
+class Conversation::ChatRateLimiter
+  include Singleton
+
+  def initialize: () -> void
+  def allow: (String chat_id, ?now: Integer) -> bool
+  def reset!: () -> void
+
+  private
+
+  def current_time_ms: () -> Integer
+end
+
+class Conversation::ChatSessionRepository
+  def initialize: (?config: AppConfig::Config) -> void
+  def find_active: (String chat_id) -> ChatSession?
+  def persist: (String chat_id, String conversation_state) -> void
+  def reset: (String chat_id) -> void
+
+  private
+
+  def session_ttl_ms: () -> Integer
+  def current_time_ms: () -> Integer
+end
+
+class Conversation::MemoryClient
+  MEMORY_OUTPUT_SCHEMA: Hash[Symbol | String, untyped]
+
+  def initialize: (?exec_runner: Codex::ExecRunner) -> void
+  def merge: (existing_memory: String, user_message: String?, assistant_reply: String?) -> String
+
+  private
+
+  def build_prompt: (existing_memory: String, user_message: String?, assistant_reply: String?) -> String
+end
+
+class Conversation::ProcessedUpdateRepository
+  INFLIGHT_TIMEOUT_MS: Integer
+
+  def find: (Integer update_id) -> ProcessedUpdate?
+  def begin_processing: (Integer update_id, String chat_id, Integer message_id) -> bool
+  def clear_processing: (Integer update_id) -> Integer
+  def mark_processed: (Integer update_id, String chat_id, Integer message_id) -> void
+  def save_pending_reply: (Integer update_id, String chat_id, Integer message_id, reply_result result) -> void
+  def prune_sent_before: (Integer cutoff) -> Integer
+
+  private
+
+  def current_time_ms: () -> Integer
+  def create_processing_claim: (Integer update_id, String chat_id, Integer message_id, Integer now) -> bool
+  def inflight?: (ProcessedUpdate processed_update, Integer now) -> bool
+  def upsert: (Hash[Symbol, untyped] attributes) -> untyped
+end
+
+class Conversation::ProcessedUpdateFlow
+  def initialize: (conversation_service: Conversation::Service) -> void
+  def find: (Integer update_id) -> ProcessedUpdate?
+  def begin_processing: (Telegram::InboundMessage message) -> bool
+  def clear_processing: (Telegram::InboundMessage message) -> void
+  def duplicate?: (ProcessedUpdate? processed_update) -> bool
+  def replayable?: (ProcessedUpdate? processed_update) -> bool
+  def resend_pending_reply: (Telegram::InboundMessage message, ProcessedUpdate processed_update, telegram_client: Telegram::Client) -> void
+  def mark_processed: (Telegram::InboundMessage message) -> void
+
+  private
+
+  def rollback_processing_claims: (Array[Integer] claimed_update_ids) -> bool
+  def parse_suggested_replies: (String? raw_suggested_replies) -> Array[String]
+end
+
+class Conversation::ReplyGenerationFlow
+  PDF_UNAVAILABLE_MESSAGE: String
+  TEXT_DOCUMENT_UNAVAILABLE_MESSAGE: String
+
+  def initialize: (
+    conversation_service: Conversation::Service,
+    telegram_client: Telegram::Client,
+    ?pdf_page_rasterizer: Documents::PdfPageRasterizer,
+    ?text_document_extractor: Documents::TextDocumentExtractor
+  ) -> void
+  def call: (Telegram::InboundMessage message) -> void
+
+  private
+
+  def build_reply: (Telegram::InboundMessage message, Array[String] image_file_paths, String? text_override) -> reply_result
+  def download_attachments_if_needed: (Telegram::InboundMessage message) -> Array[String]
+  def build_text_override: (Telegram::InboundMessage message) -> String?
+  def download_images_if_needed: (Telegram::InboundMessage message) -> Array[String]
+  def effective_pdf?: (Telegram::InboundMessage message) -> bool
+  def effective_text_document?: (Telegram::InboundMessage message) -> bool
+  def cleanup_downloaded_images: (Array[String] image_file_paths) -> Array[untyped]
+  def refresh_long_term_memory: (Telegram::InboundMessage message, String reply_text) -> void
+end
+
+class Conversation::Service
+  PROCESSED_UPDATE_PRUNE_INTERVAL_MS: Integer
+  PROCESSED_UPDATE_RETENTION_MS: Integer
+  SUMMARY_BASELINE_MESSAGE: String
+  SYSTEM_PROMPT: String
+
+  def self.last_processed_update_prune_at: () -> Integer?
+  def self.last_processed_update_prune_at=: (Integer? value) -> Integer?
+  def self.reset_prune_state!: () -> nil
+
+  def initialize: (
+    ?reply_client: Codex::CliClient,
+    ?memory_client: Conversation::MemoryClient,
+    ?session_summary_client: Conversation::SessionSummaryClient,
+    ?chat_session_repository: Conversation::ChatSessionRepository,
+    ?chat_memory_repository: Conversation::ChatMemoryRepository,
+    ?processed_update_repository: Conversation::ProcessedUpdateRepository
+  ) -> void
+  def get_processed_update: (Integer update_id) -> ProcessedUpdate?
+  def begin_processing: (Integer update_id, String chat_id, Integer message_id) -> bool
+  def clear_processing: (Integer update_id) -> Integer
+  def mark_processed: (Integer update_id, String chat_id, Integer message_id) -> void
+  def save_pending_reply: (Integer update_id, String chat_id, Integer message_id, reply_result result) -> void
+  def persist_conversation_state: (String chat_id, String conversation_state) -> void
+  def reset_session: (String chat_id) -> void
+  def memory_snapshot: (String chat_id) -> memory_snapshot
+  def reset_memory: (String chat_id) -> void
+  def session_snapshot: (String chat_id) -> session_snapshot
+  def summarize_session: (String chat_id) -> summarize_result
+  def generate_reply: (Telegram::InboundMessage message, ?image_file_paths: Array[String], ?text_override: String?) -> reply_result
+  def system_prompt: () -> String
+  def refresh_long_term_memory: (String chat_id, user_message: String?, assistant_reply: String?) -> void
+
+  private
+
+  def prune_processed_updates_if_needed: () -> void
+  def current_time_ms: () -> Integer
+end
+
+class Conversation::SessionSummaryClient
+  def initialize: (?exec_runner: Codex::ExecRunner) -> void
+  def summarize: (Codex::Transcript transcript) -> String
+
+  private
+
+  def build_prompt: (Codex::Transcript transcript) -> String
+  def output_schema: () -> Hash[Symbol | String, untyped]
+end

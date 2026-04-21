@@ -1,0 +1,180 @@
+module Telegram
+end
+
+class Telegram::Client
+  TYPING_INTERVAL_SECONDS: Integer
+  MAX_SUGGESTED_REPLIES: Integer
+
+  def initialize: (?bot_token: String) -> void
+  def download_file_to_temp: (String file_id) -> String
+  def send_message: (String chat_id, String text, ?suggested_replies: Array[String], ?remove_keyboard: bool) -> untyped
+  def send_chat_action: (String chat_id, String action) -> untyped
+  def with_typing_status: [U] (String chat_id) { () -> U } -> U
+  def set_webhook: (String url, String secret_token) -> void
+  def set_my_commands: (Array[telegram_command] commands) -> void
+
+  private
+
+  def get_file: (String file_id) -> Hash[String, untyped]
+  def post_form: (String method_name, Hash[Symbol, untyped] params) -> untyped
+  def api_base: () -> String
+  def format_telegram_message: (String text) -> String
+  def placeholder_key: (Integer index) -> String
+  def build_reply_markup: (Array[String] suggested_replies, ?remove_keyboard: bool) -> Hash[Symbol, untyped]?
+  def normalize_outbound_reply: (String text, Array[String] suggested_replies) -> [String, Array[String]]
+  def structured_reply_parser: () -> Codex::ReplyParser
+end
+
+class Telegram::InboundMessage
+  attr_reader chat_id: String
+  attr_reader image_file_ids: Array[String]
+  attr_reader media_group_id: String?
+  attr_reader message_id: Integer
+  attr_reader pdf_file_id: String?
+  attr_reader processing_updates: Array[processing_update]
+  attr_reader reply_to_image_file_ids: Array[String]
+  attr_reader reply_to_message_id: Integer?
+  attr_reader reply_to_pdf_file_id: String?
+  attr_reader reply_to_text: String?
+  attr_reader reply_to_text_document_file_id: String?
+  attr_reader reply_to_text_document_name: String?
+  attr_reader text: String?
+  attr_reader text_document_file_id: String?
+  attr_reader text_document_name: String?
+  attr_reader user_id: String
+  attr_reader update_id: Integer
+
+  def initialize: (
+    chat_id: String,
+    image_file_ids: Array[String],
+    ?media_group_id: String?,
+    message_id: Integer,
+    ?pdf_file_id: String?,
+    ?processing_updates: Array[processing_update]?,
+    ?reply_to_image_file_ids: Array[String],
+    ?reply_to_message_id: Integer?,
+    ?reply_to_pdf_file_id: String?,
+    ?reply_to_text: String?,
+    ?reply_to_text_document_file_id: String?,
+    ?reply_to_text_document_name: String?,
+    text: String?,
+    ?text_document_file_id: String?,
+    ?text_document_name: String?,
+    user_id: String,
+    update_id: Integer
+  ) -> void
+
+  def image_file_id: () -> String?
+  def image_count: () -> Integer
+  def effective_image_file_ids: () -> Array[String]
+  def effective_pdf_file_id: () -> String?
+  def effective_text_document_file_id: () -> String?
+  def effective_text_document_name: () -> String?
+  def media_group?: () -> bool
+  def pdf?: () -> bool
+  def text_document?: () -> bool
+  def unsupported?: () -> bool
+  def replied_message?: () -> bool
+  def replying_to_file?: () -> bool
+  def to_job_payload: () -> Hash[String, untyped]
+  def self.from_job_payload: (Hash[String, untyped] payload) -> Telegram::InboundMessage
+
+  private
+
+  def direct_attachment?: () -> bool
+  def normalize_image_file_ids: (Array[String] | String | nil image_file_ids) -> Array[String]
+  def normalize_pdf_file_id: (String? pdf_file_id) -> String?
+  def normalize_reply_to_message_id: (Integer | String | nil reply_to_message_id) -> Integer?
+  def normalize_reply_to_text: (String? reply_to_text) -> String?
+  def normalize_text_document_file_id: (String? text_document_file_id) -> String?
+  def normalize_text_document_name: (String? text_document_name) -> String?
+  def normalize_processing_updates: (Array[processing_update] | Array[Hash[String | Symbol, untyped]] | nil processing_updates, Integer update_id, Integer message_id) -> Array[processing_update]
+end
+
+class Telegram::MediaGroupAggregator
+  DEFERRED: untyped
+  DEFAULT_WAIT_DURATION_SECONDS: Float
+
+  def self.reset!: () -> nil
+
+  def initialize: (?wait_duration_seconds: Float) -> void
+  def call: (Telegram::InboundMessage? message) { (Telegram::InboundMessage) -> untyped } -> untyped
+
+  private
+
+  def enqueue_message: (String key, Telegram::InboundMessage message, ^(Telegram::InboundMessage) -> untyped processor) -> void
+  def schedule_flush: (String key) -> Thread
+  def finalize_if_ready: (String key) -> [Proc? , Telegram::InboundMessage?]
+  def aggregate_messages: (Array[Telegram::InboundMessage] messages) -> Telegram::InboundMessage
+  def build_key: (Telegram::InboundMessage message) -> String
+  def monotonic_now: () -> Float
+end
+
+class Telegram::UpdateParser
+  def parse_incoming_telegram_message: (Hash[String, untyped] update) -> Telegram::InboundMessage?
+
+  private
+
+  def supported_message?: (Hash[String, untyped] update) -> bool
+  def build_message: (Hash[String, untyped] update) -> Telegram::InboundMessage
+  def build_inbound_message: (
+    update: Hash[String, untyped],
+    chat_id: untyped,
+    image_file_ids: Array[String],
+    media_group_id: String?,
+    message_id: Integer,
+    pdf_file_id: String?,
+    reply_to_image_file_ids: Array[String],
+    reply_to_message_id: Integer?,
+    reply_to_pdf_file_id: String?,
+    reply_to_text: String?,
+    reply_to_text_document_file_id: String?,
+    reply_to_text_document_name: String?,
+    text: String?,
+    text_document_file_id: String?,
+    text_document_name: String?,
+    user_id: untyped
+  ) -> Telegram::InboundMessage
+  def build_image_file_ids: (Hash[String, untyped] message) -> Array[String]
+  def build_pdf_file_id: (Hash[String, untyped] message) -> String?
+  def build_text_document_file_id: (Hash[String, untyped] message) -> String?
+  def build_text_document_name: (Hash[String, untyped] message) -> String?
+  def build_reply_to_message_id: (Hash[String, untyped] message) -> Integer?
+  def build_reply_to_image_file_ids: (Hash[String, untyped] message) -> Array[String]
+  def build_reply_to_pdf_file_id: (Hash[String, untyped] message) -> String?
+  def build_reply_to_text: (Hash[String, untyped] message) -> String?
+  def build_reply_to_text_document_file_id: (Hash[String, untyped] message) -> String?
+  def build_reply_to_text_document_name: (Hash[String, untyped] message) -> String?
+  def supported_document_image?: (untyped document) -> bool
+  def supported_pdf_document?: (untyped document) -> bool
+  def supported_text_document?: (untyped document) -> bool
+end
+
+class Telegram::WebhookHandler
+  GENERIC_ERROR_MESSAGE: String
+  HELP_MESSAGE: String
+  NEW_SESSION_MESSAGE: String
+  RATE_LIMIT_MESSAGE: String
+  RESET_MEMORY_MESSAGE: String
+  SUMMARY_QUEUED_MESSAGE: String
+  START_MESSAGE: String
+  TOO_MANY_IMAGES_MESSAGE: String
+  UNAUTHORIZED_MESSAGE: String
+  UNSUPPORTED_MESSAGE: String
+
+  def initialize: (
+    ?telegram_update_parser: Telegram::UpdateParser,
+    ?media_group_aggregator: Telegram::MediaGroupAggregator,
+    decision_resolver: Conversation::Webhooks::Decision::Resolver,
+    action_executor: Conversation::Webhooks::ActionExecutor
+  ) -> void
+  def handle: (Hash[String, untyped] update) -> void
+
+  private
+
+  def process_message: (Telegram::InboundMessage? message, update: Hash[String, untyped]) -> void
+end
+
+class Telegram::WebhookHandlerFactory
+  def self.build: () -> Telegram::WebhookHandler
+end

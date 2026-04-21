@@ -19,7 +19,7 @@ class Codex::ExecRunner
       command = build_command(output_path, image_file_paths, schema_path)
 
       _stdout, stderr, status = run_command(command, prompt)
-      raise ExecutionError, "codex exec failed: #{stderr.strip.presence || 'unknown error'}" unless status.success?
+      raise ExecutionError, "codex exec failed: #{stderr.strip.presence || 'unknown error'}" unless status&.success?
 
       reply_text = File.read(output_path).strip
       raise ExecutionError, "codex exec returned an empty reply" if reply_text.empty?

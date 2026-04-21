@@ -12,6 +12,7 @@ class Codex::PromptBuilder
   ].freeze
 
   def build_reply_prompt(transcript, has_image:, image_count: 0, long_term_memory: nil)
+    # @type var prefix_sections: Array[String]
     prefix_sections = []
     prefix_sections << "最新一條用戶訊息有附圖。" if has_image
     prefix_sections << "今次總共有 #{image_count} 張圖，分析時要用圖 1、圖 2、圖 3 呢類編號逐張講。" if image_count > 1
