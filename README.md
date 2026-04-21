@@ -28,7 +28,7 @@ Demo：https://t.me/On99AppBot
 - 支援 Telegram PDF document，會先轉頭幾頁做圖片再分析
 - 支援 `.txt`、`.md`、`.html`、`.json`、`.csv`、`.docx`、`.xlsx` document，會先抽文字再分析
 - 支援 reply 之前嘅 message；如果引用舊文字，會就住嗰句延續回答
-- 支援 reply 之前嘅相 / PDF / 文字檔；就算今次冇重新 upload，都会拎返被引用文件再分析
+- 支援 reply 之前嘅相 / PDF / 文字檔；就算今次冇重新 upload，都會拎返被引用文件再分析
 - 多圖分析會用 `圖 1`、`圖 2` 呢類編號逐張講
 - 相簿冇 caption 時會自動補 prompt，叫模型逐張描述再比較
 - 相簿太多圖時會先叫用戶縮窄範圍再分析
