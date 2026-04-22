@@ -50,7 +50,7 @@ Demo：https://t.me/On99AppBot
 
 ## Spring Boot 架構
 
-而家個 repo 已經唔係 Rails，核心 runtime 係 Spring Boot 3.5 + JPA + Flyway + SQLite。
+核心 runtime 係 Spring Boot 3.5 + JPA + Flyway + SQLite。
 
 ```text
 src/main/java/com/telegramcodex/
