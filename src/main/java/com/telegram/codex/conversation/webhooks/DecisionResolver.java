@@ -18,17 +18,20 @@ public class DecisionResolver {
     private final ChatRateLimiter rateLimiter;
     private final ProcessedUpdateFlow processedUpdateFlow;
     private final CommandRegistry commandRegistry;
+    private final SensitiveIntentGuard sensitiveIntentGuard;
 
     public DecisionResolver(
         AppProperties properties,
         ChatRateLimiter rateLimiter,
         ProcessedUpdateFlow processedUpdateFlow,
-        CommandRegistry commandRegistry
+        CommandRegistry commandRegistry,
+        SensitiveIntentGuard sensitiveIntentGuard
     ) {
         this.properties = properties;
         this.rateLimiter = rateLimiter;
         this.processedUpdateFlow = processedUpdateFlow;
         this.commandRegistry = commandRegistry;
+        this.sensitiveIntentGuard = sensitiveIntentGuard;
     }
 
     public Decision call(InboundMessage message) {
@@ -55,6 +58,10 @@ public class DecisionResolver {
 
         if (message.mediaGroup() && message.imageCount() > properties.getMaxMediaGroupImages()) {
             return Decision.tooManyImages(message, MessageConstants.TOO_MANY_IMAGES_MESSAGE);
+        }
+
+        if (sensitiveIntentGuard.shouldBlock(message)) {
+            return Decision.rejectSensitiveIntent(message, MessageConstants.SENSITIVE_INTENT_MESSAGE);
         }
 
         if (!rateLimiter.allow(message.chatId())) {

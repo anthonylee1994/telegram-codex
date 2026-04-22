@@ -28,8 +28,9 @@ public class ExecRunner {
     }
 
     public String run(String prompt, List<Path> imageFilePaths, Map<String, Object> outputSchema) {
+        Path tempDir = null;
         try {
-            Path tempDir = Files.createTempDirectory("telegram-codex-");
+            tempDir = Files.createTempDirectory("telegram-codex-");
             Path outputPath = tempDir.resolve("reply.txt");
             Path schemaPath = outputSchema == null ? null : tempDir.resolve("reply-schema.json");
             if (schemaPath != null) {
@@ -38,11 +39,10 @@ public class ExecRunner {
 
             List<String> command = buildCommand(outputPath, schemaPath, imageFilePaths);
 
-            ProcessExecutor.ProcessResult result = ProcessExecutor.executeWithInput(
+            ProcessExecutor.ProcessResult result = executeCommand(
                 command,
-                Path.of("."),
+                tempDir,
                 prompt,
-                StandardCharsets.UTF_8,
                 properties.getCodexExecTimeoutSeconds()
             );
 
@@ -64,6 +64,8 @@ public class ExecRunner {
             throw error;
         } catch (IOException | InterruptedException error) {
             throw new ExecutionException("Failed to run codex exec", error);
+        } finally {
+            cleanupTempDir(tempDir);
         }
     }
 
@@ -88,5 +90,29 @@ public class ExecRunner {
         }
         command.add("-");
         return command;
+    }
+
+    ProcessExecutor.ProcessResult executeCommand(List<String> command, Path workingDirectory, String prompt, long timeoutSeconds)
+        throws IOException, InterruptedException {
+        return ProcessExecutor.executeWithInput(
+            command,
+            workingDirectory,
+            prompt,
+            StandardCharsets.UTF_8,
+            timeoutSeconds
+        );
+    }
+
+    private void cleanupTempDir(Path tempDir) {
+        if (tempDir == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(tempDir.resolve("reply-schema.json"));
+            Files.deleteIfExists(tempDir.resolve("reply.txt"));
+            Files.deleteIfExists(tempDir);
+        } catch (IOException ignored) {
+            // Best-effort cleanup only.
+        }
     }
 }

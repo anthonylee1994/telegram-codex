@@ -19,6 +19,7 @@ public record Decision(Action action, InboundMessage message, ProcessedUpdateRec
         SUMMARIZE_SESSION,
         RATE_LIMITED,
         TOO_MANY_IMAGES,
+        REJECT_SENSITIVE_INTENT,
         GENERATE_REPLY
     }
 
@@ -72,6 +73,10 @@ public record Decision(Action action, InboundMessage message, ProcessedUpdateRec
 
     public static Decision tooManyImages(InboundMessage message, String responseText) {
         return new Decision(Action.TOO_MANY_IMAGES, message, null, responseText);
+    }
+
+    public static Decision rejectSensitiveIntent(InboundMessage message, String responseText) {
+        return new Decision(Action.REJECT_SENSITIVE_INTENT, message, null, responseText);
     }
 
     public static Decision generateReply(InboundMessage message) {
