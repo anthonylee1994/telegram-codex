@@ -5,7 +5,7 @@ import com.telegram.codex.conversation.reply.ReplyGenerationFlow;
 import com.telegram.codex.conversation.session.SessionService;
 import com.telegram.codex.telegram.InboundMessage;
 import com.telegram.codex.telegram.InboundMessageProcessor;
-import com.telegram.codex.telegram.SummaryResultSender;
+import com.telegram.codex.telegram.CompactResultSender;
 import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
@@ -24,7 +24,7 @@ public class JobSchedulerService {
     private final ReplyGenerationFlow replyGenerationFlow;
     private final ScheduledExecutorService scheduledExecutorService;
     private final SessionService sessionService;
-    private final SummaryResultSender summaryResultSender;
+    private final CompactResultSender compactResultSender;
     private final ExecutorService taskExecutor;
 
     public JobSchedulerService(
@@ -32,13 +32,13 @@ public class JobSchedulerService {
         ObjectProvider<InboundMessageProcessor> inboundMessageProcessorProvider,
         ReplyGenerationFlow replyGenerationFlow,
         SessionService sessionService,
-        SummaryResultSender summaryResultSender
+        CompactResultSender compactResultSender
     ) {
         this.mediaGroupStore = mediaGroupStore;
         this.inboundMessageProcessorProvider = inboundMessageProcessorProvider;
         this.replyGenerationFlow = replyGenerationFlow;
         this.sessionService = sessionService;
-        this.summaryResultSender = summaryResultSender;
+        this.compactResultSender = compactResultSender;
         this.taskExecutor = Executors.newVirtualThreadPerTaskExecutor();
         this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(Thread.ofPlatform()
             .name("media-group-scheduler-", 0)
@@ -58,10 +58,10 @@ public class JobSchedulerService {
         );
     }
 
-    public void enqueueSessionSummary(String chatId) {
+    public void enqueueSessionCompact(String chatId) {
         taskExecutor.execute(() -> {
-            var result = sessionService.summarize(chatId);
-            summaryResultSender.send(chatId, result);
+            var result = sessionService.compact(chatId);
+            compactResultSender.send(chatId, result);
         });
     }
 

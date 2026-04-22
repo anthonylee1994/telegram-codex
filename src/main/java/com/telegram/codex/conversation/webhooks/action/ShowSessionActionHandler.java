@@ -42,14 +42,14 @@ public class ShowSessionActionHandler implements ActionHandler {
     private String buildSessionMessage(String chatId) {
         SessionSnapshot snapshot = sessionService.snapshot(chatId);
         if (!snapshot.active()) {
-            return "目前未有已生效 session。你可以直接 send 訊息開始，或者之後用 /summary 壓縮長對話。";
+            return "目前未有已生效 session。你可以直接 send 訊息開始，或者之後用 /compact 壓縮長對話。";
         }
         return String.join("\n",
             "目前 session：已生效",
             "訊息數：" + snapshot.messageCount(),
             "大概輪數：" + snapshot.turnCount(),
             "最後更新：" + snapshot.lastUpdatedAt(),
-            "想壓縮 context 可以用 /summary。"
+            "想壓縮 context 可以用 /compact。"
         );
     }
 }

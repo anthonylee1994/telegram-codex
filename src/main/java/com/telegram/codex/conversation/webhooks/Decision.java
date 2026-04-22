@@ -16,7 +16,7 @@ public record Decision(Action action, InboundMessage message, ProcessedUpdateRec
         SHOW_SESSION,
         SHOW_MEMORY,
         RESET_MEMORY,
-        SUMMARIZE_SESSION,
+        COMPACT_SESSION,
         RATE_LIMITED,
         TOO_MANY_IMAGES,
         REJECT_SENSITIVE_INTENT,
@@ -63,8 +63,8 @@ public record Decision(Action action, InboundMessage message, ProcessedUpdateRec
         return new Decision(Action.RESET_MEMORY, message, null, responseText);
     }
 
-    public static Decision summarizeSession(InboundMessage message, String responseText) {
-        return new Decision(Action.SUMMARIZE_SESSION, message, null, responseText);
+    public static Decision compactSession(InboundMessage message, String responseText) {
+        return new Decision(Action.COMPACT_SESSION, message, null, responseText);
     }
 
     public static Decision rateLimited(InboundMessage message) {

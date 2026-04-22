@@ -10,13 +10,13 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-public class SummarizeSessionActionHandler implements ActionHandler {
+public class CompactSessionActionHandler implements ActionHandler {
 
     private final JobSchedulerService jobSchedulerService;
     private final TelegramClient telegramClient;
     private final ProcessedUpdateFlow processedUpdateFlow;
 
-    public SummarizeSessionActionHandler(
+    public CompactSessionActionHandler(
         JobSchedulerService jobSchedulerService,
         TelegramClient telegramClient,
         ProcessedUpdateFlow processedUpdateFlow
@@ -28,12 +28,12 @@ public class SummarizeSessionActionHandler implements ActionHandler {
 
     @Override
     public Decision.Action handlesAction() {
-        return Decision.Action.SUMMARIZE_SESSION;
+        return Decision.Action.COMPACT_SESSION;
     }
 
     @Override
     public void execute(Decision decision, Map<String, Object> update) {
-        jobSchedulerService.enqueueSessionSummary(decision.message().chatId());
+        jobSchedulerService.enqueueSessionCompact(decision.message().chatId());
         telegramClient.sendMessage(decision.message().chatId(), decision.responseText(), List.of(), true);
         processedUpdateFlow.markProcessed(decision.message());
     }

@@ -15,7 +15,7 @@ public final class MessageConstants {
         "/session - 睇目前 session 狀態",
         "/memory - 睇長期記憶",
         "/forget - 清除長期記憶",
-        "/summary - 將長對話壓縮成新 context",
+        "/compact - 將長對話壓縮成新 context",
         "/new - 開新 session",
         "",
         "我而家僅支持文字、圖片。"
@@ -25,8 +25,8 @@ public final class MessageConstants {
     public static final String RATE_LIMIT_MESSAGE = "你打得太快，等一陣再試。";
     public static final String RESET_MEMORY_MESSAGE = "已經刪除長期記憶。";
 
-    public static final String SUMMARY_QUEUED_MESSAGE = "開始整理目前 session。整完之後我會再主動 send 摘要畀你。";
-    public static final String SUMMARY_BASELINE_MESSAGE = "以下係之前對話嘅摘要。之後請按呢份摘要延續對話上下文。";
+    public static final String COMPACT_QUEUED_MESSAGE = "開始 compact 目前 session。整完之後我會再主動 send 結果畀你。";
+    public static final String COMPACT_BASELINE_MESSAGE = "以下係之前對話 compact 後嘅內容。之後請按呢份內容延續對話上下文。";
 
     public static final String START_MESSAGE = String.join("\n",
         "您好，我係您嘅 AI 助手。",

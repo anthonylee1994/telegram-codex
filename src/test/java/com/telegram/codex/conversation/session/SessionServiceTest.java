@@ -20,15 +20,15 @@ class SessionServiceTest {
         ChatSessionRepository repository = Mockito.mock(ChatSessionRepository.class);
         when(repository.findActive("3")).thenReturn(Optional.empty());
 
-        SessionSnapshot snapshot = new SessionService(repository, Mockito.mock(SessionSummaryClient.class), new ObjectMapper()).snapshot("3");
+        SessionSnapshot snapshot = new SessionService(repository, Mockito.mock(SessionCompactClient.class), new ObjectMapper()).snapshot("3");
 
         assertFalse(snapshot.active());
     }
 
     @Test
-    void summarizeReturnsOkAndPersistsSummaryTranscript() {
+    void compactReturnsOkAndPersistsCompactTranscript() {
         ChatSessionRepository repository = Mockito.mock(ChatSessionRepository.class);
-        SessionSummaryClient summaryClient = Mockito.mock(SessionSummaryClient.class);
+        SessionCompactClient compactClient = Mockito.mock(SessionCompactClient.class);
         ObjectMapper objectMapper = new ObjectMapper();
         String conversationState = Transcript.empty()
             .append("user", "a")
@@ -37,13 +37,13 @@ class SessionServiceTest {
             .append("assistant", "d")
             .toConversationState(objectMapper);
         when(repository.findActive("3")).thenReturn(Optional.of(new ChatSessionRecord("3", conversationState, System.currentTimeMillis())));
-        when(summaryClient.summarize(any())).thenReturn("sum");
+        when(compactClient.compact(any())).thenReturn("sum");
 
-        SessionSummaryResult result = new SessionService(repository, summaryClient, objectMapper).summarize("3");
+        SessionCompactResult result = new SessionService(repository, compactClient, objectMapper).compact("3");
 
-        assertEquals(SessionSummaryResult.Status.OK, result.status());
+        assertEquals(SessionCompactResult.Status.OK, result.status());
         assertEquals(4, result.originalMessageCount());
-        assertEquals("sum", result.summaryText());
+        assertEquals("sum", result.compactText());
         verify(repository).persist(Mockito.eq("3"), any());
     }
 
@@ -58,7 +58,7 @@ class SessionServiceTest {
             .toConversationState(objectMapper);
         when(repository.findActive("3")).thenReturn(Optional.of(new ChatSessionRecord("3", conversationState, System.currentTimeMillis())));
 
-        SessionSnapshot snapshot = new SessionService(repository, Mockito.mock(SessionSummaryClient.class), objectMapper).snapshot("3");
+        SessionSnapshot snapshot = new SessionService(repository, Mockito.mock(SessionCompactClient.class), objectMapper).snapshot("3");
 
         assertTrue(snapshot.active());
         assertEquals(3, snapshot.messageCount());

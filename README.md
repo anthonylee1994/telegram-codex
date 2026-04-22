@@ -32,10 +32,10 @@ Demo：https://t.me/On99AppBot
 - 相簿冇 caption 時會自動補 prompt，叫模型逐張描述再比較
 - 相簿太多圖時會先叫用戶縮窄範圍再分析
 - 支持 `/start` 顯示 welcome / help message
-- 支持 `/help`、`/status`、`/session`、`/memory`、`/summary`
+- 支持 `/help`、`/status`、`/session`、`/memory`、`/compact`
 - 支持 `/forget` 清除長期記憶
 - 支持 `/new` 重開當前 chat session
-- `/summary` 會非同步將長對話壓縮成新 context，再主動 send 摘要返 Telegram
+- `/compact` 會非同步將長對話壓縮成新 context，再主動 send 摘要返 Telegram
 - 支持 3 個 reply keyboard suggested replies
 - 有 session memory
 - 有獨立長期記憶，會自動整理用戶偏好、背景、持續目標，再喺之後對話 relevant 時帶返入 prompt
@@ -82,7 +82,7 @@ src/main/java/com/telegram/codex/
 │   │   ├── ConversationService.java
 │   │   └── ReplyGenerationFlow.java
 │   ├── session/
-│   │   └── SessionSummaryClient.java
+│   │   └── SessionCompactClient.java
 │   ├── updates/
 │   │   └── ProcessedUpdateFlow.java
 │   └── webhooks/
@@ -103,7 +103,7 @@ src/main/java/com/telegram/codex/
 │   ├── InboundMessage.java
 │   ├── InboundMessageProcessor.java
 │   ├── MessageExtractor.java
-│   ├── SummaryResultSender.java
+│   ├── CompactResultSender.java
 │   ├── TelegramClient.java
 │   ├── TelegramUpdateParser.java
 │   └── TelegramWebhookHandler.java
@@ -166,9 +166,9 @@ src/test/java/com/telegram/codex/
 - `TelegramUpdateParser` 將 Telegram payload 轉成 `InboundMessage`
 - `InboundMessageProcessor` 做 duplicate、防重送、allowed user、commands、rate limit
 - `MediaGroupStore` 將 Telegram 相簿訊息寫入 SQLite shared store，再由 `JobSchedulerService` 排 flush
-- `ConversationService` 管 session TTL、長期記憶、summary，同 `CliClient` 串 `codex exec`
+- `ConversationService` 管 session TTL、長期記憶、compact，同 `CliClient` 串 `codex exec`
 - `ReplyGenerationFlow` 非同步做附件 download、主回答生成
-- `SummaryResultSender` 將 `/summary` 結果主動 send 返 Telegram
+- `CompactResultSender` 將 `/compact` 結果主動 send 返 Telegram
 - `ChatSession` / `ChatMemory` / `ProcessedUpdate` / `MediaGroupBuffer` / `MediaGroupMessage` 都係用 SQLite 存
 - `bin/telegram-codex telegram:set-webhook` 同 `telegram:update-commands` 取代舊 task
 
@@ -185,7 +185,7 @@ src/test/java/com/telegram/codex/
 6. 非相簿 message 就交畀 [
    `InboundMessageProcessor`](src/main/java/com/telegram/codex/telegram/InboundMessageProcessor.java) 做 decision。
 7. processor 會處理 duplicate、pending reply replay、allowed users、`/start`、`/help`、`/status`、`/session`、`/memory`、
-   `/forget`、`/summary`、`/new` 同 chat-level rate limit。
+   `/forget`、`/compact`、`/new` 同 chat-level rate limit。
 8. 真正要生成回覆時，[`JobSchedulerService`](src/main/java/com/telegram/codex/jobs/JobSchedulerService.java) 會用 virtual
    thread enqueue reply generation，webhook thread 就即刻回 `200 OK`。
 9. [`ReplyGenerationFlow`](src/main/java/com/telegram/codex/conversation/reply/ReplyGenerationFlow.java) 會 download 附件，再 call [
@@ -193,7 +193,7 @@ src/test/java/com/telegram/codex/
 10. [`CliClient`](src/main/java/com/telegram/codex/codex/CliClient.java) 用 transcript + system prompt 跑 `codex exec`
     ，再生成最多 3 個 suggested replies。
 11. reply 成功 send 番 Telegram 之後，system 先更新 session state 同長期記憶。
-12. `/summary` 會走另一條 async path，整理完再主動 send 摘要返 Telegram。
+12. `/compact` 會走另一條 async path，整理完再主動 send 摘要返 Telegram。
 
 ## 主要檔案點運作
 
@@ -243,7 +243,7 @@ src/test/java/com/telegram/codex/
         - 判斷 session TTL
         - call `CliClient`
         - call `MemoryClient` 更新長期記憶
-        - call `SessionSummaryClient` 壓縮 session context
+        - call `SessionCompactClient` 壓縮 session context
         - opportunistic prune 舊 processed updates
 
 - [`ReplyGenerationFlow.java`](src/main/java/com/telegram/codex/conversation/reply/ReplyGenerationFlow.java)
@@ -259,14 +259,14 @@ src/test/java/com/telegram/codex/
     - 專責將最新 user message 同 assistant reply merge 入長期記憶。
     - 只保留穩定偏好、背景、持續目標，唔會將短期 task context 原封不動抄落去。
 
-- [`SessionSummaryClient.java`](src/main/java/com/telegram/codex/conversation/session/SessionSummaryClient.java)
-    - `/summary` 用嘅 session 壓縮器。
+- [`SessionCompactClient.java`](src/main/java/com/telegram/codex/conversation/session/SessionCompactClient.java)
+    - `/compact` 用嘅 session 壓縮器。
     - 整理長對話，保留重點，之後主動 send 番摘要。
 
 ### Jobs / Scheduling
 
 - [`JobSchedulerService.java`](src/main/java/com/telegram/codex/jobs/JobSchedulerService.java)
-    - 用 virtual threads 跑 reply generation 同 summary。
+    - 用 virtual threads 跑 reply generation 同 compact。
     - 另外用 single-thread scheduler 做 Telegram 相簿 flush deadline。
     - 唔需要額外 queue worker process。
 
@@ -274,8 +274,8 @@ src/test/java/com/telegram/codex/
     - 包住 `media_group_buffers` 同 `media_group_messages`。
     - 負責 enqueue album update、判斷 flush deadline、同到鐘之後 aggregate 成一條 `InboundMessage`。
 
-- [`SummaryResultSender.java`](src/main/java/com/telegram/codex/telegram/SummaryResultSender.java)
-    - `/summary` 整完之後主動 send 結果返 Telegram。
+- [`CompactResultSender.java`](src/main/java/com/telegram/codex/telegram/CompactResultSender.java)
+    - `/compact` 整完之後主動 send 結果返 Telegram。
 
 ### Persistence / Config
 
@@ -423,7 +423,7 @@ bin/telegram-codex telegram:update-commands
 - `/session`：睇目前 chat session 狀態
 - `/memory`：睇目前 chat 嘅長期記憶內容
 - `/forget`：清除目前 chat 嘅長期記憶
-- `/summary`：非同步整理目前對話，壓縮成新 context，整完會再主動 send 摘要
+- `/compact`：非同步整理目前對話，壓縮成新 context，整完會再主動 send 摘要
 - `/new`：清除當前 chat 嘅 session memory，下一句重新開始，同時清走而家個 reply keyboard
 
 `/new` 只會重開短期 session，唔會刪長期記憶；如果你連長期記憶都想清走，要另外打 `/forget`。
@@ -506,7 +506,7 @@ WHERE media_group_key = '123456:album-1';
 如果你唔想完全清走，而係想保留重點但瘦身，直接打：
 
 ```text
-/summary
+/compact
 ```
 
 ### 4. 睇 logs

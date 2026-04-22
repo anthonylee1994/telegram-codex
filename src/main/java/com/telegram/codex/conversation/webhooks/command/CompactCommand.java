@@ -8,9 +8,9 @@ import org.springframework.stereotype.Component;
 import java.util.regex.Pattern;
 
 @Component
-public class SummaryCommand implements TelegramCommand {
+public class CompactCommand implements TelegramCommand {
 
-    private static final Pattern PATTERN = Pattern.compile("^/summary(?:@[\\w_]+)?$", Pattern.UNICODE_CASE);
+    private static final Pattern PATTERN = Pattern.compile("^/compact(?:@[\\w_]+)?$", Pattern.UNICODE_CASE);
 
     @Override
     public boolean matches(String text) {
@@ -19,7 +19,7 @@ public class SummaryCommand implements TelegramCommand {
 
     @Override
     public Decision execute(InboundMessage message) {
-        return Decision.summarizeSession(message, MessageConstants.SUMMARY_QUEUED_MESSAGE);
+        return Decision.compactSession(message, MessageConstants.COMPACT_QUEUED_MESSAGE);
     }
 
     @Override

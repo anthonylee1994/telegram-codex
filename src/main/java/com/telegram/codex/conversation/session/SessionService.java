@@ -13,16 +13,16 @@ import java.util.Optional;
 public class SessionService {
 
     private final ChatSessionRepository chatSessionRepository;
-    private final SessionSummaryClient sessionSummaryClient;
+    private final SessionCompactClient sessionCompactClient;
     private final ObjectMapper objectMapper;
 
     public SessionService(
         ChatSessionRepository chatSessionRepository,
-        SessionSummaryClient sessionSummaryClient,
+        SessionCompactClient sessionCompactClient,
         ObjectMapper objectMapper
     ) {
         this.chatSessionRepository = chatSessionRepository;
-        this.sessionSummaryClient = sessionSummaryClient;
+        this.sessionCompactClient = sessionCompactClient;
         this.objectMapper = objectMapper;
     }
 
@@ -47,20 +47,20 @@ public class SessionService {
         );
     }
 
-    public SessionSummaryResult summarize(String chatId) {
+    public SessionCompactResult compact(String chatId) {
         Optional<ChatSessionRecord> maybeSession = chatSessionRepository.findActive(chatId);
         if (maybeSession.isEmpty()) {
-            return SessionSummaryResult.missingSession();
+            return SessionCompactResult.missingSession();
         }
         Transcript transcript = Transcript.fromConversationState(maybeSession.get().lastResponseId(), objectMapper);
-        if (transcript.size() < ConversationConstants.MIN_TRANSCRIPT_SIZE_FOR_SUMMARY) {
-            return SessionSummaryResult.tooShort(transcript.size());
+        if (transcript.size() < ConversationConstants.MIN_TRANSCRIPT_SIZE_FOR_COMPACT) {
+            return SessionCompactResult.tooShort(transcript.size());
         }
-        String summaryText = sessionSummaryClient.summarize(transcript);
-        Transcript summaryTranscript = Transcript.empty()
-            .append("user", MessageConstants.SUMMARY_BASELINE_MESSAGE)
-            .append("assistant", summaryText);
-        chatSessionRepository.persist(chatId, summaryTranscript.toConversationState(objectMapper));
-        return SessionSummaryResult.ok(transcript.size(), summaryText);
+        String compactText = sessionCompactClient.compact(transcript);
+        Transcript compactTranscript = Transcript.empty()
+            .append("user", MessageConstants.COMPACT_BASELINE_MESSAGE)
+            .append("assistant", compactText);
+        chatSessionRepository.persist(chatId, compactTranscript.toConversationState(objectMapper));
+        return SessionCompactResult.ok(transcript.size(), compactText);
     }
 }

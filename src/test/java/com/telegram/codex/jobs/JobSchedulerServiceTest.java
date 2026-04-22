@@ -10,10 +10,10 @@ import static org.mockito.Mockito.when;
 import com.telegram.codex.conversation.MediaGroupStore;
 import com.telegram.codex.conversation.reply.ReplyGenerationFlow;
 import com.telegram.codex.conversation.session.SessionService;
-import com.telegram.codex.conversation.session.SessionSummaryResult;
+import com.telegram.codex.conversation.session.SessionCompactResult;
 import com.telegram.codex.telegram.InboundMessage;
 import com.telegram.codex.telegram.InboundMessageProcessor;
-import com.telegram.codex.telegram.SummaryResultSender;
+import com.telegram.codex.telegram.CompactResultSender;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -48,7 +48,7 @@ class JobSchedulerServiceTest {
             mockProcessorProvider(),
             replyGenerationFlow,
             Mockito.mock(SessionService.class),
-            Mockito.mock(SummaryResultSender.class)
+            Mockito.mock(CompactResultSender.class)
         );
 
         InboundMessage message = buildMessage();
@@ -59,30 +59,30 @@ class JobSchedulerServiceTest {
     }
 
     @Test
-    void enqueueSessionSummaryRunsInsideWebProcess() throws Exception {
+    void enqueueSessionCompactRunsInsideWebProcess() throws Exception {
         SessionService sessionService = Mockito.mock(SessionService.class);
-        SummaryResultSender summaryResultSender = Mockito.mock(SummaryResultSender.class);
+        CompactResultSender compactResultSender = Mockito.mock(CompactResultSender.class);
         CountDownLatch latch = new CountDownLatch(1);
-        SessionSummaryResult result = SessionSummaryResult.ok(6, "sum");
-        when(sessionService.summarize("3")).thenReturn(result);
+        SessionCompactResult result = SessionCompactResult.ok(6, "sum");
+        when(sessionService.compact("3")).thenReturn(result);
         doAnswer(invocation -> {
             latch.countDown();
             return null;
-        }).when(summaryResultSender).send(eq("3"), eq(result));
+        }).when(compactResultSender).send(eq("3"), eq(result));
 
         service = new JobSchedulerService(
             Mockito.mock(MediaGroupStore.class),
             mockProcessorProvider(),
             Mockito.mock(ReplyGenerationFlow.class),
             sessionService,
-            summaryResultSender
+            compactResultSender
         );
 
-        service.enqueueSessionSummary("3");
+        service.enqueueSessionCompact("3");
 
         assertTrue(latch.await(2, TimeUnit.SECONDS));
-        verify(sessionService).summarize("3");
-        verify(summaryResultSender).send("3", result);
+        verify(sessionService).compact("3");
+        verify(compactResultSender).send("3", result);
     }
 
     @Test
@@ -102,7 +102,7 @@ class JobSchedulerServiceTest {
             mockProcessorProvider(inboundMessageProcessor),
             Mockito.mock(ReplyGenerationFlow.class),
             Mockito.mock(SessionService.class),
-            Mockito.mock(SummaryResultSender.class)
+            Mockito.mock(CompactResultSender.class)
         );
 
         service.scheduleMediaGroupFlush("3:group", 123L, Duration.ofMillis(10));

@@ -43,7 +43,7 @@ public class CliTaskRunner implements CommandLineRunner {
                 Map.of("command", "session", "description", "目前 session 狀態"),
                 Map.of("command", "memory", "description", "長期記憶狀態"),
                 Map.of("command", "forget", "description", "清除長期記憶"),
-                Map.of("command", "summary", "description", "壓縮目前對話 context"),
+                Map.of("command", "compact", "description", "壓縮目前對話 context"),
                 Map.of("command", "new", "description", "新 session"),
                 Map.of("command", "help", "description", "使用說明")
             ));
