@@ -160,4 +160,33 @@ class TelegramMessageFormatterTest {
             呢個要轉：<b>123</b>
             """, formatted);
     }
+
+    @Test
+    void convertsStrikethroughOutsideCode() {
+        String formatted = formatter.formatForTelegram("""
+            呢段有 ~~刪除線~~
+            """);
+
+        assertEquals("""
+            呢段有 <s>刪除線</s>
+            """, formatted);
+    }
+
+    @Test
+    void doesNotParseStrikethroughInsideInlineCodeOrFencedCodeBlocks() {
+        String formatted = formatter.formatForTelegram("""
+            `~~literal~~`
+            ```text
+            ~~block~~
+            ```
+            外面 ~~strike~~
+            """);
+
+        assertEquals("""
+            <code>~~literal~~</code>
+            <pre><code>~~block~~
+            </code></pre>
+            外面 <s>strike</s>
+            """, formatted);
+    }
 }

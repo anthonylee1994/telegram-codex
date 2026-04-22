@@ -17,6 +17,7 @@ public class TelegramMessageFormatter {
 
     private static final Pattern FENCED_CODE_BLOCK_PATTERN = Pattern.compile("```(?:[\\t ]*[\\w#+.-]+)?\\n?(.*?)```", Pattern.DOTALL);
     private static final Pattern INLINE_CODE_PATTERN = Pattern.compile("`([^`\\n]+)`");
+    private static final Pattern STRIKETHROUGH_PATTERN = Pattern.compile("~~([^~\\n]+)~~");
     private static final Pattern BOLD_PATTERN = Pattern.compile("\\*\\*([^*\\n]+)\\*\\*");
     private static final Pattern ITALIC_PATTERN = Pattern.compile("(?<!\\*)\\*([^*\\n]+)\\*(?!\\*)|_([^_\\n]+)_");
 
@@ -130,10 +131,28 @@ public class TelegramMessageFormatter {
         Matcher matcher = BOLD_PATTERN.matcher(text);
         int cursor = 0;
         while (matcher.find()) {
-            formatted.append(formatItalic(text.substring(cursor, matcher.start())));
+            formatted.append(formatStrikethrough(text.substring(cursor, matcher.start())));
             formatted.append("<b>");
             formatted.append(HtmlEscaper.escape(matcher.group(1)));
             formatted.append("</b>");
+            cursor = matcher.end();
+        }
+        formatted.append(formatStrikethrough(text.substring(cursor)));
+        return formatted.toString();
+    }
+
+    private static String formatStrikethrough(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        StringBuilder formatted = new StringBuilder();
+        Matcher matcher = STRIKETHROUGH_PATTERN.matcher(text);
+        int cursor = 0;
+        while (matcher.find()) {
+            formatted.append(formatItalic(text.substring(cursor, matcher.start())));
+            formatted.append("<s>");
+            formatted.append(HtmlEscaper.escape(matcher.group(1)));
+            formatted.append("</s>");
             cursor = matcher.end();
         }
         formatted.append(formatItalic(text.substring(cursor)));
