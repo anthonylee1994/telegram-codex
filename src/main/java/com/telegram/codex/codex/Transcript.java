@@ -2,13 +2,15 @@ package com.telegram.codex.codex;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.telegram.codex.constants.ConversationConstants;
+import com.telegram.codex.util.JsonSerializer;
+import com.telegram.codex.util.StringUtils;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 public final class Transcript {
-
-    private static final int MAX_MESSAGES = 100;
 
     private final List<Map<String, String>> messages;
 
@@ -21,7 +23,7 @@ public final class Transcript {
     }
 
     public static Transcript fromConversationState(String conversationState, ObjectMapper objectMapper) {
-        if (conversationState == null || conversationState.isBlank()) {
+        if (StringUtils.isNullOrBlank(conversationState)) {
             return empty();
         }
         try {
@@ -61,17 +63,13 @@ public final class Transcript {
     }
 
     public String toConversationState(ObjectMapper objectMapper) {
-        try {
-            return objectMapper.writeValueAsString(messages);
-        } catch (Exception error) {
-            throw new IllegalStateException("Failed to serialize transcript", error);
-        }
+        return JsonSerializer.serialize(objectMapper, messages);
     }
 
     private List<Map<String, String>> trim(List<Map<String, String>> source) {
-        if (source.size() <= MAX_MESSAGES) {
+        if (source.size() <= ConversationConstants.MAX_TRANSCRIPT_MESSAGES) {
             return List.copyOf(source);
         }
-        return List.copyOf(source.subList(source.size() - MAX_MESSAGES, source.size()));
+        return List.copyOf(source.subList(source.size() - ConversationConstants.MAX_TRANSCRIPT_MESSAGES, source.size()));
     }
 }

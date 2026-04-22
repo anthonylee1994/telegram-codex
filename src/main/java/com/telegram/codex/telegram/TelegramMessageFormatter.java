@@ -2,6 +2,8 @@ package com.telegram.codex.telegram;
 
 import com.telegram.codex.codex.ReplyParser;
 import com.telegram.codex.constants.TelegramConstants;
+import com.telegram.codex.util.HtmlEscaper;
+import com.telegram.codex.util.StringUtils;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -18,29 +20,14 @@ public class TelegramMessageFormatter {
     }
 
     public String formatForTelegram(String text) {
-        return text
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;");
+        return HtmlEscaper.escape(text);
     }
 
     public Map<String, Object> buildReplyMarkup(List<String> suggestedReplies, boolean removeKeyboard) {
         if (removeKeyboard) {
             return Map.of("remove_keyboard", true);
         }
-        ArrayList<String> cleanedReplies = new ArrayList<>();
-        for (String reply : suggestedReplies) {
-            if (reply == null || reply.isBlank()) {
-                continue;
-            }
-            String normalized = reply.trim();
-            if (!cleanedReplies.contains(normalized)) {
-                cleanedReplies.add(normalized);
-            }
-            if (cleanedReplies.size() == TelegramConstants.MAX_SUGGESTED_REPLIES) {
-                break;
-            }
-        }
+        List<String> cleanedReplies = cleanReplies(suggestedReplies);
         if (cleanedReplies.isEmpty()) {
             return null;
         }
@@ -52,6 +39,23 @@ public class TelegramMessageFormatter {
             "resize_keyboard", true,
             "one_time_keyboard", true
         );
+    }
+
+    private List<String> cleanReplies(List<String> replies) {
+        ArrayList<String> cleaned = new ArrayList<>();
+        for (String reply : replies) {
+            if (StringUtils.isNullOrBlank(reply)) {
+                continue;
+            }
+            String normalized = reply.trim();
+            if (!cleaned.contains(normalized)) {
+                cleaned.add(normalized);
+            }
+            if (cleaned.size() == TelegramConstants.MAX_SUGGESTED_REPLIES) {
+                break;
+            }
+        }
+        return List.copyOf(cleaned);
     }
 
     public NormalizedReply normalizeReply(String text, List<String> suggestedReplies) {

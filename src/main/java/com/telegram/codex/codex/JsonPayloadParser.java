@@ -2,6 +2,8 @@ package com.telegram.codex.codex;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.telegram.codex.util.StringUtils;
+import com.telegram.codex.util.TextNormalizer;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -23,7 +25,7 @@ public class JsonPayloadParser {
 
     public Object parsePayload(String rawReply) throws Exception {
         for (String candidate : candidatePayloads(rawReply)) {
-            if (candidate == null || candidate.isBlank()) {
+            if (StringUtils.isNullOrBlank(candidate)) {
                 continue;
             }
             try {
@@ -63,7 +65,7 @@ public class JsonPayloadParser {
     private String extractRelaxedPayload(String text) {
         String replyText = extractRelaxedText(text);
         List<String> suggestedReplies = extractRelaxedSuggestedReplies(text);
-        if ((replyText == null || replyText.isBlank()) && suggestedReplies.isEmpty()) {
+        if (StringUtils.isNullOrBlank(replyText) && suggestedReplies.isEmpty()) {
             return null;
         }
         try {
@@ -75,7 +77,7 @@ public class JsonPayloadParser {
 
     private String extractRelaxedText(String text) {
         Matcher matcher = TEXT_PATTERN.matcher(text == null ? "" : text);
-        return matcher.find() ? normalizeText(matcher.group("value")) : "";
+        return matcher.find() ? TextNormalizer.normalize(matcher.group("value")) : "";
     }
 
     private List<String> extractRelaxedSuggestedReplies(String text) {
@@ -86,12 +88,8 @@ public class JsonPayloadParser {
         Matcher replyMatcher = Pattern.compile("\"((?:\\\\.|[^\"\\\\]|[\\r\\n])*)\"").matcher(matcher.group("value"));
         List<String> replies = new java.util.ArrayList<>();
         while (replyMatcher.find()) {
-            replies.add(normalizeText(replyMatcher.group(1)));
+            replies.add(TextNormalizer.normalize(replyMatcher.group(1)));
         }
         return List.copyOf(replies);
-    }
-
-    private String normalizeText(String value) {
-        return value.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\t", "\t").trim();
     }
 }

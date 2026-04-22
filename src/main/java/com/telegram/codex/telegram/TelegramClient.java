@@ -1,5 +1,7 @@
 package com.telegram.codex.telegram;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.telegram.codex.util.JsonSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -18,15 +20,18 @@ public class TelegramClient {
     private final TelegramApiClient apiClient;
     private final TelegramFileDownloader fileDownloader;
     private final TelegramMessageFormatter messageFormatter;
+    private final ObjectMapper objectMapper;
 
     public TelegramClient(
         TelegramApiClient apiClient,
         TelegramFileDownloader fileDownloader,
-        TelegramMessageFormatter messageFormatter
+        TelegramMessageFormatter messageFormatter,
+        ObjectMapper objectMapper
     ) {
         this.apiClient = apiClient;
         this.fileDownloader = fileDownloader;
         this.messageFormatter = messageFormatter;
+        this.objectMapper = objectMapper;
     }
 
     public Path downloadFileToTemp(String fileId) {
@@ -41,7 +46,7 @@ public class TelegramClient {
         params.put("parse_mode", "HTML");
         Map<String, Object> replyMarkup = messageFormatter.buildReplyMarkup(normalizedReply.suggestedReplies(), removeKeyboard);
         if (replyMarkup != null) {
-            params.put("reply_markup", apiClient.writeJson(replyMarkup));
+            params.put("reply_markup", writeJson(replyMarkup));
         }
         apiClient.postForm("sendMessage", params);
     }
@@ -56,7 +61,11 @@ public class TelegramClient {
     }
 
     public void setMyCommands(List<Map<String, String>> commands) {
-        apiClient.postForm("setMyCommands", Map.of("commands", apiClient.writeJson(commands)));
+        apiClient.postForm("setMyCommands", Map.of("commands", writeJson(commands)));
         LOGGER.info("Telegram commands updated count={}", commands.size());
+    }
+
+    private String writeJson(Object payload) {
+        return JsonSerializer.serialize(objectMapper, payload);
     }
 }

@@ -1,6 +1,7 @@
 package com.telegram.codex.conversation.memory;
 
 import com.telegram.codex.conversation.ConversationTimeFormatter;
+import com.telegram.codex.util.StringUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -16,10 +17,13 @@ public class MemoryService {
 
     public MemorySnapshot snapshot(String chatId) {
         Optional<ChatMemoryRecord> maybeMemory = chatMemoryRepository.find(chatId);
-        if (maybeMemory.isEmpty() || maybeMemory.get().memoryText() == null || maybeMemory.get().memoryText().isBlank()) {
+        if (maybeMemory.isEmpty()) {
             return MemorySnapshot.inactive();
         }
         ChatMemoryRecord memory = maybeMemory.get();
+        if (StringUtils.isNullOrBlank(memory.memoryText())) {
+            return MemorySnapshot.inactive();
+        }
         return MemorySnapshot.active(
             memory.memoryText(),
             ConversationTimeFormatter.format(memory.updatedAt())

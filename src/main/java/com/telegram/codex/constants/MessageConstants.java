@@ -29,6 +29,7 @@ public final class MessageConstants {
     public static final String RESET_MEMORY_MESSAGE = "已經刪除長期記憶。";
 
     public static final String SUMMARY_QUEUED_MESSAGE = "開始整理目前 session。整完之後我會再主動 send 摘要畀你。";
+    public static final String SUMMARY_BASELINE_MESSAGE = "以下係之前對話嘅摘要。之後請按呢份摘要延續對話上下文。";
 
     public static final String START_MESSAGE = String.join("\n",
         "您好，我係您嘅 AI 助手。",

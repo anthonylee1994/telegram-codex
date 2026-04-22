@@ -2,6 +2,8 @@ package com.telegram.codex.conversation.session;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.codex.Transcript;
+import com.telegram.codex.constants.ConversationConstants;
+import com.telegram.codex.constants.MessageConstants;
 import com.telegram.codex.conversation.ConversationTimeFormatter;
 import org.springframework.stereotype.Service;
 
@@ -9,8 +11,6 @@ import java.util.Optional;
 
 @Service
 public class SessionService {
-
-    private static final String SUMMARY_BASELINE_MESSAGE = "以下係之前對話嘅摘要。之後請按呢份摘要延續對話上下文。";
 
     private final ChatSessionRepository chatSessionRepository;
     private final SessionSummaryClient sessionSummaryClient;
@@ -53,12 +53,12 @@ public class SessionService {
             return SessionSummaryResult.missingSession();
         }
         Transcript transcript = Transcript.fromConversationState(maybeSession.get().lastResponseId(), objectMapper);
-        if (transcript.size() < 4) {
+        if (transcript.size() < ConversationConstants.MIN_TRANSCRIPT_SIZE_FOR_SUMMARY) {
             return SessionSummaryResult.tooShort(transcript.size());
         }
         String summaryText = sessionSummaryClient.summarize(transcript);
         Transcript summaryTranscript = Transcript.empty()
-            .append("user", SUMMARY_BASELINE_MESSAGE)
+            .append("user", MessageConstants.SUMMARY_BASELINE_MESSAGE)
             .append("assistant", summaryText);
         chatSessionRepository.persist(chatId, summaryTranscript.toConversationState(objectMapper));
         return SessionSummaryResult.ok(transcript.size(), summaryText);

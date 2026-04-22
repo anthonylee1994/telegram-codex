@@ -1,6 +1,7 @@
 package com.telegram.codex.conversation.reply;
 
 import com.telegram.codex.codex.CliClient;
+import com.telegram.codex.constants.ConversationConstants;
 import com.telegram.codex.conversation.memory.ChatMemoryRecord;
 import com.telegram.codex.conversation.memory.ChatMemoryRepository;
 import com.telegram.codex.conversation.memory.MemoryClient;
@@ -21,8 +22,6 @@ import java.util.concurrent.atomic.AtomicLong;
 @Service
 public class ConversationService {
     private static final Logger LOGGER = LoggerFactory.getLogger(ConversationService.class);
-    private static final long PROCESSED_UPDATE_PRUNE_INTERVAL_MS = 6L * 60 * 60 * 1000;
-    private static final long PROCESSED_UPDATE_RETENTION_MS = 30L * 24 * 60 * 60 * 1000;
 
     private final CliClient replyClient;
     private final MemoryClient memoryClient;
@@ -88,10 +87,10 @@ public class ConversationService {
     private void pruneProcessedUpdatesIfNeeded() {
         long now = System.currentTimeMillis();
         long lastPrunedAt = lastProcessedUpdatePruneAt.get();
-        if (lastPrunedAt != 0 && now - lastPrunedAt < PROCESSED_UPDATE_PRUNE_INTERVAL_MS) {
+        if (lastPrunedAt != 0 && now - lastPrunedAt < ConversationConstants.PROCESSED_UPDATE_PRUNE_INTERVAL_MS) {
             return;
         }
-        long cutoff = now - PROCESSED_UPDATE_RETENTION_MS;
+        long cutoff = now - ConversationConstants.PROCESSED_UPDATE_RETENTION_MS;
         long deletedCount = processedUpdateRepository.pruneSentBefore(cutoff);
         lastProcessedUpdatePruneAt.set(now);
         LOGGER.info("Pruned processed updates count={} cutoff={}", deletedCount, cutoff);

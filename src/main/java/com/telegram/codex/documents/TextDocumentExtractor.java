@@ -2,24 +2,25 @@ package com.telegram.codex.documents;
 
 import com.telegram.codex.constants.DocumentConstants;
 import com.telegram.codex.exception.MissingDependencyException;
-import org.apache.poi.openxml4j.opc.OPCPackage;
-import org.apache.poi.ss.usermodel.DataFormatter;
-import org.apache.poi.xssf.usermodel.XSSFSheet;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
-import org.apache.poi.xwpf.usermodel.XWPFDocument;
-import org.jsoup.Jsoup;
 import org.springframework.stereotype.Component;
 
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
+import java.util.List;
 
 @Component
 public class TextDocumentExtractor {
+
+    private final List<FileTypeExtractor> extractors;
+
+    public TextDocumentExtractor(
+        DocxExtractor docxExtractor,
+        XlsxExtractor xlsxExtractor,
+        HtmlExtractor htmlExtractor,
+        PlainTextExtractor plainTextExtractor
+    ) {
+        this.extractors = List.of(docxExtractor, xlsxExtractor, htmlExtractor, plainTextExtractor);
+    }
 
     public ExtractionResult extract(Path filePath) {
         try {
@@ -43,41 +44,12 @@ public class TextDocumentExtractor {
 
     private String extractRawContent(Path filePath) throws Exception {
         String fileName = filePath.getFileName().toString().toLowerCase();
-        if (fileName.endsWith(".docx")) {
-            try (InputStream inputStream = Files.newInputStream(filePath);
-                 XWPFDocument document = new XWPFDocument(OPCPackage.open(inputStream));
-                 XWPFWordExtractor extractor = new XWPFWordExtractor(document)) {
-                return extractor.getText();
+        for (FileTypeExtractor extractor : extractors) {
+            if (extractor.supports(fileName)) {
+                return extractor.extract(filePath);
             }
         }
-        if (fileName.endsWith(".xlsx")) {
-            StringBuilder builder = new StringBuilder();
-            try (InputStream inputStream = Files.newInputStream(filePath); XSSFWorkbook workbook = new XSSFWorkbook(inputStream)) {
-                DataFormatter formatter = new DataFormatter();
-                for (int index = 0; index < workbook.getNumberOfSheets(); index += 1) {
-                    XSSFSheet sheet = workbook.getSheetAt(index);
-                    builder.append("[Sheet ").append(index + 1).append("]\n");
-                    sheet.forEach(row -> {
-                        String rowText = row.cellIterator().hasNext()
-                            ? StreamSupport.stream(row.spliterator(), false)
-                                .map(formatter::formatCellValue)
-                                .filter(value -> !value.isBlank())
-                                .collect(Collectors.joining("\t"))
-                            : "";
-                        if (!rowText.isBlank()) {
-                            builder.append(rowText).append('\n');
-                        }
-                    });
-                    builder.append('\n');
-                }
-            }
-            return builder.toString();
-        }
-        String content = Files.readString(filePath, StandardCharsets.UTF_8);
-        if (fileName.endsWith(".html")) {
-            return Jsoup.parse(content).text();
-        }
-        return content;
+        throw new IllegalStateException("No extractor found for file: " + fileName);
     }
 
     public record ExtractionResult(String content, boolean truncated) {

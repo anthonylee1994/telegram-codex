@@ -6,6 +6,7 @@ import com.telegram.codex.persistence.MediaGroupBufferJpaRepository;
 import com.telegram.codex.persistence.MediaGroupMessageEntity;
 import com.telegram.codex.persistence.MediaGroupMessageJpaRepository;
 import com.telegram.codex.telegram.InboundMessage;
+import com.telegram.codex.util.JsonSerializer;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
@@ -81,19 +82,11 @@ public class MediaGroupStore {
     }
 
     private String writeMessage(InboundMessage message) {
-        try {
-            return objectMapper.writeValueAsString(message);
-        } catch (Exception error) {
-            throw new IllegalStateException("Failed to persist media group payload", error);
-        }
+        return JsonSerializer.serialize(objectMapper, message);
     }
 
     private InboundMessage readMessage(MediaGroupMessageEntity entity) {
-        try {
-            return objectMapper.readValue(entity.getPayload(), InboundMessage.class);
-        } catch (Exception error) {
-            throw new IllegalStateException("Failed to read media group payload", error);
-        }
+        return JsonSerializer.deserialize(objectMapper, entity.getPayload(), InboundMessage.class);
     }
 
     private String buildKey(InboundMessage message) {

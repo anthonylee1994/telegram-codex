@@ -1,5 +1,6 @@
 package com.telegram.codex.codex;
 
+import com.telegram.codex.util.StringUtils;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -21,24 +22,24 @@ public class PromptBuilder {
     );
 
     public String buildReplyPrompt(Transcript transcript, boolean hasImage, int imageCount, String longTermMemory) {
-        ArrayList<String> prefixSections = new ArrayList<>();
+        List<String> sections = new ArrayList<>();
+        sections.add("你係一個 Telegram AI 助手。");
+
         if (hasImage) {
-            prefixSections.add("最新一條用戶訊息有附圖。");
+            sections.add("最新一條用戶訊息有附圖。");
         }
         if (imageCount > 1) {
-            prefixSections.add("今次總共有 " + imageCount + " 張圖，分析時要用圖 1、圖 2、圖 3 呢類編號逐張講。");
+            sections.add("今次總共有 " + imageCount + " 張圖，分析時要用圖 1、圖 2、圖 3 呢類編號逐張講。");
         }
-        if (longTermMemory != null && !longTermMemory.isBlank()) {
-            prefixSections.add("長期記憶：\n" + longTermMemory + "\n請只喺相關時自然利用以上記憶，唔好主動背誦或者逐條重複。");
+        if (StringUtils.isNotBlank(longTermMemory)) {
+            sections.add("長期記憶：\n" + longTermMemory + "\n請只喺相關時自然利用以上記憶，唔好主動背誦或者逐條重複。");
         }
 
-        ArrayList<String> sections = new ArrayList<>();
-        sections.add("你係一個 Telegram AI 助手。");
-        sections.addAll(prefixSections);
         sections.add("對話紀錄：");
         sections.addAll(transcript.toPromptLines());
         sections.add("");
         sections.addAll(REPLY_PROMPT_INSTRUCTIONS);
+
         return String.join("\n", sections);
     }
 }

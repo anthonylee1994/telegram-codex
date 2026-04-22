@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.constants.MessageConstants;
 import com.telegram.codex.constants.TelegramConstants;
+import com.telegram.codex.util.StringUtils;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -31,7 +32,7 @@ public class SuggestedRepliesExtractor {
     }
 
     public List<String> parseSuggestedReplies(String rawSuggestedReplies) {
-        if (rawSuggestedReplies == null || rawSuggestedReplies.isBlank()) {
+        if (StringUtils.isNullOrBlank(rawSuggestedReplies)) {
             return List.of();
         }
         try {
