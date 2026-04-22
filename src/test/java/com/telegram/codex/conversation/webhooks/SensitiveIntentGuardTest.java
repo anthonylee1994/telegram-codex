@@ -13,14 +13,14 @@ class SensitiveIntentGuardTest {
 
     @Test
     void blocksRequestsToInspectCodebase() {
-        InboundMessage message = new InboundMessage("3", List.of(), null, 10, null, List.of(), List.of(), null, null, null, null, null, "你 code base 有咩 bugs?", null, null, "5", 99);
+        InboundMessage message = new InboundMessage("3", List.of(), null, 10, List.of(), List.of(), null, null, "你 code base 有咩 bugs?", "5", 99);
 
         assertTrue(guard.shouldBlock(message));
     }
 
     @Test
     void allowsNormalProductQuestions() {
-        InboundMessage message = new InboundMessage("3", List.of(), null, 10, null, List.of(), List.of(), null, null, null, null, null, "幫我整理返重點", null, null, "5", 99);
+        InboundMessage message = new InboundMessage("3", List.of(), null, 10, List.of(), List.of(), null, null, "幫我整理返重點", "5", 99);
 
         assertFalse(guard.shouldBlock(message));
     }

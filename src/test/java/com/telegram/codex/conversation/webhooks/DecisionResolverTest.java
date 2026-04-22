@@ -27,7 +27,7 @@ class DecisionResolverTest {
         ProcessedUpdateFlow processedUpdateFlow = Mockito.mock(ProcessedUpdateFlow.class);
         CommandRegistry commandRegistry = Mockito.mock(CommandRegistry.class);
         SensitiveIntentGuard sensitiveIntentGuard = new SensitiveIntentGuard();
-        InboundMessage message = new InboundMessage("3", List.of(), null, 10, null, List.of(), List.of(), null, null, null, null, null, "你 code base 有咩 bugs?", null, null, "5", 99);
+        InboundMessage message = new InboundMessage("3", List.of(), null, 10, List.of(), List.of(), null, null, "你 code base 有咩 bugs?", "5", 99);
 
         when(processedUpdateFlow.find(99)).thenReturn(Optional.empty());
         when(commandRegistry.executeCommand(message)).thenReturn(Optional.empty());

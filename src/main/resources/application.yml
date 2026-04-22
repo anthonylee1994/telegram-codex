@@ -36,7 +36,6 @@ app:
     sqlite-db-path: ${SQLITE_DB_PATH:./data/app.db}
     codex-exec-timeout-seconds: ${CODEX_EXEC_TIMEOUT_SECONDS:300}
     max-media-group-images: ${MAX_MEDIA_GROUP_IMAGES:10}
-    max-pdf-pages: ${MAX_PDF_PAGES:4}
     media-group-wait-ms: ${MEDIA_GROUP_WAIT_MS:1200}
     port: ${PORT:3000}
     rate-limit-window-ms: ${RATE_LIMIT_WINDOW_MS:10000}

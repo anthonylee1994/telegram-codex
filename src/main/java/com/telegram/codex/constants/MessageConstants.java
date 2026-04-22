@@ -8,12 +8,9 @@ public final class MessageConstants {
         // Constants class
     }
 
-    // System messages
-    public static final String GENERIC_ERROR_MESSAGE = "我要休息一陣，遲啲叫醒我。";
-
     public static final String HELP_MESSAGE = String.join("\n",
         "可用 command：",
-        "/help - 顯示指令同支援範圍",
+        "/help - 顯示可用指令",
         "/status - 睇 bot 狀態",
         "/session - 睇目前 session 狀態",
         "/memory - 睇長期記憶",
@@ -21,7 +18,7 @@ public final class MessageConstants {
         "/summary - 將長對話壓縮成新 context",
         "/new - 開新 session",
         "",
-        "我而家支援文字、圖片、多圖、圖片 document、PDF、txt/md/html/json/csv、docx/xlsx。"
+        "我而家僅支持文字、圖片。"
     );
 
     public static final String NEW_SESSION_MESSAGE = "已經開咗個新 session，你可以重新開始。";
@@ -47,12 +44,6 @@ public final class MessageConstants {
     // Reply reference messages
     public static final String REPLY_TO_IMAGE = "用戶引用咗一張相。";
     public static final String REPLY_TO_IMAGE_DOCUMENT = "用戶引用咗一個圖片檔案。";
-    public static final String REPLY_TO_PDF = "用戶引用咗一份 PDF。";
-    public static final String REPLY_TO_TEXT_DOCUMENT = "用戶引用咗一份文字檔。";
-
-    // Document processing messages
-    public static final String PDF_UNAVAILABLE_MESSAGE = "而家未開到 PDF 轉圖工具，所以暫時睇唔到 PDF。你可以改為 send screenshot，或者等我開通 PDF 支援。";
-    public static final String TEXT_DOCUMENT_UNAVAILABLE_MESSAGE = "而家未開到 Office / 文字檔抽取工具，所以暫時睇唔到份檔案內容。你可以改為貼文字、send PDF，或者等我開通完整支援。";
 
     // Default suggested replies
     public static final List<String> DEFAULT_SUGGESTED_REPLIES = List.of(

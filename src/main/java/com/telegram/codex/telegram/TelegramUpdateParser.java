@@ -33,17 +33,11 @@ public class TelegramUpdateParser {
             extractor.getImageFileIds(),
             extractor.getMediaGroupId(),
             extractor.getMessageId(),
-            extractor.getPdfFileId().orElse(null),
             List.of(),
             extractor.getReplyToMessage().map(MessageExtractor::getImageFileIds).orElse(List.of()),
             extractor.getReplyToMessage().map(MessageExtractor::getMessageId).orElse(null),
-            extractor.getReplyToMessage().flatMap(MessageExtractor::getPdfFileId).orElse(null),
             extractor.getReplyToText().orElse(null),
-            extractor.getReplyToMessage().flatMap(MessageExtractor::getTextDocumentFileId).orElse(null),
-            extractor.getReplyToMessage().flatMap(MessageExtractor::getTextDocumentName).orElse(null),
             extractor.getText(),
-            extractor.getTextDocumentFileId().orElse(null),
-            extractor.getTextDocumentName().orElse(null),
             extractor.getUserId(),
             MapUtils.longValue(update.get("update_id"))
         );

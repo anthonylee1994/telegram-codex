@@ -1,6 +1,5 @@
 package com.telegram.codex.telegram;
 
-import com.telegram.codex.documents.PdfPageRasterizer;
 import com.telegram.codex.util.StreamUtils;
 import org.springframework.stereotype.Component;
 
@@ -14,11 +13,9 @@ import java.util.Set;
 public class AttachmentDownloader {
 
     private final TelegramClient telegramClient;
-    private final PdfPageRasterizer pdfPageRasterizer;
 
-    public AttachmentDownloader(TelegramClient telegramClient, PdfPageRasterizer pdfPageRasterizer) {
+    public AttachmentDownloader(TelegramClient telegramClient) {
         this.telegramClient = telegramClient;
-        this.pdfPageRasterizer = pdfPageRasterizer;
     }
 
     public List<Path> downloadImages(List<String> imageFileIds) {
@@ -27,19 +24,6 @@ public class AttachmentDownloader {
             imagePaths.add(telegramClient.downloadFileToTemp(imageFileId));
         }
         return List.copyOf(imagePaths);
-    }
-
-    public List<Path> downloadAndRasterizePdf(String pdfFileId) {
-        Path pdfPath = telegramClient.downloadFileToTemp(pdfFileId);
-        return pdfPageRasterizer.rasterize(pdfPath);
-    }
-
-    public List<Path> downloadAllAttachments(List<String> imageFileIds, String pdfFileId) {
-        ArrayList<Path> allImages = new ArrayList<>(downloadImages(imageFileIds));
-        if (pdfFileId != null) {
-            allImages.addAll(downloadAndRasterizePdf(pdfFileId));
-        }
-        return List.copyOf(allImages);
     }
 
     public void cleanup(List<Path> filePaths) {

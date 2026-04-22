@@ -126,17 +126,11 @@ class JobSchedulerServiceTest {
             List.of(),
             null,
             10,
-            null,
             List.of(),
             List.of(),
-            null,
-            null,
-            null,
             null,
             null,
             "hello",
-            null,
-            null,
             "5",
             99
         );

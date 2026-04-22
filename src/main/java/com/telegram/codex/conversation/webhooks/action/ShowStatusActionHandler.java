@@ -44,7 +44,7 @@ public class ShowStatusActionHandler implements ActionHandler {
         return String.join("\n",
             "Bot 狀態：OK 🤖",
             "Session 狀態：" + (snapshot.active() ? "已生效 ✅" : "未生效 ❌"),
-            "支援：文字、圖片、多圖、圖片 document、PDF、txt/md/html/json/csv、docx/xlsx"
+            "只支持：文字、圖片"
         );
     }
 }

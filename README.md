@@ -23,29 +23,27 @@ Demo：https://t.me/On99AppBot
 
 ## 功能
 
-- 支援 Telegram 文字訊息
-- 支援單張圖片同 caption
-- 支援 Telegram 相簿多圖訊息分析
-- 支援 Telegram PDF document，會先轉頭幾頁做圖片再分析
-- 支援 `.txt`、`.md`、`.html`、`.json`、`.csv`、`.docx`、`.xlsx` document，會先抽文字再分析
-- 支援 reply 之前嘅 message；如果引用舊文字，會就住嗰句延續回答
-- 支援 reply 之前嘅相 / PDF / 文字檔；就算今次冇重新 upload，都會拎返被引用文件再分析
+- 支持 Telegram 文字訊息
+- 支持單張圖片同 caption
+- 支持 Telegram 相簿多圖訊息分析
+- 支持 reply 之前嘅 message；如果引用舊文字，會就住嗰句延續回答
+- 支持 reply 之前嘅相；就算今次冇重新 upload，都會拎返被引用圖片再分析
 - 多圖分析會用 `圖 1`、`圖 2` 呢類編號逐張講
 - 相簿冇 caption 時會自動補 prompt，叫模型逐張描述再比較
 - 相簿太多圖時會先叫用戶縮窄範圍再分析
-- 支援 `/start` 顯示 welcome / help message
-- 支援 `/help`、`/status`、`/session`、`/memory`、`/summary`
-- 支援 `/forget` 清除長期記憶
-- 支援 `/new` 重開當前 chat session
+- 支持 `/start` 顯示 welcome / help message
+- 支持 `/help`、`/status`、`/session`、`/memory`、`/summary`
+- 支持 `/forget` 清除長期記憶
+- 支持 `/new` 重開當前 chat session
 - `/summary` 會非同步將長對話壓縮成新 context，再主動 send 摘要返 Telegram
-- 支援最多 3 個 reply keyboard suggested replies
+- 支持 3 個 reply keyboard suggested replies
 - 有 session memory
 - 有獨立長期記憶，會自動整理用戶偏好、背景、持續目標，再喺之後對話 relevant 時帶返入 prompt
 - 有 duplicate update 保護
 - 有簡單 rate limit
 - 可限制指定 Telegram user id
 
-未支援：
+未支持：
 
 - 語音、影片、其他檔案
 
@@ -92,7 +90,6 @@ src/main/java/com/telegram/codex/
 │       ├── Decision.java
 │       └── DecisionResolver.java
 ├── documents/
-│   ├── PdfPageRasterizer.java
 │   └── TextDocumentExtractor.java
 ├── jobs/
 │   └── JobSchedulerService.java
@@ -145,8 +142,8 @@ src/test/java/com/telegram/codex/
 
 **Utilities**:
 
-- `ProcessExecutor`: 統一 process execution logic，支援 timeout、input stream、structured results
-- `CommandAvailabilityChecker`: 檢查 system commands 係咪存在（e.g., pdftoppm）
+- `ProcessExecutor`: 統一 process execution logic，支持 timeout、input stream、structured results
+- `CommandAvailabilityChecker`: 檢查 system commands 係咪存在
 - `MessageExtractor`: 封裝 Telegram message extraction logic，用 `Optional<T>` 提升 type safety
 
 **Telegram Layer**:
@@ -161,11 +158,6 @@ src/test/java/com/telegram/codex/
 - `CliClient`: 組裝 prompt、parse reply、generate suggested replies
 - `PromptBuilder`: 建立 system prompt 同 context
 
-**Document Processing**:
-
-- `PdfPageRasterizer`: PDF 轉圖（用 `ProcessExecutor` 同 `CommandAvailabilityChecker`）
-- `TextDocumentExtractor`: 抽取 docx/xlsx/txt/html/json/csv 內容
-
 ## Request Flow
 
 由 Telegram 打入嚟，到 bot 回覆，而家條 path 係：
@@ -175,7 +167,7 @@ src/test/java/com/telegram/codex/
 - `InboundMessageProcessor` 做 duplicate、防重送、allowed user、commands、rate limit
 - `MediaGroupStore` 將 Telegram 相簿訊息寫入 SQLite shared store，再由 `JobSchedulerService` 排 flush
 - `ConversationService` 管 session TTL、長期記憶、summary，同 `CliClient` 串 `codex exec`
-- `ReplyGenerationFlow` 非同步做附件 download、PDF 轉圖、文字檔抽字、主回答生成
+- `ReplyGenerationFlow` 非同步做附件 download、主回答生成
 - `SummaryResultSender` 將 `/summary` 結果主動 send 返 Telegram
 - `ChatSession` / `ChatMemory` / `ProcessedUpdate` / `MediaGroupBuffer` / `MediaGroupMessage` 都係用 SQLite 存
 - `bin/telegram-codex telegram:set-webhook` 同 `telegram:update-commands` 取代舊 task
@@ -187,7 +179,7 @@ src/test/java/com/telegram/codex/
 3. 驗證通過後，controller 將 payload 交畀 [
    `TelegramWebhookHandler`](src/main/java/com/telegram/codex/telegram/TelegramWebhookHandler.java)。
 4. handler 先用 [`TelegramUpdateParser`](src/main/java/com/telegram/codex/telegram/TelegramUpdateParser.java) parse
-   文字 / 圖片 / PDF / 文字檔 / reply context。
+   文字 / 圖片 / reply context。
 5. 如果係 Telegram 相簿，會先寫入 [`MediaGroupStore`](src/main/java/com/telegram/codex/conversation/MediaGroupStore.java)
    ，再排 delayed flush。
 6. 非相簿 message 就交畀 [
@@ -196,8 +188,7 @@ src/test/java/com/telegram/codex/
    `/forget`、`/summary`、`/new` 同 chat-level rate limit。
 8. 真正要生成回覆時，[`JobSchedulerService`](src/main/java/com/telegram/codex/jobs/JobSchedulerService.java) 會用 virtual
    thread enqueue reply generation，webhook thread 就即刻回 `200 OK`。
-9. [`ReplyGenerationFlow`](src/main/java/com/telegram/codex/conversation/reply/ReplyGenerationFlow.java) 會 download 附件、必要時將
-   PDF 轉 PNG、將文字檔抽成 prompt text，再 call [
+9. [`ReplyGenerationFlow`](src/main/java/com/telegram/codex/conversation/reply/ReplyGenerationFlow.java) 會 download 附件，再 call [
    `ConversationService`](src/main/java/com/telegram/codex/conversation/reply/ConversationService.java)。
 10. [`CliClient`](src/main/java/com/telegram/codex/codex/CliClient.java) 用 transcript + system prompt 跑 `codex exec`
     ，再生成最多 3 個 suggested replies。
@@ -231,8 +222,8 @@ src/test/java/com/telegram/codex/
 
 - [`TelegramUpdateParser.java`](src/main/java/com/telegram/codex/telegram/TelegramUpdateParser.java)
     - 將 Telegram 原始 payload 轉成 app 內部用嘅 `InboundMessage`。
-    - 支援文字訊息、單張圖片、圖片 document、PDF、文字 document 同 Telegram 相簿訊息。
-    - user 如果 reply 之前一則 message，呢層會一齊抽返被引用文字、相、PDF、文字檔 context。
+    - 支持文字訊息、單張圖片、圖片 document 同 Telegram 相簿訊息。
+    - user 如果 reply 之前一則 message，呢層會一齊抽返被引用文字、相 context。
 
 - [`InboundMessageProcessor.java`](src/main/java/com/telegram/codex/telegram/InboundMessageProcessor.java)
     - 大部分 Telegram 行為都喺呢度做 decision / action routing。
@@ -257,12 +248,7 @@ src/test/java/com/telegram/codex/
 
 - [`ReplyGenerationFlow.java`](src/main/java/com/telegram/codex/conversation/reply/ReplyGenerationFlow.java)
     - 真正處理 Telegram 附件 download 嗰層。
-    - 收到 PDF 會先 download，再用 [
-      `PdfPageRasterizer`](src/main/java/com/telegram/codex/documents/PdfPageRasterizer.java) 將頭幾頁轉做 PNG。
-    - 收到 `.txt`、`.md`、`.html`、`.json`、`.csv`、`.docx`、`.xlsx` 會先用 [
-      `TextDocumentExtractor`](src/main/java/com/telegram/codex/documents/TextDocumentExtractor.java) 抽文字再拼入
-      prompt。
-    - 如果今次冇新附件，但 reply 咗之前一份相 / PDF / 文字檔，亦會 fallback download 嗰份被引用文件再分析。
+    - 如果今次冇新附件，但 reply 咗之前一張相，亦會 fallback download 嗰張被引用圖片再分析。
 
 - [`CliClient.java`](src/main/java/com/telegram/codex/codex/CliClient.java)
     - 真正同 `codex exec` 接軌嗰層。
@@ -305,7 +291,7 @@ src/test/java/com/telegram/codex/
     - 建立 app runtime 需要嘅 SQLite tables。
 
 - [`CliTaskRunner.java`](src/main/java/com/telegram/codex/cli/CliTaskRunner.java)
-    - 支援 CLI task：
+    - 支持 CLI task：
         - `telegram:set-webhook`
         - `telegram:update-commands`
 
@@ -358,8 +344,6 @@ SQLite 而家主要有五張表：
 - Java `25`
 - Gradle `9.x`（repo 已包 `./gradlew`）
 - SQLite 3
-- `pdftoppm`（如果要用 PDF 轉圖分析；Docker image 已安裝 `poppler-utils`）
-- `unzip`（如果要抽 `.docx` / `.xlsx` 內容；Docker image 已安裝）
 - Node.js / npm（如果你想喺本機裝 `.codex-version` 指定嘅 Codex CLI）
 - 本機或 server 可以直接跑 `codex exec`
 - `~/.codex/config.toml` 同 `~/.codex/auth.json` 已配置好
@@ -377,7 +361,6 @@ SQLite 而家主要有五張表：
 | `SQLITE_DB_PATH`             | SQLite database path           | `./data/app.db` |
 | `CODEX_EXEC_TIMEOUT_SECONDS` | `codex exec` 最多跑幾多秒先當 timeout  | `300`           |
 | `MAX_MEDIA_GROUP_IMAGES`     | 相簿最多接受幾多張圖先叫 user 縮窄範圍         | `6`             |
-| `MAX_PDF_PAGES`              | 每份 PDF 最多轉幾頁做圖片分析              | `4`             |
 | `SESSION_TTL_DAYS`           | session 過期日數                   | `7`             |
 | `MEDIA_GROUP_WAIT_MS`        | Telegram 相簿多圖聚合等待時間            | `1200`          |
 | `RATE_LIMIT_WINDOW_MS`       | rate limit window              | `10000`         |
@@ -435,7 +418,7 @@ bin/telegram-codex telegram:update-commands
 ## Telegram commands
 
 - `/start`：顯示 welcome / help message，同時清走而家個 reply keyboard
-- `/help`：列出可用 command 同支援輸入類型
+- `/help`：列出可用 command 同支持輸入類型
 - `/status`：睇 bot runtime 狀態，例如 session / memory / config 概況
 - `/session`：睇目前 chat session 狀態
 - `/memory`：睇目前 chat 嘅長期記憶內容
@@ -452,9 +435,6 @@ chat 入面會見到自己嘅綠色訊息。
 
 - reply 舊文字：bot 會當你係就住嗰句延續問落去
 - reply 舊相：bot 會重新下載返張被引用嘅相再分析
-- reply 舊 PDF：bot 會重新攞返份 PDF，轉頭幾頁做圖再分析
-- reply 舊文字檔：bot 會重新抽返份檔案內容，再按你今次問題回答
-
 而家個優先次序係：
 
 - 如果今次 message 自己有新附件，就優先用今次新附件
@@ -667,7 +647,6 @@ dokku config:set telegram-codex \
 dokku config:set telegram-codex \
   ALLOWED_TELEGRAM_USER_IDS=123456789,987654321 \
   MAX_MEDIA_GROUP_IMAGES=6 \
-  MAX_PDF_PAGES=4 \
   SESSION_TTL_DAYS=7 \
   MEDIA_GROUP_WAIT_MS=1200 \
   RATE_LIMIT_WINDOW_MS=10000 \

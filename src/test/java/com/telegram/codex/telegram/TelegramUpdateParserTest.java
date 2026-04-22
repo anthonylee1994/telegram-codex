@@ -6,9 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import com.telegram.codex.telegram.document.DocumentTypeRegistry;
 import com.telegram.codex.telegram.document.ImageDocumentDetector;
-import com.telegram.codex.telegram.document.PdfDocumentDetector;
-import com.telegram.codex.telegram.document.TextDocumentDetector;
-import java.lang.reflect.Method;
+
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -16,9 +14,7 @@ import org.junit.jupiter.api.Test;
 class TelegramUpdateParserTest {
 
     private final ImageDocumentDetector imageDetector = new ImageDocumentDetector();
-    private final PdfDocumentDetector pdfDetector = new PdfDocumentDetector();
-    private final TextDocumentDetector textDetector = new TextDocumentDetector(imageDetector, pdfDetector);
-    private final DocumentTypeRegistry registry = new DocumentTypeRegistry(imageDetector, pdfDetector, textDetector);
+    private final DocumentTypeRegistry registry = new DocumentTypeRegistry(imageDetector);
     private final TelegramUpdateParser parser = new TelegramUpdateParser(registry);
 
     @Test
@@ -46,8 +42,7 @@ class TelegramUpdateParserTest {
         assertNotNull(message);
         assertEquals("3", message.chatId());
         assertEquals(List.of("large"), message.imageFileIds());
-        assertEquals("doc-1", message.replyToPdfFileId());
-        assertEquals("用戶引用咗一份 PDF。", message.replyToText());
+        assertNull(message.replyToText());
     }
 
     @Test
@@ -59,6 +54,25 @@ class TelegramUpdateParserTest {
                 "chat", Map.of("id", 3),
                 "from", Map.of("id", 5),
                 "sticker", Map.of("file_id", "sticker-1")
+            )
+        );
+
+        assertNull(parser.parseIncomingTelegramMessage(update));
+    }
+
+    @Test
+    void ignoresUnsupportedDocuments() {
+        Map<String, Object> update = Map.of(
+            "update_id", 101,
+            "message", Map.of(
+                "message_id", 14,
+                "chat", Map.of("id", 3),
+                "from", Map.of("id", 5),
+                "document", Map.of(
+                    "file_id", "doc-2",
+                    "mime_type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    "file_name", "brief.docx"
+                )
             )
         );
 
@@ -85,10 +99,7 @@ class TelegramUpdateParserTest {
         assertNotNull(message);
         assertEquals(List.of(), message.replyToImageFileIds());
         assertEquals(11L, message.replyToMessageId());
-        assertNull(message.replyToPdfFileId());
         assertNull(message.replyToText());
-        assertNull(message.replyToTextDocumentFileId());
-        assertNull(message.replyToTextDocumentName());
     }
 
     @Test
@@ -111,9 +122,6 @@ class TelegramUpdateParserTest {
         assertNotNull(message);
         assertEquals(List.of(), message.replyToImageFileIds());
         assertNull(message.replyToMessageId());
-        assertNull(message.replyToPdfFileId());
         assertNull(message.replyToText());
-        assertNull(message.replyToTextDocumentFileId());
-        assertNull(message.replyToTextDocumentName());
     }
 }

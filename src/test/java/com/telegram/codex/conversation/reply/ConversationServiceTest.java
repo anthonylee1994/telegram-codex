@@ -51,6 +51,6 @@ class ConversationServiceTest {
     }
 
     private InboundMessage buildMessage() {
-        return new InboundMessage("3", List.of(), null, 10, null, List.of(), List.of(), null, null, null, null, null, "你好", null, null, "5", 99);
+        return new InboundMessage("3", List.of(), null, 10, List.of(), List.of(), null, null, "你好", "5", 99);
     }
 }

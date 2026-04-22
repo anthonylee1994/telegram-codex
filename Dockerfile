@@ -7,7 +7,7 @@ WORKDIR /app
 COPY .codex-version /tmp/.codex-version
 
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y ca-certificates curl git poppler-utils sqlite3 unzip nodejs npm && \
+    apt-get install --no-install-recommends -y ca-certificates curl git sqlite3 nodejs npm && \
     npm install -g @openai/codex@"$(cat /tmp/.codex-version)" && \
     rm -rf /var/lib/apt/lists/* /tmp/.codex-version
 
@@ -25,7 +25,7 @@ WORKDIR /app
 COPY .codex-version /tmp/.codex-version
 
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y ca-certificates curl git poppler-utils sqlite3 unzip nodejs npm && \
+    apt-get install --no-install-recommends -y ca-certificates curl git sqlite3 nodejs npm && \
     npm install -g @openai/codex@"$(cat /tmp/.codex-version)" && \
     mkdir -p /app/data /root/.codex && \
     rm -rf /var/lib/apt/lists/* /tmp/.codex-version
