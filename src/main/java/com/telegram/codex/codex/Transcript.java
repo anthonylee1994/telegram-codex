@@ -63,6 +63,18 @@ public final class Transcript {
         return List.copyOf(lines);
     }
 
+    public List<String> toTaggedPromptLines() {
+        ArrayList<String> lines = new ArrayList<>();
+        for (int index = 0; index < messages.size(); index += 1) {
+            Map<String, String> message = messages.get(index);
+            String role = message.get("role");
+            lines.add("<message index=\"" + (index + 1) + "\" role=\"" + role + "\">");
+            lines.add(message.get("content"));
+            lines.add("</message>");
+        }
+        return List.copyOf(lines);
+    }
+
     public String toConversationState(ObjectMapper objectMapper) {
         return JsonSerializer.serialize(objectMapper, messages);
     }
