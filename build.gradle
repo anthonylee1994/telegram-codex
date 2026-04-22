@@ -6,7 +6,7 @@ plugins {
 
 def sqliteNativeAccessArg = '--enable-native-access=ALL-UNNAMED'
 
-group = 'com.telegramcodex'
+group = 'com.telegram.codex'
 version = '1.0.0'
 
 java {
@@ -31,7 +31,7 @@ dependencies {
     implementation 'org.hibernate.orm:hibernate-community-dialects'
     implementation 'org.xerial:sqlite-jdbc:3.50.3.0'
     implementation 'org.jsoup:jsoup:1.18.3'
-    implementation 'org.apache.poi:poi-ooxml:5.4.1'
+    implementation 'org.apache.poi:poi-ooxml:5.5.1'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.mockito:mockito-junit-jupiter'

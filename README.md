@@ -53,7 +53,7 @@ Demo：https://t.me/On99AppBot
 核心 runtime 係 Spring Boot 3.5 + JPA + Flyway + SQLite。
 
 ```text
-src/main/java/com/telegramcodex/
+src/main/java/com/telegram.codex/
 ├── TelegramCodexApplication.java
 ├── cli/
 │   └── CliTaskRunner.java
@@ -103,7 +103,7 @@ src/main/resources/
 └── db/migration/
     ├── V1__create_app_tables.sql
     └── V2__fix_updated_at_bigint_columns.sql
-src/test/java/com/telegramcodex/
+src/test/java/com/telegram.codex/
 └── ...
 ```
 
@@ -137,15 +137,15 @@ src/test/java/com/telegramcodex/
 拆開講：
 
 1. Telegram webhook 打入 Spring Boot。
-2. [`TelegramWebhookController`](src/main/java/com/telegramcodex/web/TelegramWebhookController.java) 先驗 secret token。
-3. 驗證通過後，controller 將 payload 交畀 [`TelegramWebhookHandler`](src/main/java/com/telegramcodex/telegram/TelegramWebhookHandler.java)。
-4. handler 先用 [`TelegramUpdateParser`](src/main/java/com/telegramcodex/telegram/TelegramUpdateParser.java) parse 文字 / 圖片 / PDF / 文字檔 / reply context。
-5. 如果係 Telegram 相簿，會先寫入 [`MediaGroupStore`](src/main/java/com/telegramcodex/conversation/MediaGroupStore.java)，再排 delayed flush。
-6. 非相簿 message 就交畀 [`InboundMessageProcessor`](src/main/java/com/telegramcodex/telegram/InboundMessageProcessor.java) 做 decision。
+2. [`TelegramWebhookController`](src/main/java/com/telegram.codex/web/TelegramWebhookController.java) 先驗 secret token。
+3. 驗證通過後，controller 將 payload 交畀 [`TelegramWebhookHandler`](src/main/java/com/telegram.codex/telegram/TelegramWebhookHandler.java)。
+4. handler 先用 [`TelegramUpdateParser`](src/main/java/com/telegram.codex/telegram/TelegramUpdateParser.java) parse 文字 / 圖片 / PDF / 文字檔 / reply context。
+5. 如果係 Telegram 相簿，會先寫入 [`MediaGroupStore`](src/main/java/com/telegram.codex/conversation/MediaGroupStore.java)，再排 delayed flush。
+6. 非相簿 message 就交畀 [`InboundMessageProcessor`](src/main/java/com/telegram.codex/telegram/InboundMessageProcessor.java) 做 decision。
 7. processor 會處理 duplicate、pending reply replay、allowed users、`/start`、`/help`、`/status`、`/session`、`/memory`、`/forget`、`/summary`、`/new` 同 chat-level rate limit。
-8. 真正要生成回覆時，[`JobSchedulerService`](src/main/java/com/telegramcodex/jobs/JobSchedulerService.java) 會用 virtual thread enqueue reply generation，webhook thread 就即刻回 `200 OK`。
-9. [`ReplyGenerationFlow`](src/main/java/com/telegramcodex/conversation/ReplyGenerationFlow.java) 會 download 附件、必要時將 PDF 轉 PNG、將文字檔抽成 prompt text，再 call [`ConversationService`](src/main/java/com/telegramcodex/conversation/ConversationService.java)。
-10. [`CliClient`](src/main/java/com/telegramcodex/codex/CliClient.java) 用 transcript + system prompt 跑 `codex exec`，再生成最多 3 個 suggested replies。
+8. 真正要生成回覆時，[`JobSchedulerService`](src/main/java/com/telegram.codex/jobs/JobSchedulerService.java) 會用 virtual thread enqueue reply generation，webhook thread 就即刻回 `200 OK`。
+9. [`ReplyGenerationFlow`](src/main/java/com/telegram.codex/conversation/ReplyGenerationFlow.java) 會 download 附件、必要時將 PDF 轉 PNG、將文字檔抽成 prompt text，再 call [`ConversationService`](src/main/java/com/telegram.codex/conversation/ConversationService.java)。
+10. [`CliClient`](src/main/java/com/telegram.codex/codex/CliClient.java) 用 transcript + system prompt 跑 `codex exec`，再生成最多 3 個 suggested replies。
 11. reply 成功 send 番 Telegram 之後，system 先更新 session state 同長期記憶。
 12. `/summary` 會走另一條 async path，整理完再主動 send 摘要返 Telegram。
 
@@ -155,41 +155,41 @@ src/test/java/com/telegramcodex/
 
 ### HTTP 層
 
-- [`TelegramCodexApplication.java`](src/main/java/com/telegramcodex/TelegramCodexApplication.java)
+- [`TelegramCodexApplication.java`](src/main/java/com/telegram.codex/TelegramCodexApplication.java)
   - Spring Boot 入口。
   - 起 app 前會先根據 `SQLITE_DB_PATH` 建好 database directory。
 
-- [`HealthController.java`](src/main/java/com/telegramcodex/web/HealthController.java)
+- [`HealthController.java`](src/main/java/com/telegram.codex/web/HealthController.java)
   - 提供 `GET /health`。
   - 比 load balancer、Dokku、自己 curl check service 仲生勾勾。
 
-- [`TelegramWebhookController.java`](src/main/java/com/telegramcodex/web/TelegramWebhookController.java)
+- [`TelegramWebhookController.java`](src/main/java/com/telegram.codex/web/TelegramWebhookController.java)
   - Telegram webhook 真入口。
   - 只做三件事：驗 secret、call handler、將結果轉成 HTTP status。
   - 回覆生成已經唔喺 request thread 做，webhook 主要負責快速 ack Telegram。
 
 ### Telegram / Webhook
 
-- [`TelegramWebhookHandler.java`](src/main/java/com/telegramcodex/telegram/TelegramWebhookHandler.java)
+- [`TelegramWebhookHandler.java`](src/main/java/com/telegram.codex/telegram/TelegramWebhookHandler.java)
   - webhook flow 入口。
   - 負責 parse update，同埋將 Telegram 相簿 defer 去 flush path。
 
-- [`TelegramUpdateParser.java`](src/main/java/com/telegramcodex/telegram/TelegramUpdateParser.java)
+- [`TelegramUpdateParser.java`](src/main/java/com/telegram.codex/telegram/TelegramUpdateParser.java)
   - 將 Telegram 原始 payload 轉成 app 內部用嘅 `InboundMessage`。
   - 支援文字訊息、單張圖片、圖片 document、PDF、文字 document 同 Telegram 相簿訊息。
   - user 如果 reply 之前一則 message，呢層會一齊抽返被引用文字、相、PDF、文字檔 context。
 
-- [`InboundMessageProcessor.java`](src/main/java/com/telegramcodex/telegram/InboundMessageProcessor.java)
+- [`InboundMessageProcessor.java`](src/main/java/com/telegram.codex/telegram/InboundMessageProcessor.java)
   - 大部分 Telegram 行為都喺呢度做 decision / action routing。
   - 包括 unsupported fallback、duplicate ignore、pending reply replay、unauthorized user reject、commands、rate limit、media group aggregation 後續處理。
 
-- [`TelegramClient.java`](src/main/java/com/telegramcodex/telegram/TelegramClient.java)
+- [`TelegramClient.java`](src/main/java/com/telegram.codex/telegram/TelegramClient.java)
   - 包住 Telegram Bot API。
   - 主要做 send message、send / remove reply keyboard、send typing action、download file、set webhook、update commands。
 
 ### Conversation / Codex
 
-- [`ConversationService.java`](src/main/java/com/telegramcodex/conversation/ConversationService.java)
+- [`ConversationService.java`](src/main/java/com/telegram.codex/conversation/ConversationService.java)
   - 對話層 orchestration。
   - 主要責任：
     - 讀寫 session / memory / processed update
@@ -199,41 +199,41 @@ src/test/java/com/telegramcodex/
     - call `SessionSummaryClient` 壓縮 session context
     - opportunistic prune 舊 processed updates
 
-- [`ReplyGenerationFlow.java`](src/main/java/com/telegramcodex/conversation/ReplyGenerationFlow.java)
+- [`ReplyGenerationFlow.java`](src/main/java/com/telegram.codex/conversation/ReplyGenerationFlow.java)
   - 真正處理 Telegram 附件 download 嗰層。
-  - 收到 PDF 會先 download，再用 [`PdfPageRasterizer`](src/main/java/com/telegramcodex/documents/PdfPageRasterizer.java) 將頭幾頁轉做 PNG。
-  - 收到 `.txt`、`.md`、`.html`、`.json`、`.csv`、`.docx`、`.xlsx` 會先用 [`TextDocumentExtractor`](src/main/java/com/telegramcodex/documents/TextDocumentExtractor.java) 抽文字再拼入 prompt。
+  - 收到 PDF 會先 download，再用 [`PdfPageRasterizer`](src/main/java/com/telegram.codex/documents/PdfPageRasterizer.java) 將頭幾頁轉做 PNG。
+  - 收到 `.txt`、`.md`、`.html`、`.json`、`.csv`、`.docx`、`.xlsx` 會先用 [`TextDocumentExtractor`](src/main/java/com/telegram.codex/documents/TextDocumentExtractor.java) 抽文字再拼入 prompt。
   - 如果今次冇新附件，但 reply 咗之前一份相 / PDF / 文字檔，亦會 fallback download 嗰份被引用文件再分析。
 
-- [`CliClient.java`](src/main/java/com/telegramcodex/codex/CliClient.java)
+- [`CliClient.java`](src/main/java/com/telegram.codex/codex/CliClient.java)
   - 真正同 `codex exec` 接軌嗰層。
   - 會 parse 上次 conversation state、relevant 時帶長期記憶入 prompt、處理 reply 舊訊息 context、多圖分析 prompt、suggested replies，同讀返 `codex exec --output-last-message`。
 
-- [`MemoryClient.java`](src/main/java/com/telegramcodex/conversation/MemoryClient.java)
+- [`MemoryClient.java`](src/main/java/com/telegram.codex/conversation/MemoryClient.java)
   - 專責將最新 user message 同 assistant reply merge 入長期記憶。
   - 只保留穩定偏好、背景、持續目標，唔會將短期 task context 原封不動抄落去。
 
-- [`SessionSummaryClient.java`](src/main/java/com/telegramcodex/conversation/SessionSummaryClient.java)
+- [`SessionSummaryClient.java`](src/main/java/com/telegram.codex/conversation/SessionSummaryClient.java)
   - `/summary` 用嘅 session 壓縮器。
   - 整理長對話，保留重點，之後主動 send 番摘要。
 
 ### Jobs / Scheduling
 
-- [`JobSchedulerService.java`](src/main/java/com/telegramcodex/jobs/JobSchedulerService.java)
+- [`JobSchedulerService.java`](src/main/java/com/telegram.codex/jobs/JobSchedulerService.java)
   - 用 virtual threads 跑 reply generation 同 summary。
   - 另外用 single-thread scheduler 做 Telegram 相簿 flush deadline。
   - 唔需要額外 queue worker process。
 
-- [`MediaGroupStore.java`](src/main/java/com/telegramcodex/conversation/MediaGroupStore.java)
+- [`MediaGroupStore.java`](src/main/java/com/telegram.codex/conversation/MediaGroupStore.java)
   - 包住 `media_group_buffers` 同 `media_group_messages`。
   - 負責 enqueue album update、判斷 flush deadline、同到鐘之後 aggregate 成一條 `InboundMessage`。
 
-- [`SummaryResultSender.java`](src/main/java/com/telegramcodex/telegram/SummaryResultSender.java)
+- [`SummaryResultSender.java`](src/main/java/com/telegram.codex/telegram/SummaryResultSender.java)
   - `/summary` 整完之後主動 send 結果返 Telegram。
 
 ### Persistence / Config
 
-- [`AppProperties.java`](src/main/java/com/telegramcodex/config/AppProperties.java)
+- [`AppProperties.java`](src/main/java/com/telegram.codex/config/AppProperties.java)
   - 將 ENV parse 成 app 用嘅 config object。
   - 包含 validation，例如 `baseUrl`、bot token、webhook secret 唔可以留空。
 
@@ -244,7 +244,7 @@ src/test/java/com/telegramcodex/
 - [`V1__create_app_tables.sql`](src/main/resources/db/migration/V1__create_app_tables.sql)
   - 建立 app runtime 需要嘅 SQLite tables。
 
-- [`CliTaskRunner.java`](src/main/java/com/telegramcodex/cli/CliTaskRunner.java)
+- [`CliTaskRunner.java`](src/main/java/com/telegram.codex/cli/CliTaskRunner.java)
   - 支援 CLI task：
     - `telegram:set-webhook`
     - `telegram:update-commands`
