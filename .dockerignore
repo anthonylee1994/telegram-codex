@@ -1,4 +1,3 @@
-/.bundle
 /.env*
 /.git
 /.gitignore
@@ -9,6 +8,8 @@
 /tmp/storage/*
 /node_modules
 /dist
+/build
+/.gradle
 /data/*.db
 /data/*.db-*
 !/log/.keep

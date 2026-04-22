@@ -1,4 +1,3 @@
-/.bundle
 /.env*
 /log/*
 /tmp/*
@@ -7,6 +6,8 @@
 /tmp/storage/*
 /node_modules
 /dist
+/build
+/.gradle
 /data/*.db
 /data/*.db-*
 /data/*.sqlite3
@@ -18,5 +19,3 @@
 !/tmp/storage/.keep
 .claude
 .idea
-.gem_rbs_collection
-.ruby-lsp

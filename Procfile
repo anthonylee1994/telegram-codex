@@ -1,2 +1,1 @@
-web: bundle exec puma -C config/puma.rb
-worker: bundle exec bin/jobs
+web: java --enable-native-access=ALL-UNNAMED -jar build/libs/telegram-codex-1.0.0.jar

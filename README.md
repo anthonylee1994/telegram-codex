@@ -1,6 +1,6 @@
 # telegram-codex
 
-用 Telegram webhook 收訊息，之後 enqueue background job 跑 `codex exec` 做回覆；對話狀態用 SQLite 存，而家個 HTTP layer 用 Ruby on Rails API。
+用 Telegram webhook 收訊息，之後 enqueue background work 跑 `codex exec` 做回覆；對話狀態用 SQLite 存，而家個 HTTP layer 係 Spring Boot API。
 
 Demo：https://t.me/On99AppBot
 
@@ -48,90 +48,106 @@ Demo：https://t.me/On99AppBot
 
 - 語音、影片、其他檔案
 
-## Rails API 架構
+## Spring Boot 架構
+
+而家個 repo 已經唔係 Rails，核心 runtime 係 Spring Boot 3.5 + JPA + Flyway + SQLite。
 
 ```text
-app/
-├── controllers/
-│   ├── health_controller.rb
-│   └── telegram_webhooks_controller.rb
+src/main/java/com/telegramcodex/
+├── TelegramCodexApplication.java
+├── cli/
+│   └── CliTaskRunner.java
+├── codex/
+│   ├── CliClient.java
+│   ├── ExecRunner.java
+│   ├── PromptBuilder.java
+│   ├── ReplyParser.java
+│   └── Transcript.java
+├── config/
+│   ├── AppProperties.java
+│   └── JacksonConfig.java
+├── conversation/
+│   ├── ConversationService.java
+│   ├── MediaGroupStore.java
+│   ├── MemoryClient.java
+│   ├── ProcessedUpdateFlow.java
+│   ├── ReplyGenerationFlow.java
+│   ├── SessionSummaryClient.java
+│   └── webhooks/
+│       ├── ActionExecutor.java
+│       ├── Decision.java
+│       └── DecisionResolver.java
+├── documents/
+│   ├── PdfPageRasterizer.java
+│   └── TextDocumentExtractor.java
 ├── jobs/
-│   ├── media_group_flush_job.rb
-│   ├── reply_generation_job.rb
-│   └── session_summary_job.rb
-├── models/
-│   ├── media_group_buffer.rb
-│   ├── media_group_message.rb
-│   ├── chat_session.rb
-│   ├── chat_memory.rb
-│   └── processed_update.rb
-└── services/
-    ├── app_config.rb
-    ├── codex/
-    ├── conversation/
-    │   └── webhooks/
-    ├── documents/
-    └── telegram/
-db/
-├── migrate/
-│   ├── create_chat_memories.rb
-│   ├── create_chat_sessions.rb
-│   └── create_processed_updates.rb
-└── schema.rb
-lib/tasks/
-└── telegram.rake
-spec/
+│   └── JobSchedulerService.java
+├── persistence/
+│   ├── ChatMemoryEntity.java
+│   ├── ChatSessionEntity.java
+│   ├── MediaGroupBufferEntity.java
+│   ├── MediaGroupMessageEntity.java
+│   └── ProcessedUpdateEntity.java
+├── telegram/
+│   ├── InboundMessage.java
+│   ├── InboundMessageProcessor.java
+│   ├── SummaryResultSender.java
+│   ├── TelegramClient.java
+│   ├── TelegramUpdateParser.java
+│   └── TelegramWebhookHandler.java
+└── web/
+    ├── HealthController.java
+    └── TelegramWebhookController.java
+src/main/resources/
+├── application.yml
+└── db/migration/
+    ├── V1__create_app_tables.sql
+    └── V2__fix_updated_at_bigint_columns.sql
+src/test/java/com/telegramcodex/
 └── ...
 ```
 
-呢個 repo 其實幾刻意咁保持薄 controller、厚 service：
+個分層思路其實冇變，只係由 Rails service-oriented 寫法搬去 Java：
 
 - controller 只處理 HTTP request / response
-- parser 專心將 Telegram payload 轉成 app 可以用嘅格式
-- service 負責業務邏輯
-- model 只做 persistence，唔塞太多 business rule
+- parser 專心將 Telegram payload 轉成 app message
+- conversation / telegram / codex service 負責業務邏輯
+- persistence layer 只處理資料存取
 
-咁做嘅好處係：
+咁做嘅目的都一樣：
 
-- webhook flow 容易測試
-- `codex exec` integration 唔會同 HTTP 層綁死
-- SQLite / Telegram / Codex 三個依賴點都分得比較開
+- webhook flow 易測
+- `codex exec` integration 同 HTTP 層分開
+- SQLite / Telegram / Codex 三個依賴點唔會黐埋一舊
 
 ## Request Flow
 
-由 Telegram 打入嚟，到 bot 回覆，用緊以下條 path：
+由 Telegram 打入嚟，到 bot 回覆，而家條 path 係：
 
 - `POST /telegram/webhook` 驗證 `X-Telegram-Bot-Api-Secret-Token`
-- `Telegram::UpdateParser` 將 Telegram payload 轉成 app message
-- `Telegram::MediaGroupAggregator` 將 Telegram 相簿訊息寫入 shared store，並排 delayed flush job
-- `Telegram::WebhookHandler` 做 duplicate、防重送、allowed user、commands、rate limit
-- `Conversation::Service` 管 session TTL、長期記憶，同 `Codex::CliClient` 串 `codex exec`
-- `MediaGroupFlushJob` / `ReplyGenerationJob` / `SessionSummaryJob` 非同步做相簿 flush、生成回覆、生成摘要
-- `ChatSession` / `ChatMemory` / `ProcessedUpdate` / `MediaGroupBuffer` / `MediaGroupMessage` 用 SQLite 存狀態
-- `rake telegram:set_webhook` 取代原本 script
+- `TelegramUpdateParser` 將 Telegram payload 轉成 `InboundMessage`
+- `InboundMessageProcessor` 做 duplicate、防重送、allowed user、commands、rate limit
+- `MediaGroupStore` 將 Telegram 相簿訊息寫入 SQLite shared store，再由 `JobSchedulerService` 排 flush
+- `ConversationService` 管 session TTL、長期記憶、summary，同 `CliClient` 串 `codex exec`
+- `ReplyGenerationFlow` 非同步做附件 download、PDF 轉圖、文字檔抽字、主回答生成
+- `SummaryResultSender` 將 `/summary` 結果主動 send 返 Telegram
+- `ChatSession` / `ChatMemory` / `ProcessedUpdate` / `MediaGroupBuffer` / `MediaGroupMessage` 都係用 SQLite 存
+- `bin/telegram-codex telegram:set-webhook` 同 `telegram:update-commands` 取代舊 task
 
-拆開少少講：
+拆開講：
 
-1. Telegram webhook 打入 Rails。
-2. `TelegramWebhooksController` 先驗證 secret token。
-3. 驗證通過後，controller 將 payload 交畀 `Telegram::WebhookHandler`。
-4. handler 會：
-   - parse 文字 / 圖片 message
-   - parse `reply_to_message`，抽返被引用文字或者文件 context
-   - 如果係 Telegram 相簿，先寫入 shared store，然後排 delayed flush job
-   - 檢查係咪 duplicate update
-   - 檢查係咪 pending reply replay
-   - 檢查 allowed users
-   - 處理 `/start`、`/help`、`/status`、`/session`、`/memory`、`/forget`、`/summary`、`/new`
-   - 做 chat-level rate limit
-5. 如果唔係相簿，真正要生成回覆時，handler 會 enqueue `ReplyGenerationJob`，Webhook 先即刻回 `200 OK`。
-6. 如果係相簿，`MediaGroupFlushJob` 會喺 deadline 到咗之後將同一個 album 聚合返做一條 app message，再交返 `Telegram::WebhookHandler`。
-7. `ReplyGenerationJob` 再 call `Conversation::Service` 攞返目前 chat 嘅 session state。
-8. `Conversation::Service` call `Codex::CliClient`。
-9. `Codex::CliClient` 用 transcript + system prompt 組 prompt，然後跑 `codex exec`。
-10. `Codex::CliClient` 會再生成 3 個 suggested replies。
-11. job 將主答案同 suggested replies send 番 Telegram，並將新 session state 寫返 SQLite。
-12. reply 成功送出後，system 會再用同一輪 user message + assistant reply 嘗試更新長期記憶。
+1. Telegram webhook 打入 Spring Boot。
+2. [`TelegramWebhookController`](src/main/java/com/telegramcodex/web/TelegramWebhookController.java) 先驗 secret token。
+3. 驗證通過後，controller 將 payload 交畀 [`TelegramWebhookHandler`](src/main/java/com/telegramcodex/telegram/TelegramWebhookHandler.java)。
+4. handler 先用 [`TelegramUpdateParser`](src/main/java/com/telegramcodex/telegram/TelegramUpdateParser.java) parse 文字 / 圖片 / PDF / 文字檔 / reply context。
+5. 如果係 Telegram 相簿，會先寫入 [`MediaGroupStore`](src/main/java/com/telegramcodex/conversation/MediaGroupStore.java)，再排 delayed flush。
+6. 非相簿 message 就交畀 [`InboundMessageProcessor`](src/main/java/com/telegramcodex/telegram/InboundMessageProcessor.java) 做 decision。
+7. processor 會處理 duplicate、pending reply replay、allowed users、`/start`、`/help`、`/status`、`/session`、`/memory`、`/forget`、`/summary`、`/new` 同 chat-level rate limit。
+8. 真正要生成回覆時，[`JobSchedulerService`](src/main/java/com/telegramcodex/jobs/JobSchedulerService.java) 會用 virtual thread enqueue reply generation，webhook thread 就即刻回 `200 OK`。
+9. [`ReplyGenerationFlow`](src/main/java/com/telegramcodex/conversation/ReplyGenerationFlow.java) 會 download 附件、必要時將 PDF 轉 PNG、將文字檔抽成 prompt text，再 call [`ConversationService`](src/main/java/com/telegramcodex/conversation/ConversationService.java)。
+10. [`CliClient`](src/main/java/com/telegramcodex/codex/CliClient.java) 用 transcript + system prompt 跑 `codex exec`，再生成最多 3 個 suggested replies。
+11. reply 成功 send 番 Telegram 之後，system 先更新 session state 同長期記憶。
+12. `/summary` 會走另一條 async path，整理完再主動 send 摘要返 Telegram。
 
 ## 主要檔案點運作
 
@@ -139,209 +155,99 @@ spec/
 
 ### HTTP 層
 
-- [`application_controller.rb`](app/controllers/application_controller.rb)
-  - Rails API base controller，而家冇塞 logic，純粹做入口底座。
+- [`TelegramCodexApplication.java`](src/main/java/com/telegramcodex/TelegramCodexApplication.java)
+  - Spring Boot 入口。
+  - 起 app 前會先根據 `SQLITE_DB_PATH` 建好 database directory。
 
-- [`health_controller.rb`](app/controllers/health_controller.rb)
+- [`HealthController.java`](src/main/java/com/telegramcodex/web/HealthController.java)
   - 提供 `GET /health`。
-  - 主要比 load balancer、Dokku、自己 curl check service 仲生勾勾。
+  - 比 load balancer、Dokku、自己 curl check service 仲生勾勾。
 
-- [`telegram_webhooks_controller.rb`](app/controllers/telegram_webhooks_controller.rb)
+- [`TelegramWebhookController.java`](src/main/java/com/telegramcodex/web/TelegramWebhookController.java)
   - Telegram webhook 真入口。
   - 只做三件事：驗 secret、call handler、將結果轉成 HTTP status。
   - 回覆生成已經唔喺 request thread 做，webhook 主要負責快速 ack Telegram。
-  - 呢層刻意唔做重業務邏輯，因為 webhook flow 測試會乾淨好多。
 
-### Model / Persistence
+### Telegram / Webhook
 
-- [`chat_session.rb`](app/models/chat_session.rb)
-  - 每個 Telegram chat 一條 row。
-  - 存 `last_response_id` 同 `updated_at`。
-  - 作用係畀下次 `codex exec` 知道上一輪對話狀態。
-  - `/new` 會清走目前 chat 嘅 session。
-  - session 過期唔係靠 cron，而係下次個 chat 再講嘢時 lazy cleanup。
+- [`TelegramWebhookHandler.java`](src/main/java/com/telegramcodex/telegram/TelegramWebhookHandler.java)
+  - webhook flow 入口。
+  - 負責 parse update，同埋將 Telegram 相簿 defer 去 flush path。
 
-- [`chat_memory.rb`](app/models/chat_memory.rb)
-  - 每個 Telegram chat 一條 row。
-  - 存獨立長期記憶摘要，唔受 session TTL 影響。
-  - 內容主要係穩定偏好、背景、持續目標之類值得之後帶返入 prompt 嘅資料。
-  - `/forget` 會清走目前 chat 嘅長期記憶。
+- [`TelegramUpdateParser.java`](src/main/java/com/telegramcodex/telegram/TelegramUpdateParser.java)
+  - 將 Telegram 原始 payload 轉成 app 內部用嘅 `InboundMessage`。
+  - 支援文字訊息、單張圖片、圖片 document、PDF、文字 document 同 Telegram 相簿訊息。
+  - user 如果 reply 之前一則 message，呢層會一齊抽返被引用文字、相、PDF、文字檔 context。
 
-- [`processed_update.rb`](app/models/processed_update.rb)
-  - 用 Telegram `update_id` 做主鍵。
-  - 主要係防 duplicate webhook，仲有 pending reply replay。
-  - 如果 reply 已生成但 send Telegram 失敗，下次 Telegram resend 同一個 update，app 可以直接補送主答案同 suggested replies，唔使再 call 一次 Codex。
+- [`InboundMessageProcessor.java`](src/main/java/com/telegramcodex/telegram/InboundMessageProcessor.java)
+  - 大部分 Telegram 行為都喺呢度做 decision / action routing。
+  - 包括 unsupported fallback、duplicate ignore、pending reply replay、unauthorized user reject、commands、rate limit、media group aggregation 後續處理。
 
-- [`media_group_buffer.rb`](app/models/media_group_buffer.rb)
-  - 每個 pending Telegram album 一條 row。
-  - 用 `chat_id:media_group_id` 做 key，存最新 flush deadline。
-  - 作用係將 media group aggregation 搬去 shared store，跨 process / worker 都睇到同一份狀態。
-
-- [`media_group_message.rb`](app/models/media_group_message.rb)
-  - 每個屬於 album 嘅 Telegram update 一條 row。
-  - 存原始 app payload，等 flush job 到鐘之後可以重新組返 aggregated message。
-
-### Service 層
-
-- [`app_config.rb`](app/services/app_config.rb)
-  - 將 ENV parse 成 app 用嘅 config object。
-  - 同時會確保 SQLite directory 存在。
-  - 呢層等你唔使到處直接 `ENV.fetch`。
-
-- [`update_parser.rb`](app/services/telegram/update_parser.rb)
-  - 將 Telegram 原始 payload 轉成 app 內部用嘅 hash。
-  - 支援文字訊息、單張圖片、圖片 document、PDF document、文字 document 同 Telegram 相簿訊息。
-  - 如果 user 用 reply 功能引用之前一則 message，呢層會一齊抽返被引用文字、相、PDF、文字檔嘅 context。
-  - 每張圖都會揀 Telegram `photo` array 裏面最大嗰張。
-
-- [`media_group_aggregator.rb`](app/services/telegram/media_group_aggregator.rb)
-  - 唔再喺 memory 入面等 album flush。
-  - 而家會將 Telegram 相簿訊息寫入 SQLite shared store，再排 `MediaGroupFlushJob`。
-  - 咁做之後，就算開多個 Puma worker，album updates 都仲可以聚合到。
-
-- [`media_group_store.rb`](app/services/telegram/media_group_store.rb)
-  - 包住 `media_group_buffers` 同 `media_group_messages`。
-  - 負責 enqueue album update、判斷 flush deadline、同到鐘之後 aggregate 成一條 `Telegram::InboundMessage`。
-
-- [`chat_rate_limiter.rb`](app/services/conversation/chat_rate_limiter.rb)
-  - in-memory rate limiter。
-  - 粒度係 `chat_id`，唔係 global。
-  - 適合單機、小流量 bot；如果之後多 instances，就要改成 shared store。
-
-- [`client.rb`](app/services/telegram/client.rb)
+- [`TelegramClient.java`](src/main/java/com/telegramcodex/telegram/TelegramClient.java)
   - 包住 Telegram Bot API。
-  - 主要做：
-    - send message
-    - send / remove reply keyboard
-    - send typing action
-    - download image 到 temp file
-    - set webhook
-  - 仲會順手做 Telegram HTML formatting，令 code block / inline code 顯示得正常啲。
+  - 主要做 send message、send / remove reply keyboard、send typing action、download file、set webhook、update commands。
 
-- [`reply_generation_job.rb`](app/jobs/reply_generation_job.rb)
-  - 將原本同步 reply generation flow 搬去 background job。
-  - webhook claim 咗個 update 之後，就由呢個 job 負責真正生成 reply、send Telegram，同埋 pending reply replay。
+### Conversation / Codex
 
-- [`media_group_flush_job.rb`](app/jobs/media_group_flush_job.rb)
-  - 專責 flush Telegram 相簿。
-  - 如果 deadline 未到，會按最新 deadline 再排一次自己。
-  - 如果 deadline 到咗，就會 aggregate 同一個 album，然後交返 `Telegram::WebhookHandler` 做正常 decision / action flow。
-
-- [`reply_generation_flow.rb`](app/services/conversation/reply_generation_flow.rb)
-  - 真正處理 Telegram 附件 download 嗰層。
-  - 如果收到 PDF，會先 download，再用 `pdftoppm` 將頭幾頁轉做 PNG，之後先交畀 Codex。
-  - 如果收到 `.txt`、`.md`、`.html`、`.json`、`.csv`、`.docx`、`.xlsx`，會先抽文字再拼入 prompt。
-  - 如果今次訊息本身冇新附件，但係 reply 咗之前一份相 / PDF / 文字檔，亦會 fallback download 嗰份被引用文件再分析。
-
-- [`service.rb`](app/services/conversation/service.rb)
+- [`ConversationService.java`](src/main/java/com/telegramcodex/conversation/ConversationService.java)
   - 對話層 orchestration。
   - 主要責任：
-    - 讀寫 `ChatSession`
-    - 讀寫 `ChatMemory`
-    - 讀寫 `ProcessedUpdate`
+    - 讀寫 session / memory / processed update
     - 判斷 session TTL
-    - call `Codex::CliClient`
-    - call `Conversation::MemoryClient` 更新長期記憶
-    - call `Conversation::SessionSummaryClient` 壓縮 session context
-    - opportunistic prune 舊 `ProcessedUpdate`
-  - 如果你想搵「個 bot 記憶點樣管理」，通常由呢個 file 開始睇最啱。
+    - call `CliClient`
+    - call `MemoryClient` 更新長期記憶
+    - call `SessionSummaryClient` 壓縮 session context
+    - opportunistic prune 舊 processed updates
 
-- [`memory_client.rb`](app/services/conversation/memory_client.rb)
-  - 專責將最新 user message 同 assistant reply merge 入長期記憶。
-  - 只會保留長期有用嘅 user facts / preferences / 持續目標，唔會將短期 task context 成段照抄落去。
-  - 如果 merge 後應該清空記憶，會回傳空字串，repository 會刪 row。
+- [`ReplyGenerationFlow.java`](src/main/java/com/telegramcodex/conversation/ReplyGenerationFlow.java)
+  - 真正處理 Telegram 附件 download 嗰層。
+  - 收到 PDF 會先 download，再用 [`PdfPageRasterizer`](src/main/java/com/telegramcodex/documents/PdfPageRasterizer.java) 將頭幾頁轉做 PNG。
+  - 收到 `.txt`、`.md`、`.html`、`.json`、`.csv`、`.docx`、`.xlsx` 會先用 [`TextDocumentExtractor`](src/main/java/com/telegramcodex/documents/TextDocumentExtractor.java) 抽文字再拼入 prompt。
+  - 如果今次冇新附件，但 reply 咗之前一份相 / PDF / 文字檔，亦會 fallback download 嗰份被引用文件再分析。
 
-- [`cli_client.rb`](app/services/codex/cli_client.rb)
+- [`CliClient.java`](src/main/java/com/telegramcodex/codex/CliClient.java)
   - 真正同 `codex exec` 接軌嗰層。
-  - 佢會：
-    - parse 上次 conversation state
-    - relevant 時將長期記憶一齊拼入 prompt
-    - 先同 system prompt 拼埋做 prompt 生成主答案
-    - 如果今次係 reply 舊訊息，會將被引用內容一齊拼入最新 user message
-    - 多圖時會要求模型用 `圖 1`、`圖 2` 呢類編號逐張分析
-    - 冇 caption 但有圖時會自動補一段分析 prompt
-    - 再用更新後 transcript 生成 suggested replies
-    - 如果有圖就加 `--image`
-    - PDF 其實係先轉做圖片，所以對 Codex 嚟講都係多圖分析
-    - 文字檔就會先抽內容，再當文字 prompt 一部分交畀 Codex
-    - 讀返 `codex exec --output-last-message` 生成嘅最後訊息
-  - `codex exec` 仍然係同步 call，但而家係喺 background job 入面跑，唔會再頂住 webhook request。
+  - 會 parse 上次 conversation state、relevant 時帶長期記憶入 prompt、處理 reply 舊訊息 context、多圖分析 prompt、suggested replies，同讀返 `codex exec --output-last-message`。
 
-- [`webhook_handler.rb`](app/services/telegram/webhook_handler.rb)
-  - 成個 bot flow 最核心嘅 file。
-  - 大部分 Telegram 行為都喺呢度：
-    - unsupported message fallback
-    - duplicate ignore
-    - pending reply replay
-    - unauthorized user reject
-    - `/start`
-    - `/help`
-    - `/status`
-    - `/session`
-    - `/memory`
-    - `/forget`
-    - `/summary`
-    - `/new`
-    - rate limit
-    - media group aggregation
-    - album 過多圖片時先提示 user 揀重點
-  - 真正附件 download、typing status、reply keyboard suggested replies、generic fallback 呢啲已經拆咗去其他 service / job。
+- [`MemoryClient.java`](src/main/java/com/telegramcodex/conversation/MemoryClient.java)
+  - 專責將最新 user message 同 assistant reply merge 入長期記憶。
+  - 只保留穩定偏好、背景、持續目標，唔會將短期 task context 原封不動抄落去。
 
-### Config / Tasks
+- [`SessionSummaryClient.java`](src/main/java/com/telegramcodex/conversation/SessionSummaryClient.java)
+  - `/summary` 用嘅 session 壓縮器。
+  - 整理長對話，保留重點，之後主動 send 番摘要。
 
-- [`routes.rb`](config/routes.rb)
-  - 只 expose 兩個 endpoint：
-    - `GET /health`
-    - `POST /telegram/webhook`
+### Jobs / Scheduling
 
-- [`database.yml`](config/database.yml)
-  - production 用 app DB + Solid Queue DB 嘅 SQLite multi-db 配置。
-  - app DB 預設 path 由 `SQLITE_DB_PATH` 控；queue DB 預設 path 由 `SOLID_QUEUE_DB_PATH` 控。
+- [`JobSchedulerService.java`](src/main/java/com/telegramcodex/jobs/JobSchedulerService.java)
+  - 用 virtual threads 跑 reply generation 同 summary。
+  - 另外用 single-thread scheduler 做 Telegram 相簿 flush deadline。
+  - 唔需要額外 queue worker process。
 
-- [`queue.yml`](config/queue.yml)
-  - Solid Queue worker / dispatcher 設定。
-  - 而家預設會跑全部 queues。
+- [`MediaGroupStore.java`](src/main/java/com/telegramcodex/conversation/MediaGroupStore.java)
+  - 包住 `media_group_buffers` 同 `media_group_messages`。
+  - 負責 enqueue album update、判斷 flush deadline、同到鐘之後 aggregate 成一條 `InboundMessage`。
 
-- [`Procfile`](Procfile)
-  - `web` 用 Puma 起 Rails API。
-  - `worker` 用 `bundle exec bin/jobs` 起 Solid Queue worker。
+- [`SummaryResultSender.java`](src/main/java/com/telegramcodex/telegram/SummaryResultSender.java)
+  - `/summary` 整完之後主動 send 結果返 Telegram。
 
-- [`development.rb`](config/environments/development.rb)
-  - development 保持用 `:async` job adapter，唔使另外開 Solid Queue worker 都可以本機試 flow。
-  - Telegram 相簿 flush 都會經 Active Job，所以本機開發一樣會走 delayed job path。
+### Persistence / Config
 
-- [`production.rb`](config/environments/production.rb)
-  - production 用 `:solid_queue`，並連去 `queue` database。
+- [`AppProperties.java`](src/main/java/com/telegramcodex/config/AppProperties.java)
+  - 將 ENV parse 成 app 用嘅 config object。
+  - 包含 validation，例如 `baseUrl`、bot token、webhook secret 唔可以留空。
 
-- [`telegram.rake`](lib/tasks/telegram.rake)
-  - `bundle exec rake telegram:set_webhook`
-  - 用而家 ENV 裏面個 `BASE_URL` 直接註冊 Telegram webhook。
-  - `bundle exec rake telegram:update_commands`
-  - 將 `/help`、`/status`、`/session`、`/memory`、`/forget`、`/summary`、`/new` command description 同步去 Telegram bot menu。
+- [`application.yml`](src/main/resources/application.yml)
+  - Spring Boot 主設定。
+  - 會 import `.env`、設 datasource、JPA、Flyway、virtual threads 同 app 自訂 config。
 
-- [`auto_annotate_models.rake`](lib/tasks/auto_annotate_models.rake)
-  - 同 schema comments / annotate model 有關。
-  - 純粹係維護工具，唔影響 runtime。
+- [`V1__create_app_tables.sql`](src/main/resources/db/migration/V1__create_app_tables.sql)
+  - 建立 app runtime 需要嘅 SQLite tables。
 
-### Tests
-
-- [`app_spec.rb`](spec/requests/app_spec.rb)
-  - 驗 HTTP 層：`/health` 同 webhook secret 驗證。
-
-- [`service_spec.rb`](spec/services/conversation/service_spec.rb)
-  - 驗 session TTL、reply generation input、長期記憶讀寫、processed update prune。
-
-- [`update_parser_spec.rb`](spec/services/telegram/update_parser_spec.rb)
-  - 驗 Telegram payload parsing，包括 `reply_to_message` 嘅文字 / 相 / PDF / 文字檔引用情況。
-
-- [`webhook_handler_spec.rb`](spec/services/telegram/webhook_handler_spec.rb)
-  - 驗 Telegram webhook 核心行為，包括 duplicate、防重入、相簿聚合後 enqueue、多圖過多時 fallback、commands。
-
-- [`media_group_store_spec.rb`](spec/services/telegram/media_group_store_spec.rb)
-  - 驗 shared-store album aggregation，包括 stale deadline、pending deadline、到鐘 flush。
-
-- [`media_group_flush_job_spec.rb`](spec/jobs/media_group_flush_job_spec.rb)
-  - 驗 delayed flush job 點樣將 album 交返 handler，或者按最新 deadline 重排。
+- [`CliTaskRunner.java`](src/main/java/com/telegramcodex/cli/CliTaskRunner.java)
+  - 支援 CLI task：
+    - `telegram:set-webhook`
+    - `telegram:update-commands`
 
 ## 資料點存
 
@@ -369,32 +275,32 @@ SQLite 而家主要有五張表：
 
 實際 lifecycle 係：
 
-- `ChatSession`
+- `chat_sessions`
   - `/new` 會清
-  - 過咗 `SESSION_TTL_DAYS` 會喺下次用到嗰個 chat 時被清
+  - 過咗 `SESSION_TTL_DAYS` 會喺下次用到嗰個 chat 時 lazy cleanup
 
-- `ChatMemory`
+- `chat_memories`
   - `/forget` 會清
   - `/new` 唔會清，因為長期記憶係獨立設計
   - 只會喺 reply 成功送出後先更新，避免 send fail 時寫咗半套狀態
 
-- `ProcessedUpdate`
+- `processed_updates`
   - reply send 成功後會保留
-  - `Conversation::Service` 會 opportunistic 清走已送出而且夠舊嘅 records
-  - 唔需要額外 cron job 都可以慢慢瘦身
+  - `ConversationService` 會 opportunistic 清走已送出而且夠舊嘅 records
 
-- `MediaGroupBuffer` / `MediaGroupMessage`
+- `media_group_buffers` / `media_group_messages`
   - album update 入 webhook 時建立 / 更新
-  - flush 成功後會即刻刪走
+  - flush 成功後即刻刪走
   - 主要作用係做短暫 debounce buffer，唔係長期資料
 
 ## 需求
 
-- Ruby `4.0.2`
-- Bundler `4.x`
+- Java `25`
+- Gradle `9.x`（repo 已包 `./gradlew`）
 - SQLite 3
 - `pdftoppm`（如果要用 PDF 轉圖分析；Docker image 已安裝 `poppler-utils`）
 - `unzip`（如果要抽 `.docx` / `.xlsx` 內容；Docker image 已安裝）
+- Node.js / npm（如果你想喺本機裝 `.codex-version` 指定嘅 Codex CLI）
 - 本機或 server 可以直接跑 `codex exec`
 - `~/.codex/config.toml` 同 `~/.codex/auth.json` 已配置好
 - 本機最好用 repo 根目錄 `.codex-version` 指定嗰個 Codex CLI 版本
@@ -417,9 +323,7 @@ SQLite 而家主要有五張表：
 | `RATE_LIMIT_WINDOW_MS` | rate limit window | `10000` |
 | `RATE_LIMIT_MAX_MESSAGES` | window 內最多幾多訊息 | `5` |
 
-## 部署
-
-### 本地開發
+## 本地開發
 
 1. 複製 `.env.example` 做 `.env`
 2. 填好環境變數：
@@ -427,28 +331,40 @@ SQLite 而家主要有五張表：
    - `BASE_URL`（例如 `https://your-domain.com`）
    - `TELEGRAM_WEBHOOK_SECRET`
    - `ALLOWED_TELEGRAM_USER_IDS`（可選）
-3. 安裝 gems
+3. 確保本機裝好 Codex CLI，或者用 `.codex-version` 指定版本：
 
 ```bash
-bundle install
+npm install -g @openai/codex@"$(cat .codex-version)"
 ```
 
-4. 準備 database
+4. build app：
 
 ```bash
-bundle exec rails db:prepare
+./gradlew bootJar
 ```
 
-5. 啟動 server
+5. 啟動 server：
 
 ```bash
-bundle exec rails server -p 3000
+./gradlew bootRun
 ```
 
-6. 註冊 webhook
+或者：
 
 ```bash
-bundle exec rake telegram:set_webhook
+bin/telegram-codex
+```
+
+6. 註冊 webhook：
+
+```bash
+bin/telegram-codex telegram:set-webhook
+```
+
+7. 如要同步 Telegram bot command menu：
+
+```bash
+bin/telegram-codex telegram:update-commands
 ```
 
 主要 endpoint：
@@ -460,8 +376,8 @@ bundle exec rake telegram:set_webhook
 
 - `/start`：顯示 welcome / help message，同時清走而家個 reply keyboard
 - `/help`：列出可用 command 同支援輸入類型
-- `/status`：睇 bot runtime 狀態，例如 queue adapter 同 session 是否 active
-- `/session`：睇目前 chat session 狀態，例如訊息數、最後更新時間
+- `/status`：睇 bot runtime 狀態，例如 session / memory / config 概況
+- `/session`：睇目前 chat session 狀態
 - `/memory`：睇目前 chat 嘅長期記憶內容
 - `/forget`：清除目前 chat 嘅長期記憶
 - `/summary`：非同步整理目前對話，壓縮成新 context，整完會再主動 send 摘要
@@ -485,54 +401,37 @@ bundle exec rake telegram:set_webhook
 
 ## 常見 debug 方法
 
-想 trace 某個 chat／update，通常會用以下幾招：
+想 trace 某個 chat / update，通常會用以下幾招：
 
-### 1. 用 Rails console 睇資料
+### 1. 打 health check
+
+```bash
+curl -i http://localhost:3000/health
+```
+
+### 2. 直接開 SQLite 睇資料
 
 本地：
 
 ```bash
-bundle exec rails console
+sqlite3 ./data/app.db
 ```
 
 Dokku：
 
 ```bash
-dokku run telegram-codex bundle exec rails console
+dokku run telegram-codex sqlite3 /app/data/app.db
 ```
 
 常用查詢：
 
-```ruby
-# 睇特定 chat session
-ChatSession.find_by(chat_id: "123456")
-
-# 睇特定 chat 長期記憶
-ChatMemory.find_by(chat_id: "123456")
-
-# 睇特定 update
-ProcessedUpdate.find_by(update_id: 123456789)
-
-# 睇最近 updates
-ProcessedUpdate.order(update_id: :desc).limit(20)
-
-# 睇 pending media groups
-MediaGroupBuffer.all
-
-# 睇某個 album 入面收咗幾多 message
-MediaGroupMessage.where(media_group_key: "123456:album-1")
-
-# 睇所有 sessions
-ChatSession.all
-
-# 睇所有長期記憶
-ChatMemory.all
-```
-
-### 2. 本地打 health check
-
-```bash
-curl -i http://localhost:3000/health
+```sql
+SELECT * FROM chat_sessions WHERE chat_id = '123456';
+SELECT * FROM chat_memories WHERE chat_id = '123456';
+SELECT * FROM processed_updates WHERE update_id = 123456789;
+SELECT * FROM processed_updates ORDER BY update_id DESC LIMIT 20;
+SELECT * FROM media_group_buffers;
+SELECT * FROM media_group_messages WHERE media_group_key = '123456:album-1';
 ```
 
 ### 3. 手動重設目前 chat session
@@ -562,7 +461,7 @@ curl -i http://localhost:3000/health
 本地：
 
 ```bash
-bundle exec rails server
+./gradlew bootRun
 ```
 
 Docker：
@@ -580,20 +479,23 @@ dokku logs telegram-codex -t
 ## 檢查
 
 ```bash
-bundle exec rails zeitwerk:check
-bundle exec rubocop -A
-bundle exec rubocop
-bundle exec rspec
+./gradlew test
+```
+
+如果你只想先 build jar：
+
+```bash
+./gradlew bootJar
 ```
 
 ### Docker
 
 Docker image 會：
 
-- install production gems
+- build Spring Boot jar
 - install `.codex-version` 指定嘅 `@openai/codex`
-- 建立 `/rails/data` 同 `/root/.codex`
-- startup 時自動 `rails db:prepare`
+- 建立 `/app/data` 同 `/root/.codex`
+- runtime 用 `java --enable-native-access=ALL-UNNAMED -jar /app/telegram-codex.jar`
 
 ```bash
 docker build -t telegram-codex .
@@ -602,16 +504,28 @@ docker run --rm -p 3000:3000 \
   -e BASE_URL=https://your-domain.com \
   -e TELEGRAM_BOT_TOKEN=replace-me \
   -e TELEGRAM_WEBHOOK_SECRET=replace-me \
-  -e SQLITE_DB_PATH=/rails/data/app.db \
-  -v $(pwd)/data:/rails/data \
-  -v $HOME/.codex:/root/.codex \
+  -e SQLITE_DB_PATH=/app/data/app.db \
+  -v "$(pwd)/data:/app/data" \
+  -v "$HOME/.codex:/root/.codex" \
   telegram-codex
 ```
 
 註冊 webhook：
 
 ```bash
-docker exec <container-id> bundle exec rake telegram:set_webhook
+docker exec <container-id> java --enable-native-access=ALL-UNNAMED \
+  -jar /app/telegram-codex.jar \
+  --spring.main.web-application-type=none \
+  --app.task=telegram:set-webhook
+```
+
+更新 command menu：
+
+```bash
+docker exec <container-id> java --enable-native-access=ALL-UNNAMED \
+  -jar /app/telegram-codex.jar \
+  --spring.main.web-application-type=none \
+  --app.task=telegram:update-commands
 ```
 
 ### Dokku
@@ -636,7 +550,7 @@ dokku letsencrypt:enable telegram-codex
 
 呢個 app 至少要 persist 兩樣：
 
-- SQLite database：`/rails/data`
+- SQLite database：`/app/data`
 - Codex auth / config：`/root/.codex`
 
 先喺 host 開 directory：
@@ -649,7 +563,7 @@ sudo mkdir -p /var/lib/dokku/data/storage/telegram-codex/codex
 再 mount 入 container：
 
 ```bash
-dokku storage:mount telegram-codex /var/lib/dokku/data/storage/telegram-codex/data:/rails/data
+dokku storage:mount telegram-codex /var/lib/dokku/data/storage/telegram-codex/data:/app/data
 dokku storage:mount telegram-codex /var/lib/dokku/data/storage/telegram-codex/codex:/root/.codex
 ```
 
@@ -665,22 +579,21 @@ sudo chown -R 32767:32767 /var/lib/dokku/data/storage/telegram-codex/data
 
 ```bash
 dokku config:set telegram-codex \
-  RAILS_ENV=production \
   PORT=3000 \
   BASE_URL=https://telegram-codex.example.com \
   TELEGRAM_BOT_TOKEN=replace-me \
   TELEGRAM_WEBHOOK_SECRET=replace-me \
-  SQLITE_DB_PATH=/rails/data/app.db \
+  SQLITE_DB_PATH=/app/data/app.db \
   CODEX_EXEC_TIMEOUT_SECONDS=300
 ```
 
-可選設定（如要限制指定 user 或調整 rate limit）：
+可選設定：
 
 ```bash
 dokku config:set telegram-codex \
   ALLOWED_TELEGRAM_USER_IDS=123456789,987654321 \
-  CODEX_EXEC_TIMEOUT_SECONDS=300 \
   MAX_MEDIA_GROUP_IMAGES=6 \
+  MAX_PDF_PAGES=4 \
   SESSION_TTL_DAYS=7 \
   MEDIA_GROUP_WAIT_MS=1200 \
   RATE_LIMIT_WINDOW_MS=10000 \
@@ -694,15 +607,19 @@ git remote add dokku dokku@your-server:telegram-codex
 git push dokku main
 ```
 
-app 起動時會自動跑 `bundle exec rails db:prepare`。
-
 #### 5. 註冊 webhook
 
 ```bash
-dokku run telegram-codex bundle exec rake telegram:set_webhook
+dokku run telegram-codex bin/telegram-codex telegram:set-webhook
 ```
 
 佢會將 webhook 設成 `${BASE_URL}/telegram/webhook`，所以 `BASE_URL` 唔好自己加 `/telegram/webhook`。
+
+如要同步 Telegram command menu：
+
+```bash
+dokku run telegram-codex bin/telegram-codex telegram:update-commands
+```
 
 #### 6. 驗證
 
@@ -725,12 +642,6 @@ dokku logs telegram-codex -t
 dokku ps:rebuild telegram-codex
 ```
 
-開 Rails console：
-
-```bash
-dokku run telegram-codex bundle exec rails console
-```
-
 Backup SQLite：
 
 ```bash
@@ -740,14 +651,12 @@ sudo cp /var/lib/dokku/data/storage/telegram-codex/data/app.db \
 
 ## 測試
 
-RSpec 覆蓋咗以下核心行為：
+JUnit 覆蓋咗以下核心行為：
 
 - health route
 - webhook secret 驗證
-- webhook handler failure path
+- Telegram webhook controller failure path
 - session TTL
-- pending reply replay
-- 長期記憶注入 / 更新 / 清除
-- reply keyboard suggested replies
+- media group scheduling
 - Telegram update parser
-- reply-to-message context，包括引用舊文字 / 相 / PDF / 文字檔
+- 長期記憶注入 / 更新 / 清除

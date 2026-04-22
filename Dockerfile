@@ -1,46 +1,40 @@
 # syntax=docker/dockerfile:1
 
-ARG RUBY_VERSION=4.0.2
+FROM gradle:9.3.0-jdk25 AS build
 
-FROM ruby:${RUBY_VERSION}-slim AS base
-
-WORKDIR /rails
-
-ENV RAILS_ENV=production \
-    BUNDLE_DEPLOYMENT=1 \
-    BUNDLE_PATH=/usr/local/bundle \
-    BUNDLE_WITHOUT=development:test
-
-FROM base AS build
+WORKDIR /app
 
 COPY .codex-version /tmp/.codex-version
 
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential ca-certificates curl git libsqlite3-dev libyaml-dev nodejs npm pkg-config poppler-utils sqlite3 unzip && \
+    apt-get install --no-install-recommends -y ca-certificates curl git poppler-utils sqlite3 unzip nodejs npm && \
     npm install -g @openai/codex@"$(cat /tmp/.codex-version)" && \
     rm -rf /var/lib/apt/lists/* /tmp/.codex-version
 
-COPY Gemfile Gemfile.lock ./
-RUN bundle install
+COPY build.gradle settings.gradle gradlew ./
+COPY gradle gradle
+COPY src src
+COPY bin bin
 
-COPY . .
+RUN gradle bootJar --no-daemon
 
-FROM base AS runtime
+FROM eclipse-temurin:25-jre AS runtime
+
+WORKDIR /app
 
 COPY .codex-version /tmp/.codex-version
 
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y ca-certificates git nodejs npm poppler-utils sqlite3 unzip && \
+    apt-get install --no-install-recommends -y ca-certificates curl git poppler-utils sqlite3 unzip nodejs npm && \
     npm install -g @openai/codex@"$(cat /tmp/.codex-version)" && \
-    mkdir -p /rails/data /root/.codex && \
+    mkdir -p /app/data /root/.codex && \
     rm -rf /var/lib/apt/lists/* /tmp/.codex-version
 
-COPY --from=build /usr/local/bundle /usr/local/bundle
-COPY --from=build /rails /rails
-RUN chmod +x /rails/bin/docker-entrypoint
+COPY --from=build /app/build/libs/telegram-codex-1.0.0.jar /app/telegram-codex.jar
+COPY --from=build /app/bin /app/bin
 
-ENTRYPOINT ["/rails/bin/docker-entrypoint"]
+RUN chmod +x /app/bin/telegram-codex
 
 EXPOSE 3000
 
-CMD ["./bin/rails", "server", "-b", "0.0.0.0", "-p", "3000"]
+CMD ["java", "--enable-native-access=ALL-UNNAMED", "-jar", "/app/telegram-codex.jar"]
