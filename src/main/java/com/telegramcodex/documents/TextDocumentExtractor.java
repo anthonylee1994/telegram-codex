@@ -65,7 +65,7 @@ public class TextDocumentExtractor {
                     sheet.forEach(row -> {
                         String rowText = row.cellIterator().hasNext()
                             ? StreamSupport.stream(row.spliterator(), false)
-                                .map(cell -> formatter.formatCellValue(cell))
+                                .map(formatter::formatCellValue)
                                 .filter(value -> !value.isBlank())
                                 .reduce((left, right) -> left + "\t" + right)
                                 .orElse("")

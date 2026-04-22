@@ -18,8 +18,6 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class ConversationService {
-
-    public static final String SYSTEM_PROMPT = "你係一個 Telegram AI 助手。";
     private static final Logger LOGGER = LoggerFactory.getLogger(ConversationService.class);
     private static final long PROCESSED_UPDATE_PRUNE_INTERVAL_MS = 6L * 60 * 60 * 1000;
     private static final long PROCESSED_UPDATE_RETENTION_MS = 30L * 24 * 60 * 60 * 1000;
