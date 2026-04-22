@@ -113,27 +113,27 @@ class TelegramMessageFormatterTest {
     @Test
     void convertsItalicOutsideCode() {
         String formatted = formatter.formatForTelegram("""
-            呢段有 *重點* 同 _補充_
+            呢段有 *重點*、_補充_ 同 __強調__
             """);
 
         assertEquals("""
-            呢段有 <i>重點</i> 同 <i>補充</i>
+            呢段有 *重點*、_補充_ 同 <i>強調</i>
             """, formatted);
     }
 
     @Test
     void doesNotParseItalicInsideInlineCodeOrFencedCodeBlocks() {
         String formatted = formatter.formatForTelegram("""
-            `*literal*`
+            `__literal__`
             ```text
-            _block_
+            __block__
             ```
-            外面 **bold** 同 *italic*
+            外面 **bold** 同 __italic__
             """);
 
         assertEquals("""
-            <code>*literal*</code>
-            <pre><code>_block_
+            <code>__literal__</code>
+            <pre><code>__block__
             </code></pre>
             外面 <b>bold</b> 同 <i>italic</i>
             """, formatted);
@@ -142,12 +142,12 @@ class TelegramMessageFormatterTest {
     @Test
     void doesNotConvertNumericOnlyItalicMarkers() {
         String formatted = formatter.formatForTelegram("""
-            呢啲保留原樣：*123* 同 _123_
-            """);
+            呢啲保留原樣：*123*、_123_，但 __123__ 要轉
+        """);
 
         assertEquals("""
-            呢啲保留原樣：*123* 同 _123_
-            """, formatted);
+            呢啲保留原樣：*123*、_123_，但 <i>123</i> 要轉
+        """, formatted);
     }
 
     @Test
@@ -187,6 +187,35 @@ class TelegramMessageFormatterTest {
             <pre><code>~~block~~
             </code></pre>
             外面 <s>strike</s>
+            """, formatted);
+    }
+
+    @Test
+    void convertsSpoilerOutsideCode() {
+        String formatted = formatter.formatForTelegram("""
+            呢段有 ||劇透||
+            """);
+
+        assertEquals("""
+            呢段有 <tg-spoiler>劇透</tg-spoiler>
+            """, formatted);
+    }
+
+    @Test
+    void doesNotParseSpoilerInsideInlineCodeOrFencedCodeBlocks() {
+        String formatted = formatter.formatForTelegram("""
+            `||literal||`
+            ```text
+            ||block||
+            ```
+            外面 ||spoiler||
+            """);
+
+        assertEquals("""
+            <code>||literal||</code>
+            <pre><code>||block||
+            </code></pre>
+            外面 <tg-spoiler>spoiler</tg-spoiler>
             """, formatted);
     }
 }

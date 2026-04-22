@@ -17,9 +17,10 @@ public class TelegramMessageFormatter {
 
     private static final Pattern FENCED_CODE_BLOCK_PATTERN = Pattern.compile("```(?:[\\t ]*[\\w#+.-]+)?\\n?(.*?)```", Pattern.DOTALL);
     private static final Pattern INLINE_CODE_PATTERN = Pattern.compile("`([^`\\n]+)`");
+    private static final Pattern SPOILER_PATTERN = Pattern.compile("\\|\\|([^|\\n]+)\\|\\|");
     private static final Pattern STRIKETHROUGH_PATTERN = Pattern.compile("~~([^~\\n]+)~~");
     private static final Pattern BOLD_PATTERN = Pattern.compile("\\*\\*([^*\\n]+)\\*\\*");
-    private static final Pattern ITALIC_PATTERN = Pattern.compile("(?<!\\*)\\*([^*\\n]+)\\*(?!\\*)|_([^_\\n]+)_");
+    private static final Pattern ITALIC_PATTERN = Pattern.compile("(?<!_)__([^_\\n]+)__(?!_)");
 
     private final ReplyParser replyParser;
 
@@ -131,10 +132,28 @@ public class TelegramMessageFormatter {
         Matcher matcher = BOLD_PATTERN.matcher(text);
         int cursor = 0;
         while (matcher.find()) {
-            formatted.append(formatStrikethrough(text.substring(cursor, matcher.start())));
+            formatted.append(formatSpoiler(text.substring(cursor, matcher.start())));
             formatted.append("<b>");
             formatted.append(HtmlEscaper.escape(matcher.group(1)));
             formatted.append("</b>");
+            cursor = matcher.end();
+        }
+        formatted.append(formatSpoiler(text.substring(cursor)));
+        return formatted.toString();
+    }
+
+    private static String formatSpoiler(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        StringBuilder formatted = new StringBuilder();
+        Matcher matcher = SPOILER_PATTERN.matcher(text);
+        int cursor = 0;
+        while (matcher.find()) {
+            formatted.append(formatStrikethrough(text.substring(cursor, matcher.start())));
+            formatted.append("<tg-spoiler>");
+            formatted.append(HtmlEscaper.escape(matcher.group(1)));
+            formatted.append("</tg-spoiler>");
             cursor = matcher.end();
         }
         formatted.append(formatStrikethrough(text.substring(cursor)));
@@ -167,9 +186,9 @@ public class TelegramMessageFormatter {
         Matcher matcher = ITALIC_PATTERN.matcher(text);
         int cursor = 0;
         while (matcher.find()) {
-            String content = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
+            String content = matcher.group(1);
             formatted.append(HtmlEscaper.escape(text.substring(cursor, matcher.start())));
-            if (shouldFormatItalic(content)) {
+            if (shouldFormatItalic(matcher.group(), content)) {
                 formatted.append("<i>");
                 formatted.append(HtmlEscaper.escape(content));
                 formatted.append("</i>");
@@ -182,9 +201,12 @@ public class TelegramMessageFormatter {
         return formatted.toString();
     }
 
-    private static boolean shouldFormatItalic(String content) {
+    private static boolean shouldFormatItalic(String marker, String content) {
         if (content == null || content.isBlank()) {
             return false;
+        }
+        if (marker != null && marker.startsWith("__") && marker.endsWith("__")) {
+            return true;
         }
         for (int i = 0; i < content.length(); i++) {
             if (Character.isLetter(content.charAt(i))) {
