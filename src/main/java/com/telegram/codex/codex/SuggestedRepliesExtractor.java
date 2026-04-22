@@ -1,5 +1,6 @@
 package com.telegram.codex.codex;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.constants.MessageConstants;
@@ -39,7 +40,7 @@ public class SuggestedRepliesExtractor {
             List<?> payload = objectMapper.readValue(rawSuggestedReplies, new TypeReference<>() {
             });
             return sanitizeSuggestedReplies(payload, List.of());
-        } catch (com.fasterxml.jackson.core.JsonProcessingException error) {
+        } catch (JsonProcessingException error) {
             return List.of();
         }
     }

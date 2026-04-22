@@ -1,5 +1,6 @@
 package com.telegram.codex.codex;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.constants.ConversationConstants;
@@ -38,7 +39,7 @@ public final class Transcript {
                 .filter(message -> !message.get("content").isBlank())
                 .toList();
             return new Transcript(messages);
-        } catch (com.fasterxml.jackson.core.JsonProcessingException error) {
+        } catch (JsonProcessingException error) {
             return empty();
         }
     }

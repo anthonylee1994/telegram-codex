@@ -1,5 +1,6 @@
 package com.telegram.codex.codex;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.util.StringUtils;
@@ -70,7 +71,7 @@ public class JsonPayloadParser {
         }
         try {
             return objectMapper.writeValueAsString(Map.of("text", replyText == null ? "" : replyText, "suggested_replies", suggestedReplies));
-        } catch (com.fasterxml.jackson.core.JsonProcessingException error) {
+        } catch (JsonProcessingException error) {
             throw new IllegalStateException("Failed to build relaxed payload", error);
         }
     }

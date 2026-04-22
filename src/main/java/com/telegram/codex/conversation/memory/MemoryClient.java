@@ -1,5 +1,6 @@
 package com.telegram.codex.conversation.memory;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.codex.ExecRunner;
@@ -26,7 +27,7 @@ public class MemoryClient {
             Map<String, Object> payload = objectMapper.readValue(rawReply, new TypeReference<>() {
             });
             return String.valueOf(payload.getOrDefault("memory", "")).trim();
-        } catch (com.fasterxml.jackson.core.JsonProcessingException error) {
+        } catch (JsonProcessingException error) {
             throw new ExecutionException("memory merge returned invalid JSON", error);
         }
     }

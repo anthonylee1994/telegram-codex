@@ -1,5 +1,6 @@
 package com.telegram.codex.conversation.session;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.codex.ExecRunner;
@@ -33,7 +34,7 @@ public class SessionSummaryClient {
             return summary;
         } catch (ExecutionException error) {
             throw error;
-        } catch (com.fasterxml.jackson.core.JsonProcessingException error) {
+        } catch (JsonProcessingException error) {
             throw new ExecutionException("session summary returned invalid JSON", error);
         }
     }
