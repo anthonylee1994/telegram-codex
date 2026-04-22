@@ -17,6 +17,8 @@ public class TelegramMessageFormatter {
 
     private static final Pattern FENCED_CODE_BLOCK_PATTERN = Pattern.compile("```(?:[\\t ]*[\\w#+.-]+)?\\n?(.*?)```", Pattern.DOTALL);
     private static final Pattern INLINE_CODE_PATTERN = Pattern.compile("`([^`\\n]+)`");
+    private static final Pattern BOLD_PATTERN = Pattern.compile("\\*\\*([^*\\n]+)\\*\\*");
+    private static final Pattern ITALIC_PATTERN = Pattern.compile("(?<!\\*)\\*([^*\\n]+)\\*(?!\\*)|_([^_\\n]+)_");
 
     private final ReplyParser replyParser;
 
@@ -110,13 +112,66 @@ public class TelegramMessageFormatter {
         Matcher matcher = INLINE_CODE_PATTERN.matcher(text);
         int cursor = 0;
         while (matcher.find()) {
-            formatted.append(HtmlEscaper.escape(text.substring(cursor, matcher.start())));
+            formatted.append(formatBold(text.substring(cursor, matcher.start())));
             formatted.append("<code>");
             formatted.append(HtmlEscaper.escape(matcher.group(1)));
             formatted.append("</code>");
             cursor = matcher.end();
         }
+        formatted.append(formatBold(text.substring(cursor)));
+        return formatted.toString();
+    }
+
+    private static String formatBold(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        StringBuilder formatted = new StringBuilder();
+        Matcher matcher = BOLD_PATTERN.matcher(text);
+        int cursor = 0;
+        while (matcher.find()) {
+            formatted.append(formatItalic(text.substring(cursor, matcher.start())));
+            formatted.append("<b>");
+            formatted.append(HtmlEscaper.escape(matcher.group(1)));
+            formatted.append("</b>");
+            cursor = matcher.end();
+        }
+        formatted.append(formatItalic(text.substring(cursor)));
+        return formatted.toString();
+    }
+
+    private static String formatItalic(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        StringBuilder formatted = new StringBuilder();
+        Matcher matcher = ITALIC_PATTERN.matcher(text);
+        int cursor = 0;
+        while (matcher.find()) {
+            String content = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
+            formatted.append(HtmlEscaper.escape(text.substring(cursor, matcher.start())));
+            if (shouldFormatItalic(content)) {
+                formatted.append("<i>");
+                formatted.append(HtmlEscaper.escape(content));
+                formatted.append("</i>");
+            } else {
+                formatted.append(HtmlEscaper.escape(matcher.group()));
+            }
+            cursor = matcher.end();
+        }
         formatted.append(HtmlEscaper.escape(text.substring(cursor)));
         return formatted.toString();
+    }
+
+    private static boolean shouldFormatItalic(String content) {
+        if (content == null || content.isBlank()) {
+            return false;
+        }
+        for (int i = 0; i < content.length(); i++) {
+            if (Character.isLetter(content.charAt(i))) {
+                return true;
+            }
+        }
+        return false;
     }
 }

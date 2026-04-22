@@ -80,4 +80,84 @@ class TelegramMessageFormatterTest {
             外面先有 <code>inline</code>
             """, formatted);
     }
+
+    @Test
+    void convertsBoldOutsideCode() {
+        String formatted = formatter.formatForTelegram("""
+            Telegram reply **74.3 億股** 都未處理好
+            """);
+
+        assertEquals("""
+            Telegram reply <b>74.3 億股</b> 都未處理好
+            """, formatted);
+    }
+
+    @Test
+    void doesNotParseBoldInsideInlineCodeOrFencedCodeBlocks() {
+        String formatted = formatter.formatForTelegram("""
+            `**literal**`
+            ```text
+            **block**
+            ```
+            外面 **bold**
+            """);
+
+        assertEquals("""
+            <code>**literal**</code>
+            <pre><code>**block**
+            </code></pre>
+            外面 <b>bold</b>
+            """, formatted);
+    }
+
+    @Test
+    void convertsItalicOutsideCode() {
+        String formatted = formatter.formatForTelegram("""
+            呢段有 *重點* 同 _補充_
+            """);
+
+        assertEquals("""
+            呢段有 <i>重點</i> 同 <i>補充</i>
+            """, formatted);
+    }
+
+    @Test
+    void doesNotParseItalicInsideInlineCodeOrFencedCodeBlocks() {
+        String formatted = formatter.formatForTelegram("""
+            `*literal*`
+            ```text
+            _block_
+            ```
+            外面 **bold** 同 *italic*
+            """);
+
+        assertEquals("""
+            <code>*literal*</code>
+            <pre><code>_block_
+            </code></pre>
+            外面 <b>bold</b> 同 <i>italic</i>
+            """, formatted);
+    }
+
+    @Test
+    void doesNotConvertNumericOnlyItalicMarkers() {
+        String formatted = formatter.formatForTelegram("""
+            呢啲保留原樣：*123* 同 _123_
+            """);
+
+        assertEquals("""
+            呢啲保留原樣：*123* 同 _123_
+            """, formatted);
+    }
+
+    @Test
+    void convertsNumericBoldMarkers() {
+        String formatted = formatter.formatForTelegram("""
+            呢個要轉：**123**
+            """);
+
+        assertEquals("""
+            呢個要轉：<b>123</b>
+            """, formatted);
+    }
 }
