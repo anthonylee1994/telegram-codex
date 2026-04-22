@@ -7,6 +7,36 @@ import org.junit.jupiter.api.Test;
 class TextDocumentPromptBuilderTest {
 
     @Test
+    void buildPromptUsesSpreadsheetFallbackPromptWhenCaptionMissing() {
+        TextDocumentPromptBuilder promptBuilder = new TextDocumentPromptBuilder();
+
+        String prompt = promptBuilder.buildPrompt(
+            null,
+            "report.xlsx",
+            "name,amount\nA,12",
+            false,
+            false
+        );
+
+        assertTrue(prompt.contains("<user_request>\n我上載咗一份檔案。請先解釋表格內容、欄位同重點，再按內容回答。\n</user_request>"));
+    }
+
+    @Test
+    void buildPromptUsesDocumentFallbackPromptWhenCaptionMissing() {
+        TextDocumentPromptBuilder promptBuilder = new TextDocumentPromptBuilder();
+
+        String prompt = promptBuilder.buildPrompt(
+            null,
+            "brief.docx",
+            "Project status update",
+            false,
+            false
+        );
+
+        assertTrue(prompt.contains("<user_request>\n我上載咗一份檔案。請先解釋文件內容同重點，再按內容回答。\n</user_request>"));
+    }
+
+    @Test
     void buildPromptWrapsDocumentContentAsUntrustedContent() {
         TextDocumentPromptBuilder promptBuilder = new TextDocumentPromptBuilder();
 

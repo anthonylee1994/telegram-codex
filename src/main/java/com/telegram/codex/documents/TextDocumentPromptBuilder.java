@@ -2,11 +2,13 @@ package com.telegram.codex.documents;
 
 import org.springframework.stereotype.Component;
 
+import java.util.Locale;
+
 @Component
 public class TextDocumentPromptBuilder {
 
     public String buildPrompt(String userText, String fileName, String fileContent, boolean isTruncated, boolean isReplyingToFile) {
-        String basePrompt = determineBasePrompt(userText, isReplyingToFile);
+        String basePrompt = determineBasePrompt(userText, fileName, isReplyingToFile);
         String normalizedFileName = fileName == null ? "未命名檔案" : fileName;
         String truncationNotice = isTruncated ? "注意：檔案內容已經截短，只包含前面一部分。" : "";
 
@@ -26,13 +28,36 @@ public class TextDocumentPromptBuilder {
         ).trim();
     }
 
-    private String determineBasePrompt(String userText, boolean isReplyingToFile) {
+    private String determineBasePrompt(String userText, String fileName, boolean isReplyingToFile) {
         if (userText != null && !userText.isBlank()) {
             return userText;
         }
+        String fileTypePrompt = determineFileTypePrompt(fileName);
         if (isReplyingToFile) {
-            return "我引用咗之前一份文字檔。請先概括內容，再按內容回答。";
+            return "我引用咗之前一份檔案。" + fileTypePrompt;
         }
-        return "我上載咗一份文字檔。請先概括內容，再按內容回答。";
+        return "我上載咗一份檔案。" + fileTypePrompt;
+    }
+
+    private String determineFileTypePrompt(String fileName) {
+        String extension = extractExtension(fileName);
+        if ("xlsx".equals(extension) || "xls".equals(extension) || "csv".equals(extension)) {
+            return "請先解釋表格內容、欄位同重點，再按內容回答。";
+        }
+        if ("docx".equals(extension) || "doc".equals(extension)) {
+            return "請先解釋文件內容同重點，再按內容回答。";
+        }
+        return "請先概括內容，再按內容回答。";
+    }
+
+    private String extractExtension(String fileName) {
+        if (fileName == null || fileName.isBlank()) {
+            return "";
+        }
+        int dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex < 0 || dotIndex == fileName.length() - 1) {
+            return "";
+        }
+        return fileName.substring(dotIndex + 1).toLowerCase(Locale.ROOT);
     }
 }
