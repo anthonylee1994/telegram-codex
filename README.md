@@ -107,7 +107,7 @@ src/test/java/com/telegramcodex/
 └── ...
 ```
 
-個分層思路其實冇變，只係由 Rails service-oriented 寫法搬去 Java：
+分層思路：
 
 - controller 只處理 HTTP request / response
 - parser 專心將 Telegram payload 轉成 app message
