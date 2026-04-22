@@ -2,8 +2,6 @@ package com.telegramcodex.config;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import java.net.URI;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -47,14 +45,6 @@ public class AppProperties {
             .map(String::trim)
             .filter(value -> !value.isEmpty())
             .toList();
-    }
-
-    public URI baseUrlUri() {
-        return URI.create(baseUrl);
-    }
-
-    public Path sqliteDbAbsolutePath() {
-        return Path.of(sqliteDbPath).toAbsolutePath().normalize();
     }
 
     public String getAllowedTelegramUserIds() {
