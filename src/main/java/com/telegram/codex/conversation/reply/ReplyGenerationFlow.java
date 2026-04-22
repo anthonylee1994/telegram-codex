@@ -93,10 +93,8 @@ public class ReplyGenerationFlow {
                 extractionResult.truncated(),
                 message.replyingToFile()
             );
-        } catch (MissingDependencyException error) {
+        } catch (MissingDependencyException | IllegalStateException error) {
             throw error;
-        } catch (Exception error) {
-            throw new IllegalStateException("Failed to build text override", error);
         }
     }
 

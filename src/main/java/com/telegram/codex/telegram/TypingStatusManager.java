@@ -1,5 +1,7 @@
 package com.telegram.codex.telegram;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.Executors;
@@ -12,6 +14,8 @@ import java.util.function.Supplier;
 @Component
 public class TypingStatusManager {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(TypingStatusManager.class);
+
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1, runnable -> {
         Thread thread = new Thread(runnable);
         thread.setDaemon(true);
@@ -21,13 +25,15 @@ public class TypingStatusManager {
     public <T> T withTypingStatus(String chatId, Consumer<String> sendTypingAction, Supplier<T> action) {
         try {
             sendTypingAction.accept(chatId);
-        } catch (Exception ignored) {
+        } catch (Exception error) {
+            LOGGER.debug("Failed to send initial typing status for chat_id={}", chatId, error);
         }
 
         ScheduledFuture<?> typingTask = scheduler.scheduleAtFixedRate(() -> {
             try {
                 sendTypingAction.accept(chatId);
-            } catch (Exception ignored) {
+            } catch (Exception error) {
+                LOGGER.debug("Failed to send periodic typing status for chat_id={}", chatId, error);
             }
         }, 4, 4, TimeUnit.SECONDS);
 

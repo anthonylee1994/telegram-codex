@@ -26,7 +26,7 @@ public class MemoryClient {
             Map<String, Object> payload = objectMapper.readValue(rawReply, new TypeReference<>() {
             });
             return String.valueOf(payload.getOrDefault("memory", "")).trim();
-        } catch (Exception error) {
+        } catch (com.fasterxml.jackson.core.JsonProcessingException error) {
             throw new ExecutionException("memory merge returned invalid JSON", error);
         }
     }

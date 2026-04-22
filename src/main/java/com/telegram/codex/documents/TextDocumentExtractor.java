@@ -37,6 +37,8 @@ public class TextDocumentExtractor {
             return new ExtractionResult(normalized, truncatedByBytes || truncatedByChars);
         } catch (MissingDependencyException error) {
             throw error;
+        } catch (IllegalStateException error) {
+            throw error;
         } catch (Exception error) {
             throw new IllegalStateException("Failed to extract text document", error);
         }

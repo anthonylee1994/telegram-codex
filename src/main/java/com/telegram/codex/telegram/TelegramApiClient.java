@@ -44,7 +44,7 @@ public class TelegramApiClient {
             });
             HttpResponseValidator.validateTelegramResponse(payload, methodName);
             return payload.get("result");
-        } catch (Exception error) {
+        } catch (java.io.IOException | InterruptedException error) {
             throw new IllegalStateException("Failed to call Telegram " + methodName, error);
         }
     }

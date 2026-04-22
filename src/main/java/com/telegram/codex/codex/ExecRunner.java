@@ -2,23 +2,22 @@ package com.telegram.codex.codex;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.config.AppProperties;
+import com.telegram.codex.constants.CodexConstants;
 import com.telegram.codex.exception.ExecutionException;
 import com.telegram.codex.exception.ExecutionTimeoutException;
-import com.telegram.codex.util.StreamUtils;
+import com.telegram.codex.util.ProcessExecutor;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 @Component
 public class ExecRunner {
-
-    private static final String DEFAULT_SANDBOX_MODE = "danger-full-access";
 
     private final AppProperties properties;
     private final ObjectMapper objectMapper;
@@ -37,50 +36,57 @@ public class ExecRunner {
                 Files.writeString(schemaPath, objectMapper.writeValueAsString(outputSchema), StandardCharsets.UTF_8);
             }
 
-            List<String> command = new ArrayList<>();
-            command.add("codex");
-            command.add("exec");
-            command.add("--skip-git-repo-check");
-            command.add("--sandbox");
-            command.add(System.getenv().getOrDefault("CODEX_SANDBOX_MODE", DEFAULT_SANDBOX_MODE));
-            command.add("--color");
-            command.add("never");
-            command.add("--output-last-message");
-            command.add(outputPath.toString());
-            if (schemaPath != null) {
-                command.add("--output-schema");
-                command.add(schemaPath.toString());
-            }
-            for (Path imageFilePath : imageFilePaths) {
-                command.add("--image");
-                command.add(imageFilePath.toString());
-            }
-            command.add("-");
+            List<String> command = buildCommand(outputPath, schemaPath, imageFilePaths);
 
-            Process process = new ProcessBuilder(command)
-                .directory(Path.of(".").toFile())
-                .start();
-            process.getOutputStream().write(prompt.getBytes(StandardCharsets.UTF_8));
-            process.getOutputStream().close();
+            ProcessExecutor.ProcessResult result = ProcessExecutor.executeWithInput(
+                command,
+                Path.of("."),
+                prompt,
+                StandardCharsets.UTF_8,
+                properties.getCodexExecTimeoutSeconds()
+            );
 
-            boolean exited = process.waitFor(properties.getCodexExecTimeoutSeconds(), TimeUnit.SECONDS);
-            String stderr = StreamUtils.readStreamToString(process.getErrorStream(), StandardCharsets.UTF_8);
-            if (!exited) {
-                process.destroyForcibly();
+            if (result.timedOut()) {
                 throw new ExecutionTimeoutException("codex exec timed out after " + properties.getCodexExecTimeoutSeconds() + " seconds");
             }
-            if (process.exitValue() != 0) {
-                throw new ExecutionException("codex exec failed: " + (stderr.isBlank() ? "unknown error" : stderr.trim()));
+            if (result.exitCode() != 0) {
+                String errorMessage = result.stderr().isBlank() ? "unknown error" : result.stderr().trim();
+                throw new ExecutionException("codex exec failed: " + errorMessage);
             }
             String replyText = Files.readString(outputPath, StandardCharsets.UTF_8).trim();
             if (replyText.isEmpty()) {
                 throw new ExecutionException("codex exec returned an empty reply");
             }
             return replyText;
+        } catch (ExecutionTimeoutException error) {
+            throw error;
         } catch (ExecutionException error) {
             throw error;
-        } catch (Exception error) {
+        } catch (IOException | InterruptedException error) {
             throw new ExecutionException("Failed to run codex exec", error);
         }
+    }
+
+    private List<String> buildCommand(Path outputPath, Path schemaPath, List<Path> imageFilePaths) {
+        List<String> command = new ArrayList<>();
+        command.add("codex");
+        command.add("exec");
+        command.add("--skip-git-repo-check");
+        command.add("--sandbox");
+        command.add(System.getenv().getOrDefault("CODEX_SANDBOX_MODE", CodexConstants.DEFAULT_SANDBOX_MODE));
+        command.add("--color");
+        command.add("never");
+        command.add("--output-last-message");
+        command.add(outputPath.toString());
+        if (schemaPath != null) {
+            command.add("--output-schema");
+            command.add(schemaPath.toString());
+        }
+        for (Path imageFilePath : imageFilePaths) {
+            command.add("--image");
+            command.add(imageFilePath.toString());
+        }
+        command.add("-");
+        return command;
     }
 }

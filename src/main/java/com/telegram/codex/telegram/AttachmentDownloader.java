@@ -6,7 +6,9 @@ import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Component
 public class AttachmentDownloader {
@@ -41,8 +43,14 @@ public class AttachmentDownloader {
     }
 
     public void cleanup(List<Path> filePaths) {
+        Set<Path> uniqueParentDirs = new HashSet<>();
         for (Path filePath : filePaths) {
-            StreamUtils.deleteDirectoryRecursively(filePath.getParent());
+            if (filePath != null && filePath.getParent() != null) {
+                uniqueParentDirs.add(filePath.getParent());
+            }
+        }
+        for (Path parentDir : uniqueParentDirs) {
+            StreamUtils.deleteDirectoryRecursively(parentDir);
         }
     }
 }

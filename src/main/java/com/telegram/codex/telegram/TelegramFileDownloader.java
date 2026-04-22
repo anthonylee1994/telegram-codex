@@ -34,9 +34,8 @@ public class TelegramFileDownloader {
     public Path downloadFileToTemp(String fileId) {
         Map<String, Object> file = getFile(fileId);
         String filePath = String.valueOf(file.get("file_path"));
-        Path tempDir;
         try {
-            tempDir = Files.createTempDirectory("telegram-codex-file-");
+            Path tempDir = Files.createTempDirectory("telegram-codex-file-");
             Path outputPath = tempDir.resolve(Path.of(filePath).getFileName().toString());
             HttpRequest request = HttpRequest.newBuilder(
                 URI.create(TelegramConstants.TELEGRAM_FILE_API_BASE + properties.getTelegramBotToken() + "/" + filePath)
@@ -45,7 +44,7 @@ public class TelegramFileDownloader {
             HttpResponseValidator.validateStatusCode(response.statusCode(), "download Telegram file");
             Files.write(outputPath, response.body());
             return outputPath;
-        } catch (Exception error) {
+        } catch (java.io.IOException | InterruptedException error) {
             throw new IllegalStateException("Failed to download Telegram file", error);
         }
     }
@@ -65,7 +64,7 @@ public class TelegramFileDownloader {
                 throw new IllegalStateException("Telegram getFile did not include a file path");
             }
             return result;
-        } catch (Exception error) {
+        } catch (java.io.IOException | InterruptedException error) {
             throw new IllegalStateException("Failed to call Telegram getFile", error);
         }
     }

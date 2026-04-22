@@ -70,7 +70,7 @@ public class JsonPayloadParser {
         }
         try {
             return objectMapper.writeValueAsString(Map.of("text", replyText == null ? "" : replyText, "suggested_replies", suggestedReplies));
-        } catch (Exception error) {
+        } catch (com.fasterxml.jackson.core.JsonProcessingException error) {
             throw new IllegalStateException("Failed to build relaxed payload", error);
         }
     }

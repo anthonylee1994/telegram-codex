@@ -38,7 +38,7 @@ public final class Transcript {
                 .filter(message -> !message.get("content").isBlank())
                 .toList();
             return new Transcript(messages);
-        } catch (Exception error) {
+        } catch (com.fasterxml.jackson.core.JsonProcessingException error) {
             return empty();
         }
     }

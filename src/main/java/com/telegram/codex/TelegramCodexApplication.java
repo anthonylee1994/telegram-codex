@@ -23,7 +23,7 @@ public class TelegramCodexApplication {
         Path sqlitePath = Path.of(configuredPath).toAbsolutePath().normalize();
         try {
             Files.createDirectories(sqlitePath.getParent());
-        } catch (Exception error) {
+        } catch (java.io.IOException error) {
             throw new IllegalStateException("Failed to create SQLite directory for " + sqlitePath, error);
         }
     }

@@ -33,7 +33,7 @@ public class SessionSummaryClient {
             return summary;
         } catch (ExecutionException error) {
             throw error;
-        } catch (Exception error) {
+        } catch (com.fasterxml.jackson.core.JsonProcessingException error) {
             throw new ExecutionException("session summary returned invalid JSON", error);
         }
     }

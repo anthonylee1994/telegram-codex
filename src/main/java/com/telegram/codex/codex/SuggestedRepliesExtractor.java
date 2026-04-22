@@ -39,7 +39,7 @@ public class SuggestedRepliesExtractor {
             List<?> payload = objectMapper.readValue(rawSuggestedReplies, new TypeReference<>() {
             });
             return sanitizeSuggestedReplies(payload, List.of());
-        } catch (Exception error) {
+        } catch (com.fasterxml.jackson.core.JsonProcessingException error) {
             return List.of();
         }
     }

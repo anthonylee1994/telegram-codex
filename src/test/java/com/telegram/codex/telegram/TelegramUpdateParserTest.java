@@ -93,22 +93,27 @@ class TelegramUpdateParserTest {
 
     @Test
     void toleratesNullReplyHelpersWhenMessageIsMissing() {
-        assertEquals(List.of(), invoke("buildReplyToImageFileIds", null));
-        assertNull(invoke("buildReplyToMessageId", null));
-        assertNull(invoke("buildReplyToPdfFileId", null));
-        assertNull(invoke("buildReplyToText", null));
-        assertNull(invoke("buildReplyToTextDocumentFileId", null));
-        assertNull(invoke("buildReplyToTextDocumentName", null));
-    }
+        // After refactoring to use MessageExtractor with Optional,
+        // null handling is done internally. Test that parser handles
+        // messages without reply_to_message gracefully.
+        Map<String, Object> update = Map.of(
+            "update_id", 100,
+            "message", Map.of(
+                "message_id", 13,
+                "chat", Map.of("id", 3),
+                "from", Map.of("id", 5),
+                "text", "No reply context"
+            )
+        );
 
-    @SuppressWarnings("unchecked")
-    private <T> T invoke(String methodName, Map<String, Object> message) {
-        try {
-            Method method = TelegramUpdateParser.class.getDeclaredMethod(methodName, Map.class);
-            method.setAccessible(true);
-            return (T) method.invoke(parser, message);
-        } catch (Exception error) {
-            throw new AssertionError(error);
-        }
+        InboundMessage message = parser.parseIncomingTelegramMessage(update);
+
+        assertNotNull(message);
+        assertEquals(List.of(), message.replyToImageFileIds());
+        assertNull(message.replyToMessageId());
+        assertNull(message.replyToPdfFileId());
+        assertNull(message.replyToText());
+        assertNull(message.replyToTextDocumentFileId());
+        assertNull(message.replyToTextDocumentName());
     }
 }
