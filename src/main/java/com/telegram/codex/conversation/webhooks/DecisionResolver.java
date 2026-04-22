@@ -5,11 +5,11 @@ import com.telegram.codex.conversation.ChatRateLimiter;
 import com.telegram.codex.conversation.updates.ProcessedUpdateFlow;
 import com.telegram.codex.conversation.updates.ProcessedUpdateRecord;
 import com.telegram.codex.telegram.InboundMessage;
-import java.util.Optional;
-import java.util.regex.Pattern;
-
 import com.telegram.codex.telegram.TelegramWebhookHandler;
 import org.springframework.stereotype.Component;
+
+import java.util.Optional;
+import java.util.regex.Pattern;
 
 @Component
 public class DecisionResolver {

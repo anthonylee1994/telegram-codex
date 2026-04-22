@@ -1,12 +1,13 @@
 package com.telegram.codex.documents;
 
 import com.telegram.codex.config.AppProperties;
+import org.springframework.stereotype.Component;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
-import org.springframework.stereotype.Component;
 
 @Component
 public class PdfPageRasterizer {

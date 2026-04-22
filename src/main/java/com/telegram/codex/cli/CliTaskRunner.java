@@ -2,12 +2,13 @@ package com.telegram.codex.cli;
 
 import com.telegram.codex.config.AppProperties;
 import com.telegram.codex.telegram.TelegramClient;
-import java.util.List;
-import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Map;
 
 @Component
 public class CliTaskRunner implements CommandLineRunner {

@@ -1,20 +1,19 @@
 package com.telegram.codex.conversation.reply;
 
+import com.telegram.codex.conversation.session.SessionService;
 import com.telegram.codex.documents.PdfPageRasterizer;
 import com.telegram.codex.documents.TextDocumentExtractor;
-import com.telegram.codex.conversation.session.SessionService;
 import com.telegram.codex.telegram.InboundMessage;
 import com.telegram.codex.telegram.TelegramClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
 @Component
 public class ReplyGenerationFlow {

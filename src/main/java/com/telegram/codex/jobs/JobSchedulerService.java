@@ -7,13 +7,14 @@ import com.telegram.codex.telegram.InboundMessage;
 import com.telegram.codex.telegram.InboundMessageProcessor;
 import com.telegram.codex.telegram.SummaryResultSender;
 import jakarta.annotation.PreDestroy;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.stereotype.Service;
+
 import java.time.Duration;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.stereotype.Service;
 
 @Service
 public class JobSchedulerService {

@@ -1,8 +1,9 @@
 package com.telegram.codex.telegram;
 
 import com.telegram.codex.conversation.session.SessionSummaryResult;
-import java.util.List;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 @Component
 public class SummaryResultSender {

@@ -2,12 +2,11 @@ package com.telegram.codex.conversation.memory;
 
 import com.telegram.codex.persistence.ChatMemoryEntity;
 import com.telegram.codex.persistence.ChatMemoryJpaRepository;
-
-import java.util.Optional;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
 
 @Repository
 public class ChatMemoryRepository {

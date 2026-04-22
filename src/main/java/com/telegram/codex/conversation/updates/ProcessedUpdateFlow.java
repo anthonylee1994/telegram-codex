@@ -5,10 +5,11 @@ import com.telegram.codex.conversation.reply.ConversationService;
 import com.telegram.codex.conversation.session.SessionService;
 import com.telegram.codex.telegram.InboundMessage;
 import com.telegram.codex.telegram.TelegramClient;
+import org.springframework.stereotype.Component;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.stereotype.Component;
 
 @Component
 public class ProcessedUpdateFlow {

@@ -3,9 +3,10 @@ package com.telegram.codex.telegram;
 import com.telegram.codex.conversation.webhooks.ActionExecutor;
 import com.telegram.codex.conversation.webhooks.Decision;
 import com.telegram.codex.conversation.webhooks.DecisionResolver;
+import org.springframework.stereotype.Component;
+
 import java.time.Duration;
 import java.util.Map;
-import org.springframework.stereotype.Component;
 
 @Component
 public class InboundMessageProcessor {

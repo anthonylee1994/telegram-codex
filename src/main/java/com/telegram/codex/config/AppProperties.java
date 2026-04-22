@@ -2,10 +2,11 @@ package com.telegram.codex.config;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import java.util.Arrays;
-import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
+
+import java.util.Arrays;
+import java.util.List;
 
 @Validated
 @ConfigurationProperties(prefix = "app")

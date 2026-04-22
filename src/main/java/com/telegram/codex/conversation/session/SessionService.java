@@ -1,10 +1,11 @@
 package com.telegram.codex.conversation.session;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.telegram.codex.conversation.ConversationTimeFormatter;
 import com.telegram.codex.codex.Transcript;
-import java.util.Optional;
+import com.telegram.codex.conversation.ConversationTimeFormatter;
 import org.springframework.stereotype.Service;
+
+import java.util.Optional;
 
 @Service
 public class SessionService {

@@ -1,7 +1,8 @@
 package com.telegram.codex.persistence;
 
-import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
 
 public interface MediaGroupMessageJpaRepository extends JpaRepository<MediaGroupMessageEntity, Long> {
 

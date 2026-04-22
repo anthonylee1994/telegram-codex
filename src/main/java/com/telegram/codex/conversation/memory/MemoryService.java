@@ -1,9 +1,9 @@
 package com.telegram.codex.conversation.memory;
 
 import com.telegram.codex.conversation.ConversationTimeFormatter;
+import org.springframework.stereotype.Service;
 
 import java.util.Optional;
-import org.springframework.stereotype.Service;
 
 @Service
 public class MemoryService {

@@ -1,9 +1,10 @@
 package com.telegram.codex.telegram;
 
 import com.telegram.codex.config.AppProperties;
+import org.springframework.stereotype.Component;
+
 import java.time.Duration;
 import java.util.Map;
-import org.springframework.stereotype.Component;
 
 @Component
 public class TelegramWebhookHandler {

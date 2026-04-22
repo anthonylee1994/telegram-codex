@@ -3,11 +3,12 @@ package com.telegram.codex.conversation.session;
 import com.telegram.codex.config.AppProperties;
 import com.telegram.codex.persistence.ChatSessionEntity;
 import com.telegram.codex.persistence.ChatSessionJpaRepository;
-import java.time.Duration;
-import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
+
+import java.time.Duration;
+import java.util.Optional;
 
 @Repository
 public class ChatSessionRepository {

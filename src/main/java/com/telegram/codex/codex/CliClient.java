@@ -2,12 +2,12 @@ package com.telegram.codex.codex;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.conversation.reply.ReplyResult;
+import org.springframework.stereotype.Component;
+
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
-
-import org.springframework.stereotype.Component;
 
 @Component
 public class CliClient {

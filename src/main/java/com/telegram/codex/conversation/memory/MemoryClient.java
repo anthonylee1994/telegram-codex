@@ -3,10 +3,10 @@ package com.telegram.codex.conversation.memory;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.codex.ExecRunner;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
-import org.springframework.stereotype.Component;
 
 @Component
 public class MemoryClient {

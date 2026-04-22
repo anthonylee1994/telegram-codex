@@ -4,6 +4,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.codex.ReplyParser;
 import com.telegram.codex.config.AppProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -18,9 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
 @Component
 public class TelegramClient {

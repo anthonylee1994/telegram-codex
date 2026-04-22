@@ -2,6 +2,8 @@ package com.telegram.codex.codex;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.config.AppProperties;
+import org.springframework.stereotype.Component;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -11,7 +13,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import org.springframework.stereotype.Component;
 
 @Component
 public class ExecRunner {

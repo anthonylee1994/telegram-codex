@@ -1,11 +1,12 @@
 package com.telegram.codex;
 
 import com.telegram.codex.config.AppProperties;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 @SpringBootApplication
 @EnableConfigurationProperties(AppProperties.class)

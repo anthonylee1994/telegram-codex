@@ -7,9 +7,10 @@ import com.telegram.codex.persistence.MediaGroupMessageEntity;
 import com.telegram.codex.persistence.MediaGroupMessageJpaRepository;
 import com.telegram.codex.telegram.InboundMessage;
 import jakarta.transaction.Transactional;
+import org.springframework.stereotype.Service;
+
 import java.util.Comparator;
 import java.util.List;
-import org.springframework.stereotype.Service;
 
 @Service
 public class MediaGroupStore {

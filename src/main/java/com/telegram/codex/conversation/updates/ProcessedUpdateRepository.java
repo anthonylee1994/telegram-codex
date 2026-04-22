@@ -6,9 +6,10 @@ import com.telegram.codex.conversation.reply.ReplyResult;
 import com.telegram.codex.persistence.ProcessedUpdateEntity;
 import com.telegram.codex.persistence.ProcessedUpdateJpaRepository;
 import jakarta.transaction.Transactional;
+import org.springframework.stereotype.Repository;
+
 import java.time.Duration;
 import java.util.Optional;
-import org.springframework.stereotype.Repository;
 
 @Repository
 public class ProcessedUpdateRepository {
