@@ -144,7 +144,7 @@ public class ActionExecutor {
             "",
             String.valueOf(snapshot.get("memory_text")),
             "",
-            "想清除可以打 /forget。"
+            "想清除可以用 /forget。"
         );
     }
 
