@@ -49,3 +49,7 @@ tasks.withType(Test).configureEach {
 tasks.withType(JavaExec).configureEach {
     jvmArgs sqliteNativeAccessArg
 }
+
+tasks.named('bootJar') {
+    archiveFileName = 'telegram-codex.jar'
+}

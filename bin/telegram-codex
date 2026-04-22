@@ -4,7 +4,7 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PROJECT_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
-APP_JAR=${APP_JAR:-$PROJECT_ROOT/build/libs/telegram-codex-1.0.0.jar}
+APP_JAR=${APP_JAR:-$PROJECT_ROOT/build/libs/telegram-codex.jar}
 GRADLEW=${GRADLEW:-$PROJECT_ROOT/gradlew}
 JAVA_NATIVE_ACCESS_OPTS=${JAVA_NATIVE_ACCESS_OPTS:---enable-native-access=ALL-UNNAMED}
 

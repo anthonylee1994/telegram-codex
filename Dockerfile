@@ -30,7 +30,7 @@ RUN apt-get update -qq && \
     mkdir -p /app/data /root/.codex && \
     rm -rf /var/lib/apt/lists/* /tmp/.codex-version
 
-COPY --from=build /app/build/libs/telegram-codex-1.0.0.jar /app/telegram-codex.jar
+COPY --from=build /app/build/libs/telegram-codex.jar /app/telegram-codex.jar
 COPY --from=build /app/bin /app/bin
 
 RUN chmod +x /app/bin/telegram-codex
