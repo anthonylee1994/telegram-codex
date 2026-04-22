@@ -122,21 +122,21 @@ public class ActionExecutor {
     private String buildSessionMessage(String chatId) {
         Map<String, Object> snapshot = conversationService.sessionSnapshot(chatId);
         if (!Boolean.TRUE.equals(snapshot.get("active"))) {
-            return "目前未有已生效 session。你可以直接 send 訊息開始，或者之後用 `/summary` 壓縮長對話。";
+            return "目前未有已生效 session。你可以直接 send 訊息開始，或者之後用 /summary 壓縮長對話。";
         }
         return String.join("\n",
             "目前 session：已生效",
             "訊息數：" + snapshot.get("message_count"),
             "大概輪數：" + snapshot.get("turn_count"),
             "最後更新：" + snapshot.get("last_updated_at"),
-            "想壓縮 context 可以打 `/summary`。"
+            "想壓縮 context 可以用 /summary。"
         );
     }
 
     private String buildMemoryMessage(String chatId) {
         Map<String, Object> snapshot = conversationService.memorySnapshot(chatId);
         if (!Boolean.TRUE.equals(snapshot.get("active"))) {
-            return "目前未有長期記憶。之後我會自動記低穩定偏好同持續背景；想清除可以打 `/forget`。";
+            return "目前未有長期記憶。之後我會自動記低穩定偏好同持續背景；想清除可以打 /forget。";
         }
         return String.join("\n",
             "長期記憶：已生效",
@@ -144,7 +144,7 @@ public class ActionExecutor {
             "",
             String.valueOf(snapshot.get("memory_text")),
             "",
-            "想清除可以打 `/forget`。"
+            "想清除可以打 /forget。"
         );
     }
 
