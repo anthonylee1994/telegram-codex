@@ -31,7 +31,7 @@ public class UserMessageBuilder {
 
     private String buildUnpromptedImageMessage(int imageCount) {
         if (imageCount == 1) {
-            return "我上載咗 1 張圖。請先描述圖 1，再按內容幫我分析重點。";
+            return "我上載咗張圖。請先描述圖片，再按內容幫我分析重點。";
         }
         String labels = String.join("、", IntStream.rangeClosed(1, imageCount).mapToObj(index -> "圖 " + index).toList());
         return "我上載咗 " + imageCount + " 張圖。請按 " + labels + " 逐張描述，再比較異同同整理重點。";
