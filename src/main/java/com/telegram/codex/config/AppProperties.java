@@ -18,7 +18,7 @@ public class AppProperties {
     @Min(1)
     private int codexExecTimeoutSeconds = 300;
     @Min(1)
-    private int maxMediaGroupImages = 6;
+    private int maxMediaGroupImages = 10;
     @Min(1)
     private int maxPdfPages = 4;
     @Min(1)
