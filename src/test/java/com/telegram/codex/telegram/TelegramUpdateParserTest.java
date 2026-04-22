@@ -4,6 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import com.telegram.codex.telegram.document.DocumentTypeRegistry;
+import com.telegram.codex.telegram.document.ImageDocumentDetector;
+import com.telegram.codex.telegram.document.PdfDocumentDetector;
+import com.telegram.codex.telegram.document.TextDocumentDetector;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
@@ -11,7 +15,11 @@ import org.junit.jupiter.api.Test;
 
 class TelegramUpdateParserTest {
 
-    private final TelegramUpdateParser parser = new TelegramUpdateParser();
+    private final ImageDocumentDetector imageDetector = new ImageDocumentDetector();
+    private final PdfDocumentDetector pdfDetector = new PdfDocumentDetector();
+    private final TextDocumentDetector textDetector = new TextDocumentDetector(imageDetector, pdfDetector);
+    private final DocumentTypeRegistry registry = new DocumentTypeRegistry(imageDetector, pdfDetector, textDetector);
+    private final TelegramUpdateParser parser = new TelegramUpdateParser(registry);
 
     @Test
     void parsesPhotoMessageAndReplyContext() {

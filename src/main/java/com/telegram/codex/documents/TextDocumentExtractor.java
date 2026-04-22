@@ -1,5 +1,7 @@
 package com.telegram.codex.documents;
 
+import com.telegram.codex.constants.DocumentConstants;
+import com.telegram.codex.exception.MissingDependencyException;
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
@@ -13,34 +15,26 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 @Component
 public class TextDocumentExtractor {
 
-    public static class MissingDependencyError extends RuntimeException {
-        public MissingDependencyError(String message) {
-            super(message);
-        }
-    }
-
-    private static final int DEFAULT_MAX_BYTES = 200_000;
-    private static final int DEFAULT_MAX_CHARS = 12_000;
-
     public ExtractionResult extract(Path filePath) {
         try {
             String rawContent = extractRawContent(filePath);
-            boolean truncatedByBytes = rawContent.getBytes(StandardCharsets.UTF_8).length > DEFAULT_MAX_BYTES;
+            boolean truncatedByBytes = rawContent.getBytes(StandardCharsets.UTF_8).length > DocumentConstants.MAX_DOCUMENT_BYTES;
             if (truncatedByBytes) {
-                rawContent = new String(rawContent.getBytes(StandardCharsets.UTF_8), 0, DEFAULT_MAX_BYTES, StandardCharsets.UTF_8);
+                rawContent = new String(rawContent.getBytes(StandardCharsets.UTF_8), 0, DocumentConstants.MAX_DOCUMENT_BYTES, StandardCharsets.UTF_8);
             }
             String normalized = rawContent.strip();
-            boolean truncatedByChars = normalized.length() > DEFAULT_MAX_CHARS;
+            boolean truncatedByChars = normalized.length() > DocumentConstants.MAX_DOCUMENT_CHARS;
             if (truncatedByChars) {
-                normalized = normalized.substring(0, DEFAULT_MAX_CHARS).stripTrailing();
+                normalized = normalized.substring(0, DocumentConstants.MAX_DOCUMENT_CHARS).stripTrailing();
             }
             return new ExtractionResult(normalized, truncatedByBytes || truncatedByChars);
-        } catch (MissingDependencyError error) {
+        } catch (MissingDependencyException error) {
             throw error;
         } catch (Exception error) {
             throw new IllegalStateException("Failed to extract text document", error);
@@ -68,8 +62,7 @@ public class TextDocumentExtractor {
                             ? StreamSupport.stream(row.spliterator(), false)
                                 .map(formatter::formatCellValue)
                                 .filter(value -> !value.isBlank())
-                                .reduce((left, right) -> left + "\t" + right)
-                                .orElse("")
+                                .collect(Collectors.joining("\t"))
                             : "";
                         if (!rowText.isBlank()) {
                             builder.append(rowText).append('\n');

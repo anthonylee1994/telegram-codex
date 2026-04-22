@@ -1,6 +1,7 @@
 package com.telegram.codex.codex;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.telegram.codex.constants.TelegramConstants;
 import com.telegram.codex.conversation.reply.ReplyResult;
 import org.springframework.stereotype.Component;
 
@@ -11,8 +12,6 @@ import java.util.stream.IntStream;
 
 @Component
 public class CliClient {
-
-    private static final int MAX_SUGGESTED_REPLIES = 3;
 
     private final ExecRunner execRunner;
     private final ObjectMapper objectMapper;
@@ -80,8 +79,8 @@ public class CliClient {
                 "text", Map.of("type", "string", "minLength", 1),
                 "suggested_replies", Map.of(
                     "type", "array",
-                    "minItems", MAX_SUGGESTED_REPLIES,
-                    "maxItems", MAX_SUGGESTED_REPLIES,
+                    "minItems", TelegramConstants.MAX_SUGGESTED_REPLIES,
+                    "maxItems", TelegramConstants.MAX_SUGGESTED_REPLIES,
                     "items", Map.of("type", "string", "minLength", 1)
                 )
             )

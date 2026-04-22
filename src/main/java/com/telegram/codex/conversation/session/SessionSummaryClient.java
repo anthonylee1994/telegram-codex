@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.codex.ExecRunner;
 import com.telegram.codex.codex.Transcript;
+import com.telegram.codex.exception.ExecutionException;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -27,13 +28,13 @@ public class SessionSummaryClient {
             });
             String summary = String.valueOf(payload.getOrDefault("summary", "")).trim();
             if (summary.isBlank()) {
-                throw new ExecRunner.ExecutionError("session summary returned an empty reply");
+                throw new ExecutionException("session summary returned an empty reply");
             }
             return summary;
-        } catch (ExecRunner.ExecutionError error) {
+        } catch (ExecutionException error) {
             throw error;
         } catch (Exception error) {
-            throw new ExecRunner.ExecutionError("session summary returned invalid JSON", error);
+            throw new ExecutionException("session summary returned invalid JSON", error);
         }
     }
 

@@ -1,0 +1,56 @@
+package com.telegram.codex.conversation.webhooks.action;
+
+import com.telegram.codex.conversation.memory.MemoryService;
+import com.telegram.codex.conversation.memory.MemorySnapshot;
+import com.telegram.codex.conversation.updates.ProcessedUpdateFlow;
+import com.telegram.codex.conversation.webhooks.Decision;
+import com.telegram.codex.telegram.TelegramClient;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Map;
+
+@Component
+public class ShowMemoryActionHandler implements ActionHandler {
+
+    private final MemoryService memoryService;
+    private final TelegramClient telegramClient;
+    private final ProcessedUpdateFlow processedUpdateFlow;
+
+    public ShowMemoryActionHandler(
+        MemoryService memoryService,
+        TelegramClient telegramClient,
+        ProcessedUpdateFlow processedUpdateFlow
+    ) {
+        this.memoryService = memoryService;
+        this.telegramClient = telegramClient;
+        this.processedUpdateFlow = processedUpdateFlow;
+    }
+
+    @Override
+    public Decision.Action handlesAction() {
+        return Decision.Action.SHOW_MEMORY;
+    }
+
+    @Override
+    public void execute(Decision decision, Map<String, Object> update) {
+        String memoryMessage = buildMemoryMessage(decision.message().chatId());
+        telegramClient.sendMessage(decision.message().chatId(), memoryMessage, List.of(), true);
+        processedUpdateFlow.markProcessed(decision.message());
+    }
+
+    private String buildMemoryMessage(String chatId) {
+        MemorySnapshot snapshot = memoryService.snapshot(chatId);
+        if (!snapshot.active()) {
+            return "目前未有長期記憶。之後我會自動記低穩定偏好同持續背景；想清除可以打 /forget。";
+        }
+        return String.join("\n",
+            "長期記憶：已生效",
+            "最後更新：" + snapshot.lastUpdatedAt(),
+            "",
+            snapshot.memoryText(),
+            "",
+            "想清除可以用 /forget。"
+        );
+    }
+}

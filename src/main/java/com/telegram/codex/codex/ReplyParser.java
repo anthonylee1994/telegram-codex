@@ -2,6 +2,8 @@ package com.telegram.codex.codex;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.telegram.codex.constants.MessageConstants;
+import com.telegram.codex.constants.TelegramConstants;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -13,10 +15,9 @@ import java.util.regex.Pattern;
 @Component
 public class ReplyParser {
 
-    private static final List<String> DEFAULT_SUGGESTED_REPLIES = List.of("可唔可以講詳細啲？", "幫我列重點。", "下一步可以點做？");
-    private static final int MAX_SUGGESTED_REPLIES = 3;
     private static final Pattern TEXT_PATTERN = Pattern.compile("\"text\"\\s*:\\s*\"(?<value>[\\s\\S]*?)\"\\s*,\\s*\"suggested_replies\"\\s*:");
     private static final Pattern REPLIES_PATTERN = Pattern.compile("\"suggested_replies\"\\s*:\\s*\\[(?<value>[\\s\\S]*?)\\]");
+    private static final Pattern REPLY_ITEM_PATTERN = Pattern.compile("\"((?:\\\\.|[^\"\\\\]|[\\r\\n])*)\"");
 
     private final ObjectMapper objectMapper;
 
@@ -29,7 +30,7 @@ public class ReplyParser {
             Object payload = parsePayload(rawReply);
             return new ParsedReply(extractReplyText(payload, rawReply), extractSuggestedReplies(payload, rawReply));
         } catch (Exception error) {
-            return new ParsedReply(fallbackReplyText(rawReply), sanitizeSuggestedReplies(List.of(rawReply), DEFAULT_SUGGESTED_REPLIES));
+            return new ParsedReply(fallbackReplyText(rawReply), sanitizeSuggestedReplies(List.of(rawReply), MessageConstants.DEFAULT_SUGGESTED_REPLIES));
         }
     }
 
@@ -95,7 +96,7 @@ public class ReplyParser {
         if (!matcher.find()) {
             return List.of();
         }
-        Matcher replyMatcher = Pattern.compile("\"((?:\\\\.|[^\"\\\\]|[\\r\\n])*)\"").matcher(matcher.group("value"));
+        Matcher replyMatcher = REPLY_ITEM_PATTERN.matcher(matcher.group("value"));
         ArrayList<String> replies = new ArrayList<>();
         while (replyMatcher.find()) {
             replies.add(normalizeReplyText(replyMatcher.group(1)));
@@ -123,13 +124,13 @@ public class ReplyParser {
 
     private List<String> extractSuggestedReplies(Object payload, String rawReply) {
         if (payload instanceof List<?> list) {
-            return sanitizeSuggestedReplies(list, DEFAULT_SUGGESTED_REPLIES);
+            return sanitizeSuggestedReplies(list, MessageConstants.DEFAULT_SUGGESTED_REPLIES);
         }
         if (payload instanceof Map<?, ?> map) {
             Object suggestedReplies = map.get("suggested_replies");
-            return sanitizeSuggestedReplies(suggestedReplies instanceof List<?> list ? list : List.of(), DEFAULT_SUGGESTED_REPLIES);
+            return sanitizeSuggestedReplies(suggestedReplies instanceof List<?> list ? list : List.of(), MessageConstants.DEFAULT_SUGGESTED_REPLIES);
         }
-        return sanitizeSuggestedReplies(List.of(rawReply), DEFAULT_SUGGESTED_REPLIES);
+        return sanitizeSuggestedReplies(List.of(rawReply), MessageConstants.DEFAULT_SUGGESTED_REPLIES);
     }
 
     public List<String> parseSuggestedReplies(String rawSuggestedReplies) {
@@ -153,13 +154,13 @@ public class ReplyParser {
             }
             String normalized = stringReply.trim().replaceAll("\\s+", " ");
             if (!normalized.isBlank() && !cleaned.contains(normalized)) {
-                cleaned.add(normalized.length() > 40 ? normalized.substring(0, 40) : normalized);
+                cleaned.add(normalized.length() > TelegramConstants.MAX_SUGGESTED_REPLY_LENGTH ? normalized.substring(0, TelegramConstants.MAX_SUGGESTED_REPLY_LENGTH) : normalized);
             }
-            if (cleaned.size() == MAX_SUGGESTED_REPLIES) {
+            if (cleaned.size() == TelegramConstants.MAX_SUGGESTED_REPLIES) {
                 break;
             }
         }
-        if (cleaned.size() < MAX_SUGGESTED_REPLIES) {
+        if (cleaned.size() < TelegramConstants.MAX_SUGGESTED_REPLIES) {
             return fallback;
         }
         return List.copyOf(cleaned);

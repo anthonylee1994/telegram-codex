@@ -3,6 +3,7 @@ package com.telegram.codex.conversation.memory;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.codex.ExecRunner;
+import com.telegram.codex.exception.ExecutionException;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -26,7 +27,7 @@ public class MemoryClient {
             });
             return String.valueOf(payload.getOrDefault("memory", "")).trim();
         } catch (Exception error) {
-            throw new ExecRunner.ExecutionError("memory merge returned invalid JSON", error);
+            throw new ExecutionException("memory merge returned invalid JSON", error);
         }
     }
 

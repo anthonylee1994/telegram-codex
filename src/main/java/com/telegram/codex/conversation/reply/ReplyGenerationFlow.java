@@ -1,25 +1,23 @@
 package com.telegram.codex.conversation.reply;
 
+import com.telegram.codex.constants.MessageConstants;
 import com.telegram.codex.conversation.session.SessionService;
 import com.telegram.codex.documents.PdfPageRasterizer;
 import com.telegram.codex.documents.TextDocumentExtractor;
+import com.telegram.codex.exception.MissingDependencyException;
 import com.telegram.codex.telegram.InboundMessage;
 import com.telegram.codex.telegram.TelegramClient;
+import com.telegram.codex.util.StreamUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 @Component
 public class ReplyGenerationFlow {
-
-    public static final String PDF_UNAVAILABLE_MESSAGE = "而家未開到 PDF 轉圖工具，所以暫時睇唔到 PDF。你可以改為 send screenshot，或者等我開通 PDF 支援。";
-    public static final String TEXT_DOCUMENT_UNAVAILABLE_MESSAGE = "而家未開到 Office / 文字檔抽取工具，所以暫時睇唔到份檔案內容。你可以改為貼文字、send PDF，或者等我開通完整支援。";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ReplyGenerationFlow.class);
 
@@ -62,18 +60,16 @@ public class ReplyGenerationFlow {
             sessionService.persistConversationState(message.chatId(), reply.conversationState());
             refreshLongTermMemory(message, reply.text());
             conversationService.markProcessed(message.updateId(), message.chatId(), message.messageId());
-        } catch (PdfPageRasterizer.MissingDependencyError error) {
+        } catch (MissingDependencyException error) {
             if (!hasPendingReply) {
                 conversationService.clearProcessing(message.updateId());
             }
-            LOGGER.error("PDF conversion unavailable update_id={} chat_id={} error={}", message.updateId(), message.chatId(), error.getMessage());
-            telegramClient.sendMessage(message.chatId(), PDF_UNAVAILABLE_MESSAGE, List.of(), false);
-        } catch (TextDocumentExtractor.MissingDependencyError error) {
-            if (!hasPendingReply) {
-                conversationService.clearProcessing(message.updateId());
-            }
-            LOGGER.error("Text extraction unavailable update_id={} chat_id={} error={}", message.updateId(), message.chatId(), error.getMessage());
-            telegramClient.sendMessage(message.chatId(), TEXT_DOCUMENT_UNAVAILABLE_MESSAGE, List.of(), false);
+            LOGGER.error("Dependency unavailable update_id={} chat_id={} dependency={} error={}",
+                message.updateId(), message.chatId(), error.getDependencyName(), error.getMessage());
+            String errorMessage = "pdftoppm".equals(error.getDependencyName())
+                ? MessageConstants.PDF_UNAVAILABLE_MESSAGE
+                : MessageConstants.TEXT_DOCUMENT_UNAVAILABLE_MESSAGE;
+            telegramClient.sendMessage(message.chatId(), errorMessage, List.of(), false);
         } catch (Exception error) {
             if (!hasPendingReply) {
                 conversationService.clearProcessing(message.updateId());
@@ -113,7 +109,7 @@ public class ReplyGenerationFlow {
                 basePrompt = "我上載咗一份文字檔。請先概括內容，再按內容回答。";
             }
             return String.join("\n", basePrompt, "", "檔案名稱：" + (message.effectiveTextDocumentName() == null ? "未命名檔案" : message.effectiveTextDocumentName()), "以下係檔案內容：", "```text", extractionResult.content(), "```", extractionResult.truncated() ? "注意：檔案內容已經截短，只包含前面一部分。" : "").trim();
-        } catch (TextDocumentExtractor.MissingDependencyError error) {
+        } catch (MissingDependencyException error) {
             throw error;
         } catch (Exception error) {
             throw new IllegalStateException("Failed to build text override", error);
@@ -122,15 +118,7 @@ public class ReplyGenerationFlow {
 
     private void cleanupDownloadedArtifacts(List<Path> imageFilePaths) {
         for (Path imageFilePath : imageFilePaths) {
-            try {
-                Files.walk(imageFilePath.getParent()).sorted(Comparator.reverseOrder()).forEach(path -> {
-                    try {
-                        Files.deleteIfExists(path);
-                    } catch (Exception ignored) {
-                    }
-                });
-            } catch (Exception ignored) {
-            }
+            StreamUtils.deleteDirectoryRecursively(imageFilePath.getParent());
         }
     }
 
