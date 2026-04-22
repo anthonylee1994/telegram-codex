@@ -9,7 +9,6 @@ import com.telegram.codex.telegram.InboundMessage;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
-import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -17,15 +16,18 @@ public class MediaGroupStore {
 
     private final MediaGroupBufferJpaRepository bufferRepository;
     private final MediaGroupMessageJpaRepository messageRepository;
+    private final MediaGroupMerger mediaGroupMerger;
     private final ObjectMapper objectMapper;
 
     public MediaGroupStore(
         MediaGroupBufferJpaRepository bufferRepository,
         MediaGroupMessageJpaRepository messageRepository,
+        MediaGroupMerger mediaGroupMerger,
         ObjectMapper objectMapper
     ) {
         this.bufferRepository = bufferRepository;
         this.messageRepository = messageRepository;
+        this.mediaGroupMerger = mediaGroupMerger;
         this.objectMapper = objectMapper;
     }
 
@@ -68,52 +70,14 @@ public class MediaGroupStore {
         if (rows.isEmpty()) {
             return FlushResult.missing();
         }
-        return FlushResult.ready(aggregateMessages(rows));
+        List<InboundMessage> messages = rows.stream().map(this::readMessage).toList();
+        return FlushResult.ready(mediaGroupMerger.merge(messages));
     }
 
     @Transactional
     public void clear() {
         messageRepository.deleteAll();
         bufferRepository.deleteAll();
-    }
-
-    private InboundMessage aggregateMessages(List<MediaGroupMessageEntity> rows) {
-        List<InboundMessage> messages = rows.stream()
-            .map(this::readMessage)
-            .sorted(Comparator.comparingLong(InboundMessage::messageId).thenComparingLong(InboundMessage::updateId))
-            .toList();
-        InboundMessage primary = messages.getFirst();
-        String aggregatedText = messages.stream()
-            .map(InboundMessage::text)
-            .filter(value -> value != null && !value.isBlank())
-            .findFirst()
-            .orElse(null);
-        List<String> aggregatedImageFileIds = messages.stream()
-            .flatMap(message -> message.imageFileIds().stream())
-            .distinct()
-            .toList();
-        List<InboundMessage.ProcessingUpdate> processingUpdates = messages.stream()
-            .map(message -> new InboundMessage.ProcessingUpdate(message.updateId(), message.messageId()))
-            .toList();
-        return new InboundMessage(
-            primary.chatId(),
-            aggregatedImageFileIds,
-            primary.mediaGroupId(),
-            primary.messageId(),
-            null,
-            processingUpdates,
-            List.of(),
-            null,
-            null,
-            null,
-            null,
-            null,
-            aggregatedText,
-            null,
-            null,
-            primary.userId(),
-            primary.updateId()
-        );
     }
 
     private String writeMessage(InboundMessage message) {

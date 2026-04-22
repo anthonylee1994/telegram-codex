@@ -97,6 +97,137 @@ public record InboundMessage(
     public record ProcessingUpdate(@JsonProperty("update_id") long updateId, @JsonProperty("message_id") long messageId) {
     }
 
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static class Builder {
+        private String chatId;
+        private List<String> imageFileIds = List.of();
+        private String mediaGroupId;
+        private long messageId;
+        private String pdfFileId;
+        private List<ProcessingUpdate> processingUpdates = List.of();
+        private List<String> replyToImageFileIds = List.of();
+        private Long replyToMessageId;
+        private String replyToPdfFileId;
+        private String replyToText;
+        private String replyToTextDocumentFileId;
+        private String replyToTextDocumentName;
+        private String text;
+        private String textDocumentFileId;
+        private String textDocumentName;
+        private String userId;
+        private long updateId;
+
+        public Builder chatId(String chatId) {
+            this.chatId = chatId;
+            return this;
+        }
+
+        public Builder imageFileIds(List<String> imageFileIds) {
+            this.imageFileIds = imageFileIds;
+            return this;
+        }
+
+        public Builder mediaGroupId(String mediaGroupId) {
+            this.mediaGroupId = mediaGroupId;
+            return this;
+        }
+
+        public Builder messageId(long messageId) {
+            this.messageId = messageId;
+            return this;
+        }
+
+        public Builder pdfFileId(String pdfFileId) {
+            this.pdfFileId = pdfFileId;
+            return this;
+        }
+
+        public Builder processingUpdates(List<ProcessingUpdate> processingUpdates) {
+            this.processingUpdates = processingUpdates;
+            return this;
+        }
+
+        public Builder replyToImageFileIds(List<String> replyToImageFileIds) {
+            this.replyToImageFileIds = replyToImageFileIds;
+            return this;
+        }
+
+        public Builder replyToMessageId(Long replyToMessageId) {
+            this.replyToMessageId = replyToMessageId;
+            return this;
+        }
+
+        public Builder replyToPdfFileId(String replyToPdfFileId) {
+            this.replyToPdfFileId = replyToPdfFileId;
+            return this;
+        }
+
+        public Builder replyToText(String replyToText) {
+            this.replyToText = replyToText;
+            return this;
+        }
+
+        public Builder replyToTextDocumentFileId(String replyToTextDocumentFileId) {
+            this.replyToTextDocumentFileId = replyToTextDocumentFileId;
+            return this;
+        }
+
+        public Builder replyToTextDocumentName(String replyToTextDocumentName) {
+            this.replyToTextDocumentName = replyToTextDocumentName;
+            return this;
+        }
+
+        public Builder text(String text) {
+            this.text = text;
+            return this;
+        }
+
+        public Builder textDocumentFileId(String textDocumentFileId) {
+            this.textDocumentFileId = textDocumentFileId;
+            return this;
+        }
+
+        public Builder textDocumentName(String textDocumentName) {
+            this.textDocumentName = textDocumentName;
+            return this;
+        }
+
+        public Builder userId(String userId) {
+            this.userId = userId;
+            return this;
+        }
+
+        public Builder updateId(long updateId) {
+            this.updateId = updateId;
+            return this;
+        }
+
+        public InboundMessage build() {
+            return new InboundMessage(
+                chatId,
+                imageFileIds,
+                mediaGroupId,
+                messageId,
+                pdfFileId,
+                processingUpdates,
+                replyToImageFileIds,
+                replyToMessageId,
+                replyToPdfFileId,
+                replyToText,
+                replyToTextDocumentFileId,
+                replyToTextDocumentName,
+                text,
+                textDocumentFileId,
+                textDocumentName,
+                userId,
+                updateId
+            );
+        }
+    }
+
     public static List<String> normalizeStrings(List<String> values) {
         if (values == null) {
             return List.of();
