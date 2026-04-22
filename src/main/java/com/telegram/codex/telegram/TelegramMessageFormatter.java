@@ -9,9 +9,13 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Component
 public class TelegramMessageFormatter {
+
+    private static final Pattern FENCED_CODE_BLOCK_PATTERN = Pattern.compile("```(?:[\\t ]*[\\w#+.-]+)?\\n?(.*?)```", Pattern.DOTALL);
 
     private final ReplyParser replyParser;
 
@@ -20,7 +24,21 @@ public class TelegramMessageFormatter {
     }
 
     public String formatForTelegram(String text) {
-        return HtmlEscaper.escape(text);
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        StringBuilder formatted = new StringBuilder();
+        Matcher matcher = FENCED_CODE_BLOCK_PATTERN.matcher(text);
+        int cursor = 0;
+        while (matcher.find()) {
+            formatted.append(HtmlEscaper.escape(text.substring(cursor, matcher.start())));
+            formatted.append("<pre><code>");
+            formatted.append(HtmlEscaper.escape(stripSingleLeadingNewline(matcher.group(1))));
+            formatted.append("</code></pre>");
+            cursor = matcher.end();
+        }
+        formatted.append(HtmlEscaper.escape(text.substring(cursor)));
+        return formatted.toString();
     }
 
     public Map<String, Object> buildReplyMarkup(List<String> suggestedReplies, boolean removeKeyboard) {
@@ -68,5 +86,18 @@ public class TelegramMessageFormatter {
     }
 
     public record NormalizedReply(String text, List<String> suggestedReplies) {
+    }
+
+    private static String stripSingleLeadingNewline(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        if (text.startsWith("\r\n")) {
+            return text.substring(2);
+        }
+        if (text.startsWith("\n")) {
+            return text.substring(1);
+        }
+        return text;
     }
 }
