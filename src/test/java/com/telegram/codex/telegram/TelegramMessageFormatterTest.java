@@ -53,4 +53,31 @@ class TelegramMessageFormatterTest {
             </code></pre>
             """, formatted);
     }
+
+    @Test
+    void convertsInlineCodeOutsideCodeBlocks() {
+        String formatted = formatter.formatForTelegram("""
+            用 `print('Hello from Python')` 同 `print(sum(range(1, 6)))` 做例子。
+            """);
+
+        assertEquals("""
+            用 <code>print('Hello from Python')</code> 同 <code>print(sum(range(1, 6)))</code> 做例子。
+            """, formatted);
+    }
+
+    @Test
+    void doesNotParseInlineCodeInsideFencedCodeBlocks() {
+        String formatted = formatter.formatForTelegram("""
+            ```python
+            print(`raw`)
+            ```
+            外面先有 `inline`
+            """);
+
+        assertEquals("""
+            <pre><code>print(`raw`)
+            </code></pre>
+            外面先有 <code>inline</code>
+            """, formatted);
+    }
 }

@@ -16,6 +16,7 @@ import java.util.regex.Pattern;
 public class TelegramMessageFormatter {
 
     private static final Pattern FENCED_CODE_BLOCK_PATTERN = Pattern.compile("```(?:[\\t ]*[\\w#+.-]+)?\\n?(.*?)```", Pattern.DOTALL);
+    private static final Pattern INLINE_CODE_PATTERN = Pattern.compile("`([^`\\n]+)`");
 
     private final ReplyParser replyParser;
 
@@ -31,13 +32,13 @@ public class TelegramMessageFormatter {
         Matcher matcher = FENCED_CODE_BLOCK_PATTERN.matcher(text);
         int cursor = 0;
         while (matcher.find()) {
-            formatted.append(HtmlEscaper.escape(text.substring(cursor, matcher.start())));
+            formatted.append(formatInlineCode(text.substring(cursor, matcher.start())));
             formatted.append("<pre><code>");
             formatted.append(HtmlEscaper.escape(stripSingleLeadingNewline(matcher.group(1))));
             formatted.append("</code></pre>");
             cursor = matcher.end();
         }
-        formatted.append(HtmlEscaper.escape(text.substring(cursor)));
+        formatted.append(formatInlineCode(text.substring(cursor)));
         return formatted.toString();
     }
 
@@ -99,5 +100,23 @@ public class TelegramMessageFormatter {
             return text.substring(1);
         }
         return text;
+    }
+
+    private static String formatInlineCode(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        StringBuilder formatted = new StringBuilder();
+        Matcher matcher = INLINE_CODE_PATTERN.matcher(text);
+        int cursor = 0;
+        while (matcher.find()) {
+            formatted.append(HtmlEscaper.escape(text.substring(cursor, matcher.start())));
+            formatted.append("<code>");
+            formatted.append(HtmlEscaper.escape(matcher.group(1)));
+            formatted.append("</code>");
+            cursor = matcher.end();
+        }
+        formatted.append(HtmlEscaper.escape(text.substring(cursor)));
+        return formatted.toString();
     }
 }
