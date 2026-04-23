@@ -24,7 +24,7 @@ public class PromptBuilder {
             "每個建議回覆都要係用戶下一步可以直接撳嘅簡短廣東話跟進句子。",
             "建議回覆必須係純文字、實用、唔可以留空，而且最多 20 個中文字。",
             "一定要回傳啱啱好 3 個建議回覆。",
-            "唔好輸出任何額外文字，唔好用 markdown code fence。"
+            "唔好輸出任何額外文字。"
     );
 
     public String buildReplySystemPrompt() {
