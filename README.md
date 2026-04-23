@@ -1,723 +1,485 @@
 # telegram-codex
 
-用 Telegram webhook 收訊息，之後 enqueue background work 跑 `codex exec` 做回覆；對話狀態用 SQLite 存，而家個 HTTP layer 係
-Spring Boot API。
+一個用 Spring Boot 跑嘅 Telegram bot backend。Telegram 負責收用戶輸入，server 負責 webhook、session、長期記憶、rate limit，同埋 call `codex exec` 生成回覆。
 
 Demo：https://t.me/On99AppBot
 
-## 點解會整呢個 project
+## 目的
 
-呢個 project 其實係由一個幾實際嘅需求出發：
+呢個 project 係想將本機用緊嘅 Codex CLI 包成一個可以長期運行、真係日常用到嘅 Telegram bot，而唔係淨係做 demo。
 
-- 想隨時隨地用 Codex 幫手
-- 唔想另外再砌一套 OpenAI API key integration
-- 想保留基本對話記錄，而唔係每次都由零開始
-
-所以最後就變成一個 Telegram bot backend：
-
-- Telegram 負責做最順手嘅輸入入口
-- server 負責收 webhook、做 session / 長期記憶、控 rate limit
-- `codex exec` 負責真正生成回覆
-
-簡單講，呢個 project 係想將本機用緊嘅 Codex CLI，包成一個可以長期運行、日常真係用得着嘅 bot，而唔係淨係做 demo。
+- Telegram 做最順手嘅輸入入口
+- server 控 webhook、session、memory、duplicate protection
+- `codex exec` 做真正回覆生成
 
 ## 功能
 
 - 支持 Telegram 文字訊息
 - 支持單張圖片同 caption
 - 支持 Telegram 相簿多圖訊息分析
-- 支持 reply 之前嘅 message；如果引用舊文字，會就住嗰句延續回答
-- 支持 reply 之前嘅相；就算今次冇重新 upload，都會拎返被引用圖片再分析
-- 多圖分析會用 `圖 1`、`圖 2` 呢類編號逐張講
-- 相簿冇 caption 時會自動補 prompt，叫模型逐張描述再比較
-- 相簿太多圖時會先叫用戶縮窄範圍再分析
-- 支持 `/start` 顯示 welcome / help message
-- 支持 `/help`、`/status`、`/session`、`/memory`、`/compact`
-- 支持 `/forget` 清除長期記憶
-- 支持 `/new` 重開當前 chat session
-- `/compact` 會非同步將長對話壓縮成新 context，再主動 send 摘要返 Telegram
-- 支持 3 個 reply keyboard suggested replies
-- 有 session memory
-- 有獨立長期記憶，會自動整理用戶偏好、背景、持續目標，再喺之後對話 relevant 時帶返入 prompt
+- 支持 reply 舊文字或者舊圖片延續上下文
+- 相簿冇 caption 時會自動補 prompt 做逐張描述同比較
+- 相簿太多圖時會叫 user 縮窄範圍
+- 支持 `/start`、`/help`、`/status`、`/session`、`/memory`、`/compact`、`/forget`、`/new`
+- `/compact` 會非同步壓縮目前 session，再主動 send 摘要返 Telegram
+- 支持最多 3 個 suggested replies
+- 有 session memory 同獨立長期記憶
 - 有 duplicate update 保護
 - 有簡單 rate limit
 - 可限制指定 Telegram user id
 
 未支持：
 
-- 語音、影片、其他檔案
+- 語音
+- 影片
+- 一般非圖片檔案分析
 
-## Spring Boot 架構
+## 技術棧
 
-核心 runtime 係 Spring Boot 3.5 + JPA + Flyway + SQLite。
+- Java 25
+- Spring Boot 3.5
+- Spring Web
+- Spring Data JPA
+- Flyway
+- SQLite
+- Telegram Bot API
+- Codex CLI
+
+## 架構
+
+而家個 codebase 已經跟 domain / application / infrastructure / interfaces 分開，唔再係以前嗰種按技術或雜項 util 亂堆。
 
 ```text
 src/main/java/com/telegram/codex/
-├── TelegramCodexApplication.java
-├── cli/
-│   └── CliTaskRunner.java
-├── codex/
-│   ├── CliClient.java
-│   ├── ExecRunner.java
-│   ├── PromptBuilder.java
-│   ├── ReplyParser.java
-│   └── Transcript.java
-├── config/
-│   ├── AppProperties.java
-│   └── JacksonConfig.java
-├── constants/
-│   ├── CodexConstants.java
-│   ├── ConversationConstants.java
-│   ├── DocumentConstants.java
-│   ├── MessageConstants.java
-│   └── TelegramConstants.java
+├── bootstrap/
+│   └── TelegramCodexApplication.java
 ├── conversation/
-│   ├── ChatRateLimiter.java
-│   ├── ConversationTimeFormatter.java
-│   ├── MediaGroupMerger.java
-│   ├── MediaGroupStore.java
-│   ├── memory/
-│   │   └── MemoryClient.java
-│   ├── reply/
-│   │   ├── ConversationService.java
-│   │   └── ReplyGenerationFlow.java
-│   ├── session/
-│   │   └── SessionCompactClient.java
-│   ├── updates/
-│   │   └── ProcessedUpdateFlow.java
-│   └── webhooks/
-│       ├── ActionExecutor.java
-│       ├── Decision.java
-│       └── DecisionResolver.java
-├── documents/
-│   └── TextDocumentExtractor.java
-├── jobs/
-│   └── JobSchedulerService.java
-├── persistence/
-│   ├── ChatMemoryEntity.java
-│   ├── ChatSessionEntity.java
-│   ├── MediaGroupBufferEntity.java
-│   ├── MediaGroupMessageEntity.java
-│   └── ProcessedUpdateEntity.java
-├── telegram/
-│   ├── InboundMessage.java
-│   ├── InboundMessageProcessor.java
-│   ├── MessageExtractor.java
-│   ├── CompactResultSender.java
-│   ├── TelegramClient.java
-│   ├── TelegramUpdateParser.java
-│   └── TelegramWebhookHandler.java
-├── util/
-│   ├── CommandAvailabilityChecker.java
-│   ├── ProcessExecutor.java
-│   └── StreamUtils.java
-└── web/
-    ├── HealthController.java
-    └── TelegramWebhookController.java
-src/main/resources/
-├── application.yml
-└── db/migration/
-    ├── V1__create_app_tables.sql
-    └── V2__fix_updated_at_bigint_columns.sql
-src/test/java/com/telegram/codex/
-└── ...
+│   ├── application/
+│   │   ├── job/
+│   │   ├── memory/
+│   │   ├── port/out/
+│   │   ├── reply/
+│   │   ├── session/
+│   │   ├── update/
+│   │   └── webhook/
+│   ├── domain/
+│   │   ├── memory/
+│   │   ├── session/
+│   │   └── update/
+│   └── infrastructure/
+│       ├── memory/
+│       ├── persistence/
+│       ├── session/
+│       └── update/
+├── integration/
+│   ├── codex/
+│   └── telegram/
+│       ├── application/
+│       ├── domain/
+│       └── infrastructure/
+├── interfaces/
+│   ├── cli/
+│   └── web/
+└── shared/
+    └── config/
 ```
 
-分層思路：
+### 分層原則
 
-- controller 只處理 HTTP request / response
-- parser 專心將 Telegram payload 轉成 app message
-- conversation / telegram / codex service 負責業務邏輯
-- persistence layer 只處理資料存取
-- util layer 提供 reusable helpers（process execution、command checks、stream utils）
+- `domain` 放純業務概念、規則、value-like model
+- `application` 放 use case orchestration，同 outbound ports
+- `infrastructure` 放 JPA、repository、adapter implementation
+- `integration` 放對外系統整合，例如 Telegram 同 Codex
+- `interfaces` 放 HTTP / CLI entrypoints
+- `shared` 只留真係跨 domain 都合理共享嘅 config，唔再放萬能垃圾桶 util
 
-咁做嘅目的都一樣：
+## 主要 package map
 
-- webhook flow 易測
-- `codex exec` integration 同 HTTP 層分開
-- SQLite / Telegram / Codex 三個依賴點唔會黐埋一舊
-- 減少重複 code，提升 maintainability
+### `bootstrap`
 
-### 主要 Components
+- `bootstrap/TelegramCodexApplication.java`
+  Spring Boot 入口。
 
-**Utilities**:
+### `conversation`
 
-- `ProcessExecutor`: 統一 process execution logic，支持 timeout、input stream、structured results
-- `CommandAvailabilityChecker`: 檢查 system commands 係咪存在
-- `MessageExtractor`: 封裝 Telegram message extraction logic，用 `Optional<T>` 提升 type safety
+- `conversation/application/reply/ConversationService.java`
+  對話 use case 主入口，處理 session、memory、reply generation。
 
-**Telegram Layer**:
+- `conversation/application/reply/ReplyGenerationFlow.java`
+  非同步回覆流程，負責附件 download 同主回答生成。
 
-- `TelegramUpdateParser`: 將 Telegram webhook payload 轉成 `InboundMessage`（用 `MessageExtractor` 簡化）
-- `TelegramClient`: Telegram Bot API wrapper
-- `InboundMessageProcessor`: Decision routing（commands、rate limit、duplicate check）
+- `conversation/application/session/SessionService.java`
+  session 讀寫、TTL、compact 相關邏輯。
 
-**Codex Integration**:
+- `conversation/application/memory/MemoryService.java`
+  長期記憶整理同更新。
 
-- `ExecRunner`: 執行 `codex exec`（用 `ProcessExecutor` 統一 process handling）
-- `CliClient`: 組裝 prompt、parse reply、generate suggested replies
-- `PromptBuilder`: 建立 system prompt 同 context
+- `conversation/application/job/JobSchedulerService.java`
+  跑 async reply、compact，同 media group flush scheduling。
 
-## Request Flow
+- `conversation/application/update/ProcessedUpdateFlow.java`
+  duplicate update 保護。
 
-由 Telegram 打入嚟，到 bot 回覆，而家條 path 係：
+- `conversation/application/webhook/*`
+  command / decision / action routing。
 
-- `POST /telegram/webhook` 驗證 `X-Telegram-Bot-Api-Secret-Token`
-- `TelegramUpdateParser` 將 Telegram payload 轉成 `InboundMessage`
-- `InboundMessageProcessor` 做 duplicate、防重送、allowed user、commands、rate limit
-- `MediaGroupStore` 將 Telegram 相簿訊息寫入 SQLite shared store，再由 `JobSchedulerService` 排 flush
-- `ConversationService` 管 session TTL、長期記憶、compact，同 `CliClient` 串 `codex exec`
-- `ReplyGenerationFlow` 非同步做附件 download、主回答生成
-- `CompactResultSender` 將 `/compact` 結果主動 send 返 Telegram
-- `ChatSession` / `ChatMemory` / `ProcessedUpdate` / `MediaGroupBuffer` / `MediaGroupMessage` 都係用 SQLite 存
-- `bin/telegram-codex telegram:set-webhook` 同 `telegram:update-commands` 取代舊 task
+- `conversation/application/port/out/*`
+  application layer 對外依賴接口，例如 `ChatSessionPort`、`ReplyGenerationPort`、`SessionCompactPort`。
 
-拆開講：
+- `conversation/domain/*`
+  對話核心規則，例如 `ChatRateLimiter`、`MediaGroupMerger`、`Decision`、`Transcript`、memory/session/update records。
 
-1. Telegram webhook 打入 Spring Boot。
-2. [`TelegramWebhookController`](src/main/java/com/telegram/codex/web/TelegramWebhookController.java) 先驗 secret token。
-3. 驗證通過後，controller 將 payload 交畀 [
-   `TelegramWebhookHandler`](src/main/java/com/telegram/codex/telegram/TelegramWebhookHandler.java)。
-4. handler 先用 [`TelegramUpdateParser`](src/main/java/com/telegram/codex/telegram/TelegramUpdateParser.java) parse
-   文字 / 圖片 / reply context。
-5. 如果係 Telegram 相簿，會先寫入 [`MediaGroupStore`](src/main/java/com/telegram/codex/conversation/MediaGroupStore.java)
-   ，再排 delayed flush。
-6. 非相簿 message 就交畀 [
-   `InboundMessageProcessor`](src/main/java/com/telegram/codex/telegram/InboundMessageProcessor.java) 做 decision。
-7. processor 會處理 duplicate、pending reply replay、allowed users、`/start`、`/help`、`/status`、`/session`、`/memory`、
-   `/forget`、`/compact`、`/new` 同 chat-level rate limit。
-8. 真正要生成回覆時，[`JobSchedulerService`](src/main/java/com/telegram/codex/jobs/JobSchedulerService.java) 會用 virtual
-   thread enqueue reply generation，webhook thread 就即刻回 `200 OK`。
-9. [`ReplyGenerationFlow`](src/main/java/com/telegram/codex/conversation/reply/ReplyGenerationFlow.java) 會 download 附件，再 call [
-   `ConversationService`](src/main/java/com/telegram/codex/conversation/reply/ConversationService.java)。
-10. [`CliClient`](src/main/java/com/telegram/codex/codex/CliClient.java) 用 transcript + system prompt 跑 `codex exec`
-    ，再生成最多 3 個 suggested replies。
-11. reply 成功 send 番 Telegram 之後，system 先更新 session state 同長期記憶。
-12. `/compact` 會走另一條 async path，整理完再主動 send 摘要返 Telegram。
+- `conversation/infrastructure/*`
+  conversation domain 對應嘅 repository / persistence adapter。
 
-## 主要檔案點運作
+### `integration/codex`
 
-下面呢段係比你開 repo 想快速認路用。
+- `CodexReplyClient`
+  真正接 `codex exec` 生成 reply。
 
-### HTTP 層
+- `ExecRunner`
+  process execution 包裝。
 
-- [`TelegramCodexApplication.java`](src/main/java/com/telegram/codex/TelegramCodexApplication.java)
-    - Spring Boot 入口。
-    - 起 app 前會先根據 `SQLITE_DB_PATH` 建好 database directory。
+- `PromptBuilder`
+  組 prompt。
 
-- [`HealthController.java`](src/main/java/com/telegram/codex/web/HealthController.java)
-    - 提供 `GET /health`。
-    - 比 load balancer、Dokku、自己 curl check service 仲生勾勾。
+- `ReplyParser` / `ReplyTextExtractor` / `SuggestedRepliesExtractor`
+  parse Codex output。
 
-- [`TelegramWebhookController.java`](src/main/java/com/telegram/codex/web/TelegramWebhookController.java)
-    - Telegram webhook 真入口。
-    - 只做三件事：驗 secret、call handler、將結果轉成 HTTP status。
-    - 回覆生成已經唔喺 request thread 做，webhook 主要負責快速 ack Telegram。
+### `integration/telegram`
 
-### Telegram / Webhook
+- `application/TelegramWebhookHandler`
+  Telegram inbound flow 入口。
 
-- [`TelegramWebhookHandler.java`](src/main/java/com/telegram/codex/telegram/TelegramWebhookHandler.java)
-    - webhook flow 入口。
-    - 負責 parse update，同埋將 Telegram 相簿 defer 去 flush path。
+- `application/InboundMessageProcessor`
+  message decision routing。
 
-- [`TelegramUpdateParser.java`](src/main/java/com/telegram/codex/telegram/TelegramUpdateParser.java)
-    - 將 Telegram 原始 payload 轉成 app 內部用嘅 `InboundMessage`。
-    - 支持文字訊息、單張圖片、圖片 document 同 Telegram 相簿訊息。
-    - user 如果 reply 之前一則 message，呢層會一齊抽返被引用文字、相 context。
+- `application/CompactResultSender`
+  `/compact` 完成後主動 send 結果。
 
-- [`InboundMessageProcessor.java`](src/main/java/com/telegram/codex/telegram/InboundMessageProcessor.java)
-    - 大部分 Telegram 行為都喺呢度做 decision / action routing。
-    - 包括 unsupported fallback、duplicate ignore、pending reply replay、unauthorized user reject、commands、rate limit、media
-      group aggregation 後續處理。
+- `infrastructure/TelegramClient`
+  Telegram API adapter。
 
-- [`TelegramClient.java`](src/main/java/com/telegram/codex/telegram/TelegramClient.java)
-    - 包住 Telegram Bot API。
-    - 主要做 send message、send / remove reply keyboard、send typing action、download file、set webhook、update commands。
+- `infrastructure/TelegramUpdateParser`
+  將 webhook payload 轉成 app 內部 `InboundMessage`。
 
-### Conversation / Codex
+- `infrastructure/AttachmentDownloader`
+  附件下載 adapter。
 
-- [`ConversationService.java`](src/main/java/com/telegram/codex/conversation/reply/ConversationService.java)
-    - 對話層 orchestration。
-    - 主要責任：
-        - 讀寫 session / memory / processed update
-        - 判斷 session TTL
-        - call `CliClient`
-        - call `MemoryClient` 更新長期記憶
-        - call `SessionCompactClient` 壓縮 session context
-        - opportunistic prune 舊 processed updates
+### `interfaces`
 
-- [`ReplyGenerationFlow.java`](src/main/java/com/telegram/codex/conversation/reply/ReplyGenerationFlow.java)
-    - 真正處理 Telegram 附件 download 嗰層。
-    - 如果今次冇新附件，但 reply 咗之前一張相，亦會 fallback download 嗰張被引用圖片再分析。
+- `interfaces/web/TelegramWebhookController.java`
+  `POST /telegram/webhook` 入口。
 
-- [`CliClient.java`](src/main/java/com/telegram/codex/codex/CliClient.java)
-    - 真正同 `codex exec` 接軌嗰層。
-    - 會 parse 上次 conversation state、relevant 時帶長期記憶入 prompt、處理 reply 舊訊息 context、多圖分析
-      prompt、suggested replies，同讀返 `codex exec --output-last-message`。
+- `interfaces/web/HealthController.java`
+  `GET /health`。
 
-- [`MemoryClient.java`](src/main/java/com/telegram/codex/conversation/memory/MemoryClient.java)
-    - 專責將最新 user message 同 assistant reply merge 入長期記憶。
-    - 只保留穩定偏好、背景、持續目標，唔會將短期 task context 原封不動抄落去。
+- `interfaces/cli/CliTaskRunner.java`
+  CLI task 入口，例如 set webhook、update commands。
 
-- [`SessionCompactClient.java`](src/main/java/com/telegram/codex/conversation/session/SessionCompactClient.java)
-    - `/compact` 用嘅 session 壓縮器。
-    - 整理長對話，保留重點，之後主動 send 番摘要。
+## Runtime Flow
 
-### Jobs / Scheduling
+由 Telegram 打入嚟到 bot 回覆，大致係：
 
-- [`JobSchedulerService.java`](src/main/java/com/telegram/codex/jobs/JobSchedulerService.java)
-    - 用 virtual threads 跑 reply generation 同 compact。
-    - 另外用 single-thread scheduler 做 Telegram 相簿 flush deadline。
-    - 唔需要額外 queue worker process。
+1. `POST /telegram/webhook` 打入 `TelegramWebhookController`
+2. controller 驗 `X-Telegram-Bot-Api-Secret-Token`
+3. `TelegramWebhookHandler` 接手處理 Telegram update
+4. `TelegramUpdateParser` 將 payload 轉成 `InboundMessage`
+5. `InboundMessageProcessor` 做 command routing、allowed user、rate limit、duplicate check
+6. 如果係 media group，先寫入 `MediaGroupBufferRepository`，再等 `JobSchedulerService` flush
+7. 需要生成回覆時，`JobSchedulerService` 用 async path 跑 `ReplyGenerationFlow`
+8. `ReplyGenerationFlow` download 附件，再 call `ConversationService`
+9. `ConversationService` 讀寫 session / memory，經 `ReplyGenerationPort` 走去 `CodexReplyClient`
+10. reply send 成功後先更新 session 同長期記憶
+11. `/compact` 走另一條 async path，完成後由 `CompactResultSender` 主動 send 返 Telegram
 
-- [`MediaGroupStore.java`](src/main/java/com/telegram/codex/conversation/MediaGroupStore.java)
-    - 包住 `media_group_buffers` 同 `media_group_messages`。
-    - 負責 enqueue album update、判斷 flush deadline、同到鐘之後 aggregate 成一條 `InboundMessage`。
+## 命名同架構規範
 
-- [`CompactResultSender.java`](src/main/java/com/telegram/codex/telegram/CompactResultSender.java)
-    - `/compact` 整完之後主動 send 結果返 Telegram。
+而家 repo 有幾條明確規矩，唔好再加舊 style 名：
 
-### Persistence / Config
+- outbound dependency 一律用 `*Port`
+- persistence / adapter implementation 用 `*Repository`、`*Client`、`*Gateway` 呢類有語意嘅名
+- 禁止再新增 `*Store` 命名
+- `application` layer 唔可以直接 import `infrastructure` implementation
+- `interfaces` layer 唔可以直接 import `infrastructure` implementation
+- `integration/telegram/application` 唔可以直接依賴 `integration/telegram/infrastructure`
 
-- [`AppProperties.java`](src/main/java/com/telegram/codex/config/AppProperties.java)
-    - 將 ENV parse 成 app 用嘅 config object。
-    - 包含 validation，例如 `baseUrl`、bot token、webhook secret 唔可以留空。
+對應檢查喺 `src/test/java/com/telegram/codex/architecture/ArchitectureTest.java`。因為 ArchUnit 喺 Java 25 有 class file version 問題，所以呢度用 source-based architecture test 直接掃 import 同 type declaration。
 
-- [`application.yml`](src/main/resources/application.yml)
-    - Spring Boot 主設定。
-    - 會 import `.env`、設 datasource、JPA、Flyway、virtual threads 同 app 自訂 config。
+## 資料儲存
 
-- [`V1__create_app_tables.sql`](src/main/resources/db/migration/V1__create_app_tables.sql)
-    - 建立 app runtime 需要嘅 SQLite tables。
-
-- [`CliTaskRunner.java`](src/main/java/com/telegram/codex/cli/CliTaskRunner.java)
-    - 支持 CLI task：
-        - `telegram:set-webhook`
-        - `telegram:update-commands`
-
-## 資料點存
-
-SQLite 而家主要有五張表：
+SQLite 主要有幾張表：
 
 - `chat_sessions`
-    - 每個 chat 一條 session state
-    - 用嚟保留對話上下文
+  每個 chat 一條 session context。
 
 - `chat_memories`
-    - 每個 chat 一條長期記憶
-    - 用嚟保留穩定偏好、背景、持續目標等可跨 session 重用嘅摘要
+  每個 chat 一條長期記憶，保留穩定偏好、背景、持續目標。
 
 - `processed_updates`
-    - 每個 Telegram `update_id` 一條處理記錄
-    - 用嚟防 duplicate，同埋保留 pending reply replay 所需資料
+  記 Telegram `update_id`，用嚟防 duplicate。
 
 - `media_group_buffers`
-    - 每個 pending Telegram album 一條 buffer
-    - 用嚟記最新 flush deadline
+  暫存 Telegram 相簿 buffer。
 
 - `media_group_messages`
-    - 每個屬於 album 嘅 Telegram update 一條記錄
-    - 用嚟喺 flush 時 aggregate 返成一條 multi-image message
+  暫存屬於某個相簿嘅多條訊息，flush 時再合併。
 
-實際 lifecycle 係：
+Lifecycle 大致係：
 
-- `chat_sessions`
-    - `/new` 會清
-    - 過咗 `SESSION_TTL_DAYS` 會喺下次用到嗰個 chat 時 lazy cleanup
+- `/new` 只清 `chat_sessions`
+- `/forget` 只清 `chat_memories`
+- `processed_updates` 會 opportunistic cleanup
+- media group buffer flush 完就會刪
 
-- `chat_memories`
-    - `/forget` 會清
-    - `/new` 唔會清，因為長期記憶係獨立設計
-    - 只會喺 reply 成功送出後先更新，避免 send fail 時寫咗半套狀態
+## 環境需求
 
-- `processed_updates`
-    - reply send 成功後會保留
-    - `ConversationService` 會 opportunistic 清走已送出而且夠舊嘅 records
-
-- `media_group_buffers` / `media_group_messages`
-    - album update 入 webhook 時建立 / 更新
-    - flush 成功後即刻刪走
-    - 主要作用係做短暫 debounce buffer，唔係長期資料
-
-## 需求
-
-- Java `25`
-- Gradle `9.x`（repo 已包 `./gradlew`）
+- Java 25
+- Gradle 9.x
 - SQLite 3
-- Node.js / npm（如果你想喺本機裝 `.codex-version` 指定嘅 Codex CLI）
+- Node.js / npm
 - 本機或 server 可以直接跑 `codex exec`
 - `~/.codex/config.toml` 同 `~/.codex/auth.json` 已配置好
-- 本機最好用 repo 根目錄 `.codex-version` 指定嗰個 Codex CLI 版本
+
+repo 已包 `./gradlew`，唔使自己另外裝 Gradle。
 
 ## 環境變數
 
-| 變數                           | 用途                             | 預設值             |
-|------------------------------|--------------------------------|-----------------|
-| `PORT`                       | HTTP port                      | `3000`          |
-| `BASE_URL`                   | 對外 base URL，用嚟註冊 webhook       | 無               |
-| `TELEGRAM_BOT_TOKEN`         | Telegram bot token             | 無               |
-| `TELEGRAM_WEBHOOK_SECRET`    | Telegram webhook secret header | 無               |
-| `ALLOWED_TELEGRAM_USER_IDS`  | 限定可用 Telegram user id，逗號分隔     | 空               |
-| `SQLITE_DB_PATH`             | SQLite database path           | `./data/app.db` |
-| `CODEX_EXEC_TIMEOUT_SECONDS` | `codex exec` 最多跑幾多秒先當 timeout  | `300`           |
-| `MAX_MEDIA_GROUP_IMAGES`     | 相簿最多接受幾多張圖先叫 user 縮窄範圍         | `6`             |
-| `SESSION_TTL_DAYS`           | session 過期日數                   | `7`             |
-| `MEDIA_GROUP_WAIT_MS`        | Telegram 相簿多圖聚合等待時間            | `1200`          |
-| `RATE_LIMIT_WINDOW_MS`       | rate limit window              | `10000`         |
-| `RATE_LIMIT_MAX_MESSAGES`    | window 內最多幾多訊息                 | `5`             |
+| 變數 | 用途 | 預設值 |
+| --- | --- | --- |
+| `PORT` | HTTP port | `3000` |
+| `BASE_URL` | 對外 base URL，用嚟註冊 webhook | 無 |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token | 無 |
+| `TELEGRAM_WEBHOOK_SECRET` | Telegram webhook secret | 無 |
+| `ALLOWED_TELEGRAM_USER_IDS` | 限定可用 Telegram user id，逗號分隔 | 空 |
+| `SQLITE_DB_PATH` | SQLite database path | `./data/app.db` |
+| `CODEX_EXEC_TIMEOUT_SECONDS` | `codex exec` timeout 秒數 | `300` |
+| `MAX_MEDIA_GROUP_IMAGES` | Telegram 相簿最多接受幾多張圖 | `10` |
+| `SESSION_TTL_DAYS` | session TTL 日數 | `7` |
+| `MEDIA_GROUP_WAIT_MS` | 相簿聚合等待時間 | `1200` |
+| `RATE_LIMIT_WINDOW_MS` | rate limit window | `10000` |
+| `RATE_LIMIT_MAX_MESSAGES` | window 內最多訊息數 | `5` |
 
 ## 本地開發
 
 1. 複製 `.env.example` 做 `.env`
-2. 填好環境變數：
-    - `TELEGRAM_BOT_TOKEN`
-    - `BASE_URL`（例如 `https://your-domain.com`）
-    - `TELEGRAM_WEBHOOK_SECRET`
-    - `ALLOWED_TELEGRAM_USER_IDS`（可選）
-3. 確保本機裝好 Codex CLI，或者用 `.codex-version` 指定版本：
+2. 填好至少以下變數：
+   - `BASE_URL`
+   - `TELEGRAM_BOT_TOKEN`
+   - `TELEGRAM_WEBHOOK_SECRET`
+3. 安裝指定版本 Codex CLI
 
 ```bash
 npm install -g @openai/codex@"$(cat .codex-version)"
 ```
 
-4. build app：
-
-```bash
-./gradlew bootJar
-```
-
-5. 啟動 server：
+4. 啟動 app
 
 ```bash
 ./gradlew bootRun
 ```
 
-或者：
-
-```bash
-bin/telegram-codex
-```
-
-6. 註冊 webhook：
+5. 註冊 webhook
 
 ```bash
 bin/telegram-codex telegram:set-webhook
 ```
 
-7. 如要同步 Telegram bot command menu：
+6. 更新 Telegram command menu
 
 ```bash
 bin/telegram-codex telegram:update-commands
 ```
 
-主要 endpoint：
+常用 endpoint：
 
 - `GET /health`
 - `POST /telegram/webhook`
 
-## Telegram commands
+## Dokku Deployment
 
-- `/start`：顯示 welcome / help message，同時清走而家個 reply keyboard
-- `/help`：列出可用 command 同支持輸入類型
-- `/status`：睇 bot runtime 狀態，例如 session / memory / config 概況
-- `/session`：睇目前 chat session 狀態
-- `/memory`：睇目前 chat 嘅長期記憶內容
-- `/forget`：清除目前 chat 嘅長期記憶
-- `/compact`：非同步整理目前對話，壓縮成新 context，整完會再主動 send 摘要
-- `/new`：清除當前 chat 嘅 session memory，下一句重新開始，同時清走而家個 reply keyboard
+repo 內有 [Dockerfile](/Users/anthony/Documents/Development/telegram-codex/Dockerfile) 同 [Procfile](/Users/anthony/Documents/Development/telegram-codex/Procfile)，所以可以直接用 Dokku deploy。不過有兩樣嘢一定要處理：
 
-`/new` 只會重開短期 session，唔會刪長期記憶；如果你連長期記憶都想清走，要另外打 `/forget`。
+- SQLite database 要 persistent，否則重 deploy 或重開 container 之後 session / memory 會冇晒
+- Codex CLI auth 要喺 runtime container 入面存在，否則 `codex exec` 根本跑唔起
 
-平時直接 send 文字或者圖片畀 bot 就得，唔需要 command。撳 suggested reply 會由 Telegram client 直接送出一條新 message，所以
-chat 入面會見到自己嘅綠色訊息。
-
-如果你用 Telegram 個 reply 功能：
-
-- reply 舊文字：bot 會當你係就住嗰句延續問落去
-- reply 舊相：bot 會重新下載返張被引用嘅相再分析
-而家個優先次序係：
-
-- 如果今次 message 自己有新附件，就優先用今次新附件
-- 如果今次 message 冇新附件，但 reply 咗舊文件，就 fallback 用被引用文件
-
-## 常見 debug 方法
-
-想 trace 某個 chat / update，通常會用以下幾招：
-
-### 1. 打 health check
-
-```bash
-curl -i http://localhost:3000/health
-```
-
-### 2. 直接開 SQLite 睇資料
-
-本地：
-
-```bash
-sqlite3 ./data/app.db
-```
-
-Dokku：
-
-```bash
-dokku run telegram-codex sqlite3 /app/data/app.db
-```
-
-常用查詢：
-
-```sql
-SELECT *
-FROM chat_sessions
-WHERE chat_id = '123456';
-SELECT *
-FROM chat_memories
-WHERE chat_id = '123456';
-SELECT *
-FROM processed_updates
-WHERE update_id = 123456789;
-SELECT *
-FROM processed_updates
-ORDER BY update_id DESC
-LIMIT 20;
-SELECT *
-FROM media_group_buffers;
-SELECT *
-FROM media_group_messages
-WHERE media_group_key = '123456:album-1';
-```
-
-### 3. 手動重設目前 chat session
-
-喺 Telegram 對 bot 打：
-
-```text
-/new
-```
-
-如果你懷疑 memory / context 搞亂咗，呢個最快。
-
-如果你懷疑係長期記憶記錯咗 user preference / 背景，而唔係 session context 爛咗，打：
-
-```text
-/forget
-```
-
-如果你唔想完全清走，而係想保留重點但瘦身，直接打：
-
-```text
-/compact
-```
-
-### 4. 睇 logs
-
-本地：
-
-```bash
-./gradlew bootRun
-```
-
-Docker：
-
-```bash
-docker logs <container-id>
-```
-
-Dokku：
-
-```bash
-dokku logs telegram-codex -t
-```
-
-## 檢查
-
-```bash
-./gradlew test
-```
-
-如果你只想先 build jar：
-
-```bash
-./gradlew bootJar
-```
-
-### Docker
-
-Docker image 會：
-
-- build Spring Boot jar
-- install `.codex-version` 指定嘅 `@openai/codex`
-- 建立 `/app/data` 同 `/root/.codex`
-- runtime 用 `java --enable-native-access=ALL-UNNAMED -jar /app/telegram-codex.jar`
-
-```bash
-docker build -t telegram-codex .
-docker run --rm -p 3000:3000 \
-  -e PORT=3000 \
-  -e BASE_URL=https://your-domain.com \
-  -e TELEGRAM_BOT_TOKEN=replace-me \
-  -e TELEGRAM_WEBHOOK_SECRET=replace-me \
-  -e SQLITE_DB_PATH=/app/data/app.db \
-  -v "$(pwd)/data:/app/data" \
-  -v "$HOME/.codex:/root/.codex" \
-  telegram-codex
-```
-
-註冊 webhook：
-
-```bash
-docker exec <container-id> java --enable-native-access=ALL-UNNAMED \
-  -jar /app/telegram-codex.jar \
-  --spring.main.web-application-type=none \
-  --app.task=telegram:set-webhook
-```
-
-更新 command menu：
-
-```bash
-docker exec <container-id> java --enable-native-access=ALL-UNNAMED \
-  -jar /app/telegram-codex.jar \
-  --spring.main.web-application-type=none \
-  --app.task=telegram:update-commands
-```
-
-### Dokku
-
-以下假設你個 app 叫 `telegram-codex`，domain 係 `telegram-codex.example.com`。
-
-#### 1. 建 app 同 domain
+### 1. 建 app
 
 ```bash
 dokku apps:create telegram-codex
-dokku domains:set telegram-codex telegram-codex.example.com
 ```
 
-如果你有開 HTTPS：
+### 2. 設定 domain 同 TLS
 
 ```bash
-dokku letsencrypt:set telegram-codex email you@example.com
+dokku domains:set telegram-codex bot.example.com
 dokku letsencrypt:enable telegram-codex
 ```
 
-#### 2. 準備 persistent storage
+之後 `BASE_URL` 應該用 `https://bot.example.com`，唔好加 `/telegram/webhook`。
 
-呢個 app 至少要 persist 兩樣：
+### 3. 準備 persistent directories
 
-- SQLite database：`/app/data`
-- Codex auth / config：`/root/.codex`
-
-先喺 host 開 directory：
+喺 server 開兩個目錄，一個放 SQLite data，一個放 Codex auth：
 
 ```bash
-sudo mkdir -p /var/lib/dokku/data/storage/telegram-codex/data
-sudo mkdir -p /var/lib/dokku/data/storage/telegram-codex/codex
+mkdir -p /var/lib/dokku/data/storage/telegram-codex/data
+mkdir -p /var/lib/dokku/data/storage/telegram-codex/codex
 ```
 
-再 mount 入 container：
+mount 入 container：
 
 ```bash
 dokku storage:mount telegram-codex /var/lib/dokku/data/storage/telegram-codex/data:/app/data
 dokku storage:mount telegram-codex /var/lib/dokku/data/storage/telegram-codex/codex:/root/.codex
 ```
 
-如果你本身已經喺 server 登入過 Codex，可以直接將 auth 檔放入去 mount path：
+`/app/data` 係 SQLite 預設位置，`/root/.codex` 係 Codex CLI 會搵 `config.toml` 同 `auth.json` 嘅位。
+
+### 4. 放入 Codex config / auth
+
+將你可用嘅 Codex CLI 設定放入剛剛 mount 嗰個 host path：
 
 ```bash
-sudo cp -R ~/.codex/. /var/lib/dokku/data/storage/telegram-codex/codex/
-sudo chown -R 32767:32767 /var/lib/dokku/data/storage/telegram-codex/codex
-sudo chown -R 32767:32767 /var/lib/dokku/data/storage/telegram-codex/data
+cp ~/.codex/config.toml /var/lib/dokku/data/storage/telegram-codex/codex/config.toml
+cp ~/.codex/auth.json /var/lib/dokku/data/storage/telegram-codex/codex/auth.json
 ```
 
-#### 3. 設定環境變數
+如果你唔係喺同一部機 copy，就總之自己用安全方法將呢兩個 file 放到嗰個 directory。冇呢兩個 file，container 入面嘅 `codex exec` 用唔到。
+
+### 5. 設 env
 
 ```bash
 dokku config:set telegram-codex \
-  PORT=3000 \
-  BASE_URL=https://telegram-codex.example.com \
+  BASE_URL=https://bot.example.com \
   TELEGRAM_BOT_TOKEN=replace-me \
   TELEGRAM_WEBHOOK_SECRET=replace-me \
-  SQLITE_DB_PATH=/app/data/app.db \
-  CODEX_EXEC_TIMEOUT_SECONDS=300
-
+  SQLITE_DB_PATH=/app/data/app.db
 ```
 
-可選設定：
+如有需要可以再加：
 
 ```bash
 dokku config:set telegram-codex \
-  ALLOWED_TELEGRAM_USER_IDS=123456789,987654321 \
-  MAX_MEDIA_GROUP_IMAGES=6 \
+  ALLOWED_TELEGRAM_USER_IDS=123456789 \
+  CODEX_EXEC_TIMEOUT_SECONDS=300 \
+  MAX_MEDIA_GROUP_IMAGES=10 \
   SESSION_TTL_DAYS=7 \
   MEDIA_GROUP_WAIT_MS=1200 \
   RATE_LIMIT_WINDOW_MS=10000 \
   RATE_LIMIT_MAX_MESSAGES=5
 ```
 
-#### 4. Deploy
+### 6. Deploy
 
 ```bash
-git remote add dokku dokku@your-server:telegram-codex
 git push dokku main
 ```
 
-#### 5. 註冊 webhook
+如果你 remote 名唔係 `dokku`，自己改返。
+
+### 7. 註冊 webhook
+
+deploy 完之後，喺 server 跑：
 
 ```bash
-dokku run telegram-codex bin/telegram-codex telegram:set-webhook
+dokku run telegram-codex /app/bin/telegram-codex telegram:set-webhook
 ```
-
-佢會將 webhook 設成 `${BASE_URL}/telegram/webhook`，所以 `BASE_URL` 唔好自己加 `/telegram/webhook`。
 
 如要同步 Telegram command menu：
 
 ```bash
-dokku run telegram-codex bin/telegram-codex telegram:update-commands
+dokku run telegram-codex /app/bin/telegram-codex telegram:update-commands
 ```
 
-#### 6. 驗證
+### 8. 檢查
 
 ```bash
-curl -i https://telegram-codex.example.com/health
+curl -i https://bot.example.com/health
 dokku logs telegram-codex -t
 ```
 
-如果 health check 正常，應該會見到：
+如果 webhook 唔通、`codex exec` fail，第一時間檢查：
 
-```json
-{
-  "ok": true
-}
-```
+- `/root/.codex/config.toml` 同 `/root/.codex/auth.json` 有冇 mount 到入 container
+- `BASE_URL` 係咪真係對外可達 HTTPS URL
+- `TELEGRAM_WEBHOOK_SECRET` 有冇同 Telegram webhook 設定一致
+- `/app/data/app.db` 有冇寫入權限
 
-#### 7. 常用維護指令
+## CLI Tasks
 
-重建 app：
+`CliTaskRunner` 而家支持：
 
-```bash
-dokku ps:rebuild telegram-codex
-```
+- `telegram:set-webhook`
+- `telegram:update-commands`
 
-Backup SQLite：
+## Telegram Commands
 
-```bash
-sudo cp /var/lib/dokku/data/storage/telegram-codex/data/app.db \
-       /var/lib/dokku/data/storage/telegram-codex/data/app.db.bak
-```
+- `/start`
+  顯示 welcome / help message，同時清 reply keyboard。
+
+- `/help`
+  列出可用 command 同支持輸入類型。
+
+- `/status`
+  睇 bot runtime 狀態。
+
+- `/session`
+  睇目前 chat session 狀態。
+
+- `/memory`
+  睇目前 chat 長期記憶。
+
+- `/forget`
+  清除目前 chat 長期記憶。
+
+- `/compact`
+  非同步壓縮目前對話 context。
+
+- `/new`
+  清除目前 chat session，重新開始。
+
+`/new` 唔會刪長期記憶；如果連長期記憶都想清，就用 `/forget`。
 
 ## 測試
 
-JUnit 覆蓋咗以下核心行為：
-
-- health route
-- webhook secret 驗證
-- Telegram webhook controller failure path
-- session TTL
-- media group scheduling
-- Telegram update parser
-- 長期記憶注入 / 更新 / 清除
-
-執行測試：
+跑全部測試：
 
 ```bash
 ./gradlew test
 ```
+
+如果你改咗架構分層、命名或者 package dependency，記得至少睇埋：
+
+- `src/test/java/com/telegram/codex/architecture/ArchitectureTest.java`
+
+## Debug
+
+### Health check
+
+```bash
+curl -i http://localhost:3000/health
+```
+
+### 開 SQLite 睇資料
+
+```bash
+sqlite3 ./data/app.db
+```
+
+常用查詢：
+
+```sql
+SELECT * FROM chat_sessions WHERE chat_id = '123456';
+SELECT * FROM chat_memories WHERE chat_id = '123456';
+SELECT * FROM processed_updates WHERE update_id = 123456789;
+SELECT * FROM processed_updates ORDER BY update_id DESC LIMIT 20;
+SELECT * FROM media_group_buffers;
+SELECT * FROM media_group_messages WHERE media_group_key = '123456:album-1';
+```
+
+### 手動重設
+
+- 想清 session：`/new`
+- 想清長期記憶：`/forget`
+- 想壓縮現有 context：`/compact`
