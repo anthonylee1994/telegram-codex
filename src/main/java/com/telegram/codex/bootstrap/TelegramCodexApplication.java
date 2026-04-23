@@ -2,13 +2,17 @@ package com.telegram.codex.bootstrap;
 
 import com.telegram.codex.shared.config.AppProperties;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.AutoConfigurationPackage;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.autoconfigure.domain.EntityScan;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 @SpringBootApplication(scanBasePackages = "com.telegram.codex")
+@AutoConfigurationPackage(basePackages = "com.telegram.codex")
+@EntityScan(basePackages = "com.telegram.codex")
 @EnableConfigurationProperties(AppProperties.class)
 public class TelegramCodexApplication {
 
