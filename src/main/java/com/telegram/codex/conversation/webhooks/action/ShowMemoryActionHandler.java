@@ -42,7 +42,7 @@ public class ShowMemoryActionHandler implements ActionHandler {
     private String buildMemoryMessage(String chatId) {
         MemorySnapshot snapshot = memoryService.snapshot(chatId);
         if (!snapshot.active()) {
-            return "目前未有長期記憶。之後我會自動記低穩定偏好同持續背景；想清除可以打 /forget。";
+            return "目前未有長期記憶。你可以直接叫我記住、改寫或者刪除長期記憶；我之後亦會自動記低穩定偏好同持續背景。想清除可以打 /forget。";
         }
         return String.join("\n",
             "長期記憶：已生效",
@@ -50,7 +50,8 @@ public class ShowMemoryActionHandler implements ActionHandler {
             "",
             snapshot.memoryText(),
             "",
-            "想清除可以用 /forget。"
+            "你可以直接叫我改寫或者刪除長期記憶。",
+            "想清除可以打 /forget。"
         );
     }
 }

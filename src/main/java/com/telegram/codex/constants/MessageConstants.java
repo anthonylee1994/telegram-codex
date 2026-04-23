@@ -18,6 +18,8 @@ public final class MessageConstants {
         "/compact - 將長對話壓縮成新 context",
         "/new - 開新 session",
         "",
+        "你亦可以直接講「記住...」、「將長期記憶改成...」、「忘記...」。",
+        "",
         "我而家僅支持文字、圖片。"
     );
 
@@ -32,8 +34,8 @@ public final class MessageConstants {
         "您好，我係您嘅 AI 助手。",
         "",
         "直接 send 文字或者圖片畀我就得。",
-        "想睇指令就用 /help。",
-        "想重新開過個 session，就用 /new。"
+        "想睇指令就打 /help。",
+        "想重新開過個 session，就打 /new。"
     );
 
     public static final String TOO_MANY_IMAGES_MESSAGE = "你一次過畀太多圖，我未必可以準確逐張睇。揀最多 10 張最關鍵嘅圖，或者直接講明想我集中比較邊幾張、邊一方面。";
