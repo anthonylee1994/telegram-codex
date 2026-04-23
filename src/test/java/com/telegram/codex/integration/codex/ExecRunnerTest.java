@@ -11,6 +11,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ExecRunnerTest {
 
@@ -29,9 +30,28 @@ class ExecRunnerTest {
         assertNotEquals(Path.of(".").toAbsolutePath().normalize(), execRunner.workingDirectory.toAbsolutePath().normalize());
     }
 
+    @Test
+    void runWrapsSystemPromptAndUserPromptAsSeparateSections() throws Exception {
+        AppProperties properties = new AppProperties();
+        properties.setBaseUrl("https://example.com");
+        properties.setTelegramBotToken("token");
+        properties.setTelegramWebhookSecret("secret");
+        CapturingExecRunner execRunner = new CapturingExecRunner(properties, new ObjectMapper());
+
+        execRunner.run("system rules", "user payload", List.of(), Map.of("type", "object"));
+
+        assertTrue(execRunner.prompt.contains("<system_prompt>"));
+        assertTrue(execRunner.prompt.contains("system rules"));
+        assertTrue(execRunner.prompt.contains("</system_prompt>"));
+        assertTrue(execRunner.prompt.contains("<user_prompt>"));
+        assertTrue(execRunner.prompt.contains("user payload"));
+        assertTrue(execRunner.prompt.contains("</user_prompt>"));
+    }
+
     private static class CapturingExecRunner extends ExecRunner {
         private Path outputPath;
         private Path workingDirectory;
+        private String prompt;
 
         private CapturingExecRunner(AppProperties properties, ObjectMapper objectMapper) {
             super(properties, objectMapper);
@@ -42,6 +62,7 @@ class ExecRunnerTest {
             throws java.io.IOException {
             this.workingDirectory = workingDirectory;
             this.outputPath = Path.of(command.get(command.indexOf("--output-last-message") + 1));
+            this.prompt = prompt;
             Files.writeString(outputPath, "{\"text\":\"ok\",\"suggested_replies\":[\"a\",\"b\",\"c\"]}");
             return new ProcessExecutor.ProcessResult(0, "", "", false);
         }

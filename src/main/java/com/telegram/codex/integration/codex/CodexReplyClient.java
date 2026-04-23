@@ -39,13 +39,14 @@ public class CodexReplyClient implements ReplyGenerationPort {
         Transcript transcript = Transcript.fromConversationState(conversationState, objectMapper);
         String userMessage = userMessageBuilder.buildUserMessage(text, imageFilePaths, replyToText);
         Transcript nextTranscript = transcript.append("user", userMessage);
-        String prompt = promptBuilder.buildReplyPrompt(
+        String systemPrompt = promptBuilder.buildReplySystemPrompt();
+        String userPrompt = promptBuilder.buildReplyUserPrompt(
             nextTranscript,
             !imageFilePaths.isEmpty(),
             imageFilePaths.size(),
             longTermMemory
         );
-        String rawReply = execRunner.run(prompt, imageFilePaths, replyOutputSchema());
+        String rawReply = execRunner.run(systemPrompt, userPrompt, imageFilePaths, replyOutputSchema());
         ReplyParser.ParsedReply parsedReply = replyParser.parseReply(rawReply);
         Transcript updatedTranscript = nextTranscript.append("assistant", parsedReply.text());
         return new ReplyResult(updatedTranscript.toConversationState(objectMapper), parsedReply.suggestedReplies(), parsedReply.text());

@@ -27,6 +27,10 @@ public class ExecRunner {
     }
 
     public String run(String prompt, List<Path> imageFilePaths, Map<String, Object> outputSchema) {
+        return run(null, prompt, imageFilePaths, outputSchema);
+    }
+
+    public String run(String systemPrompt, String userPrompt, List<Path> imageFilePaths, Map<String, Object> outputSchema) {
         Path tempDir = null;
         try {
             tempDir = Files.createTempDirectory("telegram-codex-");
@@ -41,7 +45,7 @@ public class ExecRunner {
             ProcessExecutor.ProcessResult result = executeCommand(
                 command,
                 tempDir,
-                prompt,
+                buildPrompt(systemPrompt, userPrompt),
                 properties.getCodexExecTimeoutSeconds()
             );
 
@@ -66,6 +70,23 @@ public class ExecRunner {
         } finally {
             cleanupTempDir(tempDir);
         }
+    }
+
+    private String buildPrompt(String systemPrompt, String userPrompt) {
+        if (systemPrompt == null || systemPrompt.isBlank()) {
+            return userPrompt;
+        }
+        if (userPrompt == null || userPrompt.isBlank()) {
+            return systemPrompt;
+        }
+        return String.join("\n\n",
+            "<system_prompt>",
+            systemPrompt,
+            "</system_prompt>",
+            "<user_prompt>",
+            userPrompt,
+            "</user_prompt>"
+        );
     }
 
     private List<String> buildCommand(Path outputPath, Path schemaPath, List<Path> imageFilePaths) {
