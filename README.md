@@ -49,10 +49,11 @@ Demo：https://t.me/On99AppBot
 
 而家個 codebase 主要跟 `conversation`、`integration`、`interfaces` 分域，但唔再盲目追求 layer purity。原則係：
 
-- 對外系統邊界，例如 Telegram API、Codex CLI，先值得保留 `Port`
-- 呢類真邊界而家統一放喺 `conversation/application/gateway`
+- 對外系統邊界，例如 Telegram API、Codex CLI，先值得保留 `Gateway`
+- 呢類真邊界而家統一放喺 `conversation/application/gateway`（只保留必要嘅）
 - 純本地 persistence 可以直接用 repository implementation，唔需要為咗「乾淨」再包一層假抽象
 - 主流程 class 應該保持短同直，複雜分支就拆成有業務語意嘅 handler / helper
+- 單一 file 嘅 package 會直接放喺 parent directory，避免過深 nesting
 
 ```text
 src/main/java/com/telegram/codex/
@@ -60,19 +61,30 @@ src/main/java/com/telegram/codex/
 │   └── TelegramCodexApplication.java
 ├── conversation/
 │   ├── application/
-│   │   ├── job/
-│   │   ├── memory/
+│   │   ├── JobSchedulerService.java
+│   │   ├── ProcessedUpdateService.java
+│   │   ├── gateway/
+│   │   │   └── ReplyGenerationGateway.java
 │   │   ├── reply/
-│   │   ├── session/
-│   │   └── update/
+│   │   │   ├── ReplyGenerationService.java
+│   │   │   ├── ReplyResult.java
+│   │   │   ├── ReplyContextSnapshot.java
+│   │   │   └── AttachmentDownloader.java
+│   │   └── session/
+│   │       ├── SessionService.java
+│   │       └── CodexSessionCompactClient.java
 │   ├── domain/
 │   │   ├── memory/
 │   │   ├── session/
 │   │   └── update/
 │   └── infrastructure/
 │       ├── memory/
+│       │   ├── ChatMemoryRepository.java
+│       │   └── CodexMemoryClient.java
 │       ├── persistence/
 │       ├── session/
+│       │   ├── ChatSessionRepository.java
+│       │   └── CodexSessionCompactClient.java
 │       └── update/
 ├── integration/
 │   ├── codex/
@@ -108,29 +120,20 @@ src/main/java/com/telegram/codex/
 - `conversation/application/reply/ReplyGenerationService.java`
   對話回覆 use case 主入口，負責附件 download、reply generation、session persist、memory refresh。
 
-- `conversation/application/reply/ReplyContextLoader.java`
-  集中讀 reply generation 需要嘅 session / memory / reply context。
-
-- `conversation/application/reply/LongTermMemoryRefresher.java`
-  集中處理長期記憶 merge 同 persist。
-
 - `conversation/application/session/SessionService.java`
-  session 讀寫、TTL、compact 相關邏輯。
+  session 讀寫、TTL、compact、同埋長期記憶管理。
 
-- `conversation/application/memory/MemoryService.java`
-  長期記憶整理同更新。
-
-- `conversation/application/job/JobSchedulerService.java`
+- `conversation/application/JobSchedulerService.java`
   跑 async reply、compact，同 media group flush scheduling。
 
-- `conversation/application/update/ProcessedUpdateService.java`
+- `conversation/application/ProcessedUpdateService.java`
   duplicate update claim / replay / prune / pending reply 管理。
 
 - `conversation/domain/*`
   對話核心規則，例如 `ChatRateLimiter`、`MediaGroupMerger`、`Transcript`、memory/session/update records。
 
 - `conversation/infrastructure/*`
-  conversation domain 對應嘅 repository / persistence adapter。session / memory 呢類純本地 persistence 而家會畀 application 直接用。
+  conversation domain 對應嘅 repository / client。session / memory 呢類純本地 persistence 會畀 application 直接用。
 
 ### `integration/codex`
 
@@ -143,7 +146,7 @@ src/main/java/com/telegram/codex/
 - `PromptBuilder`
   組 prompt。
 
-- `ReplyParser` / `ReplyTextExtractor` / `SuggestedRepliesExtractor`
+- `ReplyParser`
   parse Codex output。
 
 ### `integration/telegram`
@@ -208,8 +211,8 @@ src/main/java/com/telegram/codex/
 
 而家 repo 有幾條明確規矩，唔好再加舊 style 名：
 
-- 真正跨外部邊界嘅 dependency 先用 `*Gateway`
-- persistence / adapter implementation 用 `*Repository`、`*Client`、`*Gateway` 呢類有語意嘅名
+- 真正跨外部邊界嘅 dependency 先用 `*Gateway`（例如 `ReplyGenerationGateway`、`TelegramGateway`）
+- persistence / adapter implementation 用 `*Repository`、`*Client` 呢類有語意嘅名
 - 禁止再新增 `*Store` 命名
 - `conversation/application` 可以直接依賴 `conversation/infrastructure`
 - `interfaces` layer 唔可以直接 import `infrastructure` implementation
