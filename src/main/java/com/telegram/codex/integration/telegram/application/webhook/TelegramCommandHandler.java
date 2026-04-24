@@ -6,8 +6,6 @@ import com.telegram.codex.conversation.application.session.SessionService;
 import com.telegram.codex.conversation.application.update.ProcessedUpdateService;
 import com.telegram.codex.conversation.domain.ConversationConstants;
 import com.telegram.codex.conversation.domain.MessageConstants;
-import com.telegram.codex.conversation.domain.session.SessionCompactResult;
-import com.telegram.codex.conversation.domain.session.SessionSnapshot;
 import com.telegram.codex.integration.telegram.application.CompactResultSender;
 import com.telegram.codex.integration.telegram.application.port.out.TelegramGateway;
 import com.telegram.codex.integration.telegram.domain.InboundMessage;
@@ -80,14 +78,14 @@ public class TelegramCommandHandler {
     }
 
     private void executeCompactSession(InboundMessage message) {
-        SessionSnapshot snapshot = sessionService.snapshot(message.chatId());
+        SessionService.SessionSnapshot snapshot = sessionService.snapshot(message.chatId());
         if (!snapshot.active()) {
-            compactResultSender.send(message.chatId(), SessionCompactResult.missingSession());
+            compactResultSender.send(message.chatId(), SessionService.SessionCompactResult.missingSession());
             processedUpdateService.markProcessed(message);
             return;
         }
         if (snapshot.messageCount() < ConversationConstants.MIN_TRANSCRIPT_SIZE_FOR_COMPACT) {
-            compactResultSender.send(message.chatId(), SessionCompactResult.tooShort(snapshot.messageCount()));
+            compactResultSender.send(message.chatId(), SessionService.SessionCompactResult.tooShort(snapshot.messageCount()));
             processedUpdateService.markProcessed(message);
             return;
         }

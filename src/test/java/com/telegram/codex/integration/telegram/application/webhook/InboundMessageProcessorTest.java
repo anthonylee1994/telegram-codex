@@ -54,11 +54,11 @@ class InboundMessageProcessorTest {
         Fixture fixture = new Fixture();
         InboundMessage message = buildCompactMessage();
         when(fixture.processedUpdateService.find(99)).thenReturn(Optional.empty());
-        when(fixture.sessionService.snapshot("3")).thenReturn(com.telegram.codex.conversation.domain.session.SessionSnapshot.inactive());
+        when(fixture.sessionService.snapshot("3")).thenReturn(SessionService.SessionSnapshot.inactive());
 
         fixture.processor.process(message, Map.of());
 
-        verify(fixture.compactResultSender).send("3", com.telegram.codex.conversation.domain.session.SessionCompactResult.missingSession());
+        verify(fixture.compactResultSender).send("3", SessionService.SessionCompactResult.missingSession());
         verify(fixture.jobSchedulerService, never()).enqueueSessionCompact("3");
         verify(fixture.telegramClient, never()).sendMessage("3", "queued", List.of(), true);
         verify(fixture.processedUpdateService).markProcessed(message);
@@ -69,11 +69,11 @@ class InboundMessageProcessorTest {
         Fixture fixture = new Fixture();
         InboundMessage message = buildCompactMessage();
         when(fixture.processedUpdateService.find(99)).thenReturn(Optional.empty());
-        when(fixture.sessionService.snapshot("3")).thenReturn(com.telegram.codex.conversation.domain.session.SessionSnapshot.active(2, 1, "just now"));
+        when(fixture.sessionService.snapshot("3")).thenReturn(SessionService.SessionSnapshot.active(2, 1, "just now"));
 
         fixture.processor.process(message, Map.of());
 
-        verify(fixture.compactResultSender).send("3", com.telegram.codex.conversation.domain.session.SessionCompactResult.tooShort(2));
+        verify(fixture.compactResultSender).send("3", SessionService.SessionCompactResult.tooShort(2));
         verify(fixture.jobSchedulerService, never()).enqueueSessionCompact("3");
         verify(fixture.telegramClient, never()).sendMessage("3", "queued", List.of(), true);
         verify(fixture.processedUpdateService).markProcessed(message);
@@ -84,13 +84,13 @@ class InboundMessageProcessorTest {
         Fixture fixture = new Fixture();
         InboundMessage message = buildCompactMessage();
         when(fixture.processedUpdateService.find(99)).thenReturn(Optional.empty());
-        when(fixture.sessionService.snapshot("3")).thenReturn(com.telegram.codex.conversation.domain.session.SessionSnapshot.active(4, 2, "just now"));
+        when(fixture.sessionService.snapshot("3")).thenReturn(SessionService.SessionSnapshot.active(4, 2, "just now"));
 
         fixture.processor.process(message, Map.of());
 
         verify(fixture.jobSchedulerService).enqueueSessionCompact("3");
         verify(fixture.telegramClient).sendMessage("3", MessageConstants.COMPACT_QUEUED_MESSAGE, List.of(), true);
-        verify(fixture.compactResultSender, never()).send("3", com.telegram.codex.conversation.domain.session.SessionCompactResult.tooShort(4));
+        verify(fixture.compactResultSender, never()).send("3", SessionService.SessionCompactResult.tooShort(4));
         verify(fixture.processedUpdateService).markProcessed(message);
     }
 

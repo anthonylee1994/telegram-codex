@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 @Component
 public class CodexReplyClient implements ReplyGenerationGateway {
@@ -18,14 +19,12 @@ public class CodexReplyClient implements ReplyGenerationGateway {
     private final ObjectMapper objectMapper;
     private final PromptBuilder promptBuilder;
     private final ReplyParser replyParser;
-    private final UserMessageBuilder userMessageBuilder;
 
-    public CodexReplyClient(ExecRunner execRunner, ObjectMapper objectMapper, PromptBuilder promptBuilder, ReplyParser replyParser, UserMessageBuilder userMessageBuilder) {
+    public CodexReplyClient(ExecRunner execRunner, ObjectMapper objectMapper, PromptBuilder promptBuilder, ReplyParser replyParser) {
         this.execRunner = execRunner;
         this.objectMapper = objectMapper;
         this.promptBuilder = promptBuilder;
         this.replyParser = replyParser;
-        this.userMessageBuilder = userMessageBuilder;
     }
 
     @Override
@@ -37,7 +36,7 @@ public class CodexReplyClient implements ReplyGenerationGateway {
         String longTermMemory
     ) {
         Transcript transcript = Transcript.fromConversationState(conversationState, objectMapper);
-        String userMessage = userMessageBuilder.buildUserMessage(text, imageFilePaths, replyToText);
+        String userMessage = buildUserMessage(text, imageFilePaths, replyToText);
         Transcript nextTranscript = transcript.append("user", userMessage);
         String systemPrompt = promptBuilder.buildReplySystemPrompt();
         String userPrompt = promptBuilder.buildReplyUserPrompt(
@@ -67,5 +66,28 @@ public class CodexReplyClient implements ReplyGenerationGateway {
                 )
             )
         );
+    }
+
+    private String buildUserMessage(String text, List<Path> imageFilePaths, String replyToText) {
+        String baseText = text == null ? "" : text;
+        if (baseText.isBlank() && !imageFilePaths.isEmpty()) {
+            baseText = buildUnpromptedImageMessage(imageFilePaths.size());
+        }
+        if (replyToText == null || replyToText.isBlank()) {
+            return baseText;
+        }
+        return String.join("\n",
+            "你而家係回覆緊之前一則訊息。",
+            "被引用訊息：" + replyToText,
+            "你今次嘅新訊息：" + (baseText.isBlank() ? "（冇文字）" : baseText)
+        );
+    }
+
+    private String buildUnpromptedImageMessage(int imageCount) {
+        if (imageCount == 1) {
+            return "我上載咗張圖。請先描述圖片，再按內容幫我分析重點。";
+        }
+        String labels = String.join("、", IntStream.rangeClosed(1, imageCount).mapToObj(index -> "圖 " + index).toList());
+        return "我上載咗 " + imageCount + " 張圖。請按 " + labels + " 逐張描述，再比較異同同整理重點。";
     }
 }

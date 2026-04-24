@@ -1,5 +1,7 @@
 package com.telegram.codex.conversation.application.update;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.conversation.application.reply.ReplyResult;
 import com.telegram.codex.conversation.application.session.SessionService;
 import com.telegram.codex.conversation.domain.ConversationConstants;
@@ -20,19 +22,21 @@ import java.util.concurrent.atomic.AtomicLong;
 public class ProcessedUpdateService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ProcessedUpdateService.class);
+    private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {
+    };
 
+    private final ObjectMapper objectMapper;
     private final ProcessedUpdateRepository processedUpdateRepository;
-    private final StoredSuggestedRepliesParser storedSuggestedRepliesParser;
     private final SessionService sessionService;
     private final AtomicLong lastProcessedUpdatePruneAt = new AtomicLong(0);
 
     public ProcessedUpdateService(
+        ObjectMapper objectMapper,
         ProcessedUpdateRepository processedUpdateRepository,
-        StoredSuggestedRepliesParser storedSuggestedRepliesParser,
         SessionService sessionService
     ) {
+        this.objectMapper = objectMapper;
         this.processedUpdateRepository = processedUpdateRepository;
-        this.storedSuggestedRepliesParser = storedSuggestedRepliesParser;
         this.sessionService = sessionService;
     }
 
@@ -75,7 +79,7 @@ public class ProcessedUpdateService {
         telegramClient.sendMessage(
             message.chatId(),
             processedUpdate.replyText(),
-            storedSuggestedRepliesParser.parse(processedUpdate.suggestedReplies()),
+            parseStoredSuggestedReplies(processedUpdate.suggestedReplies()),
             false
         );
         sessionService.persistConversationState(message.chatId(), processedUpdate.conversationState());
@@ -111,6 +115,21 @@ public class ProcessedUpdateService {
     private void rollbackProcessingClaims(List<Long> claimedUpdateIds) {
         for (Long updateId : claimedUpdateIds) {
             processedUpdateRepository.clearProcessing(updateId);
+        }
+    }
+
+    List<String> parseStoredSuggestedReplies(String rawSuggestedReplies) {
+        if (rawSuggestedReplies == null || rawSuggestedReplies.isBlank()) {
+            return List.of();
+        }
+        try {
+            List<String> replies = objectMapper.readValue(rawSuggestedReplies, STRING_LIST);
+            return replies == null ? List.of() : replies.stream()
+                .filter(reply -> reply != null && !reply.isBlank())
+                .map(String::trim)
+                .toList();
+        } catch (Exception error) {
+            return List.of();
         }
     }
 }

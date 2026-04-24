@@ -1,8 +1,6 @@
 package com.telegram.codex.integration.telegram.infrastructure;
 
 import com.telegram.codex.integration.telegram.domain.InboundMessage;
-import com.telegram.codex.integration.telegram.domain.document.DocumentTypeRegistry;
-import com.telegram.codex.integration.telegram.domain.document.ImageDocumentDetector;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -14,9 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 class TelegramUpdateParserTest {
 
-    private final ImageDocumentDetector imageDetector = new ImageDocumentDetector();
-    private final DocumentTypeRegistry registry = new DocumentTypeRegistry(imageDetector);
-    private final TelegramUpdateParser parser = new TelegramUpdateParser(registry);
+    private final TelegramUpdateParser parser = new TelegramUpdateParser();
 
     @Test
     void parsesPhotoMessageAndReplyContext() {

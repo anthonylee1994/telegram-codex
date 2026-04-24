@@ -1,11 +1,18 @@
 package com.telegram.codex.conversation.application.reply;
 
 import com.telegram.codex.conversation.application.gateway.AttachmentDownloadGateway;
+import com.telegram.codex.conversation.application.gateway.MemoryMergeGateway;
 import com.telegram.codex.conversation.application.gateway.ReplyGenerationGateway;
 import com.telegram.codex.conversation.application.session.SessionService;
 import com.telegram.codex.conversation.application.update.ProcessedUpdateService;
+import com.telegram.codex.conversation.domain.memory.ChatMemoryRecord;
+import com.telegram.codex.conversation.domain.session.ChatSessionRecord;
+import com.telegram.codex.conversation.infrastructure.memory.ChatMemoryRepository;
+import com.telegram.codex.conversation.infrastructure.session.ChatSessionRepository;
 import com.telegram.codex.integration.telegram.application.port.out.TelegramGateway;
 import com.telegram.codex.integration.telegram.domain.InboundMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.nio.file.Path;
@@ -14,9 +21,12 @@ import java.util.List;
 @Service
 public class ReplyGenerationService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(ReplyGenerationService.class);
+
     private final ReplyGenerationGateway replyClient;
-    private final ReplyContextLoader replyContextLoader;
-    private final LongTermMemoryRefresher longTermMemoryRefresher;
+    private final ChatSessionRepository chatSessionRepository;
+    private final ChatMemoryRepository chatMemoryRepository;
+    private final MemoryMergeGateway memoryMergeGateway;
     private final ProcessedUpdateService processedUpdateService;
     private final SessionService sessionService;
     private final TelegramGateway telegramClient;
@@ -24,16 +34,18 @@ public class ReplyGenerationService {
 
     public ReplyGenerationService(
         ReplyGenerationGateway replyClient,
-        ReplyContextLoader replyContextLoader,
-        LongTermMemoryRefresher longTermMemoryRefresher,
+        ChatSessionRepository chatSessionRepository,
+        ChatMemoryRepository chatMemoryRepository,
+        MemoryMergeGateway memoryMergeGateway,
         ProcessedUpdateService processedUpdateService,
         SessionService sessionService,
         TelegramGateway telegramClient,
         AttachmentDownloadGateway attachmentDownloader
     ) {
         this.replyClient = replyClient;
-        this.replyContextLoader = replyContextLoader;
-        this.longTermMemoryRefresher = longTermMemoryRefresher;
+        this.chatSessionRepository = chatSessionRepository;
+        this.chatMemoryRepository = chatMemoryRepository;
+        this.memoryMergeGateway = memoryMergeGateway;
         this.processedUpdateService = processedUpdateService;
         this.sessionService = sessionService;
         this.telegramClient = telegramClient;
@@ -44,7 +56,7 @@ public class ReplyGenerationService {
         try {
             processedUpdateService.pruneIfNeeded();
             ReplyResult reply = telegramClient.withTypingStatus(message.chatId(), () -> {
-                ReplyContextSnapshot context = replyContextLoader.load(message);
+                ReplyContextSnapshot context = loadContext(message);
                 List<Path> imageFilePaths = attachmentDownloader.downloadImages(message.effectiveImageFileIds());
                 try {
                     return generateReply(context, imageFilePaths);
@@ -56,7 +68,7 @@ public class ReplyGenerationService {
             processedUpdateService.savePendingReply(message.updateId(), message.chatId(), message.messageId(), reply);
             telegramClient.sendMessage(message.chatId(), reply.text(), reply.suggestedReplies(), false);
             sessionService.persistConversationState(message.chatId(), reply.conversationState());
-            longTermMemoryRefresher.refresh(message.chatId(), message.text(), reply.text());
+            refreshMemory(message.chatId(), message.text(), reply.text());
             processedUpdateService.markProcessed(message.updateId(), message.chatId(), message.messageId());
         } catch (Exception error) {
             processedUpdateService.clearProcessing(message.updateId());
@@ -72,5 +84,35 @@ public class ReplyGenerationService {
             context.replyToText(),
             context.memoryText()
         );
+    }
+
+    private ReplyContextSnapshot loadContext(InboundMessage message) {
+        String promptText = message.text() == null ? "" : message.text();
+        String lastResponseId = chatSessionRepository.findActive(message.chatId())
+            .map(ChatSessionRecord::lastResponseId)
+            .orElse(null);
+        String memoryText = chatMemoryRepository.find(message.chatId())
+            .map(ChatMemoryRecord::memoryText)
+            .orElse(null);
+        return new ReplyContextSnapshot(promptText, lastResponseId, message.replyToText(), memoryText);
+    }
+
+    private void refreshMemory(String chatId, String userMessage, String assistantReply) {
+        if (userMessage == null || userMessage.isBlank()) {
+            return;
+        }
+        try {
+            persistMemory(chatId, userMessage, assistantReply);
+        } catch (Exception error) {
+            LOGGER.warn("Failed to refresh long-term memory chat_id={} error={}", chatId, error.getMessage());
+        }
+    }
+
+    private void persistMemory(String chatId, String userMessage, String assistantReply) {
+        String existingMemory = chatMemoryRepository.find(chatId).map(ChatMemoryRecord::memoryText).orElse("");
+        String mergedMemory = memoryMergeGateway.merge(existingMemory, userMessage, assistantReply);
+        if (!mergedMemory.equals(existingMemory)) {
+            chatMemoryRepository.persist(chatId, mergedMemory);
+        }
     }
 }

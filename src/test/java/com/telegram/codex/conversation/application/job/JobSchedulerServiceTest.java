@@ -9,7 +9,6 @@ import static org.mockito.Mockito.when;
 
 import com.telegram.codex.conversation.application.reply.ReplyGenerationService;
 import com.telegram.codex.conversation.application.session.SessionService;
-import com.telegram.codex.conversation.domain.session.SessionCompactResult;
 import com.telegram.codex.conversation.infrastructure.MediaGroupBufferRepository;
 import com.telegram.codex.integration.telegram.application.CompactResultSender;
 import com.telegram.codex.integration.telegram.application.webhook.InboundMessageProcessor;
@@ -63,7 +62,7 @@ class JobSchedulerServiceTest {
         SessionService sessionService = Mockito.mock(SessionService.class);
         CompactResultSender compactResultSender = Mockito.mock(CompactResultSender.class);
         CountDownLatch latch = new CountDownLatch(1);
-        SessionCompactResult result = SessionCompactResult.ok(6, "sum");
+        SessionService.SessionCompactResult result = SessionService.SessionCompactResult.ok(6, "sum");
         when(sessionService.compact("3")).thenReturn(result);
         doAnswer(invocation -> {
             latch.countDown();

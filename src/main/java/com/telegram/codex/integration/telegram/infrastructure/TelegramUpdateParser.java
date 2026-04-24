@@ -4,7 +4,6 @@ import com.telegram.codex.integration.telegram.application.port.in.TelegramMessa
 import com.telegram.codex.integration.telegram.domain.InboundMessage;
 import com.telegram.codex.integration.telegram.domain.MessageExtractor;
 import com.telegram.codex.integration.telegram.domain.TelegramPayloadValueReader;
-import com.telegram.codex.integration.telegram.domain.document.DocumentTypeRegistry;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -13,12 +12,6 @@ import java.util.Map;
 @Component
 public class TelegramUpdateParser implements TelegramMessageParser {
 
-    private final DocumentTypeRegistry documentTypeRegistry;
-
-    public TelegramUpdateParser(DocumentTypeRegistry documentTypeRegistry) {
-        this.documentTypeRegistry = documentTypeRegistry;
-    }
-
     @Override
     public InboundMessage parseIncomingTelegramMessage(Map<String, Object> update) {
         if (!isValidUpdate(update)) {
@@ -26,7 +19,7 @@ public class TelegramUpdateParser implements TelegramMessageParser {
         }
 
         Map<String, Object> message = TelegramPayloadValueReader.castMap(update.get("message"));
-        MessageExtractor extractor = MessageExtractor.from(message, documentTypeRegistry);
+        MessageExtractor extractor = MessageExtractor.from(message);
 
         if (!extractor.isSupported()) {
             return null;

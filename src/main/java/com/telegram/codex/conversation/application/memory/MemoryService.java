@@ -2,7 +2,6 @@ package com.telegram.codex.conversation.application.memory;
 
 import com.telegram.codex.conversation.domain.ConversationTimeFormatter;
 import com.telegram.codex.conversation.domain.memory.ChatMemoryRecord;
-import com.telegram.codex.conversation.domain.memory.MemorySnapshot;
 import com.telegram.codex.conversation.infrastructure.memory.ChatMemoryRepository;
 import org.springframework.stereotype.Service;
 
@@ -34,5 +33,16 @@ public class MemoryService {
 
     public void reset(String chatId) {
         chatMemoryRepository.reset(chatId);
+    }
+
+    public record MemorySnapshot(boolean active, String memoryText, String lastUpdatedAt) {
+
+        public static MemorySnapshot inactive() {
+            return new MemorySnapshot(false, null, null);
+        }
+
+        public static MemorySnapshot active(String memoryText, String lastUpdatedAt) {
+            return new MemorySnapshot(true, memoryText, lastUpdatedAt);
+        }
     }
 }

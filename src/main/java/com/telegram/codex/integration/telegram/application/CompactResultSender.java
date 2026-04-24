@@ -1,6 +1,6 @@
 package com.telegram.codex.integration.telegram.application;
 
-import com.telegram.codex.conversation.domain.session.SessionCompactResult;
+import com.telegram.codex.conversation.application.session.SessionService;
 import com.telegram.codex.integration.telegram.application.port.out.TelegramGateway;
 import org.springframework.stereotype.Component;
 
@@ -15,7 +15,7 @@ public class CompactResultSender {
         this.telegramClient = telegramClient;
     }
 
-    public void send(String chatId, SessionCompactResult result) {
+    public void send(String chatId, SessionService.SessionCompactResult result) {
         String text = switch (result.status()) {
             case MISSING_SESSION -> "而家冇 active session，冇嘢可以 compact。";
             case TOO_SHORT -> "目前對話得 " + result.messageCount() + " 段訊息，未去到要壓縮 context。";

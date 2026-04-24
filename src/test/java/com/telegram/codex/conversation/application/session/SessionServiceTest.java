@@ -3,8 +3,6 @@ package com.telegram.codex.conversation.application.session;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.conversation.application.gateway.SessionCompactGateway;
 import com.telegram.codex.conversation.domain.session.ChatSessionRecord;
-import com.telegram.codex.conversation.domain.session.SessionCompactResult;
-import com.telegram.codex.conversation.domain.session.SessionSnapshot;
 import com.telegram.codex.conversation.domain.session.Transcript;
 import com.telegram.codex.conversation.infrastructure.session.ChatSessionRepository;
 import org.junit.jupiter.api.Test;
@@ -26,7 +24,7 @@ class SessionServiceTest {
         ChatSessionRepository repository = Mockito.mock(ChatSessionRepository.class);
         when(repository.findActive("3")).thenReturn(Optional.empty());
 
-        SessionSnapshot snapshot = new SessionService(repository, Mockito.mock(SessionCompactGateway.class), new ObjectMapper()).snapshot("3");
+        SessionService.SessionSnapshot snapshot = new SessionService(repository, Mockito.mock(SessionCompactGateway.class), new ObjectMapper()).snapshot("3");
 
         assertFalse(snapshot.active());
     }
@@ -45,9 +43,9 @@ class SessionServiceTest {
         when(repository.findActive("3")).thenReturn(Optional.of(new ChatSessionRecord("3", conversationState, System.currentTimeMillis())));
         when(compactClient.compact(any())).thenReturn("sum");
 
-        SessionCompactResult result = new SessionService(repository, compactClient, objectMapper).compact("3");
+        SessionService.SessionCompactResult result = new SessionService(repository, compactClient, objectMapper).compact("3");
 
-        assertEquals(SessionCompactResult.Status.OK, result.status());
+        assertEquals(SessionService.SessionCompactResult.Status.OK, result.status());
         assertEquals(4, result.originalMessageCount());
         assertEquals("sum", result.compactText());
         verify(repository).persist(Mockito.eq("3"), any());
@@ -64,7 +62,7 @@ class SessionServiceTest {
             .toConversationState(objectMapper);
         when(repository.findActive("3")).thenReturn(Optional.of(new ChatSessionRecord("3", conversationState, System.currentTimeMillis())));
 
-        SessionSnapshot snapshot = new SessionService(repository, Mockito.mock(SessionCompactGateway.class), objectMapper).snapshot("3");
+        SessionService.SessionSnapshot snapshot = new SessionService(repository, Mockito.mock(SessionCompactGateway.class), objectMapper).snapshot("3");
 
         assertTrue(snapshot.active());
         assertEquals(3, snapshot.messageCount());

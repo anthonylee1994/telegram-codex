@@ -2,8 +2,6 @@ package com.telegram.codex.integration.telegram.application.webhook;
 
 import com.telegram.codex.conversation.application.memory.MemoryService;
 import com.telegram.codex.conversation.application.session.SessionService;
-import com.telegram.codex.conversation.domain.memory.MemorySnapshot;
-import com.telegram.codex.conversation.domain.session.SessionSnapshot;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -18,7 +16,7 @@ public class TelegramStatusMessageBuilder {
     }
 
     public String buildStatusMessage(String chatId) {
-        SessionSnapshot snapshot = sessionService.snapshot(chatId);
+        SessionService.SessionSnapshot snapshot = sessionService.snapshot(chatId);
         return String.join("\n",
             "Bot 狀態：OK 🤖",
             "Session 狀態：" + (snapshot.active() ? "已生效 ✅" : "未生效 ❌"),
@@ -27,7 +25,7 @@ public class TelegramStatusMessageBuilder {
     }
 
     public String buildSessionMessage(String chatId) {
-        SessionSnapshot snapshot = sessionService.snapshot(chatId);
+        SessionService.SessionSnapshot snapshot = sessionService.snapshot(chatId);
         if (!snapshot.active()) {
             return "目前未有已生效 session。你可以直接 send 訊息開始，或者之後打 /compact 壓縮長對話。";
         }
@@ -41,7 +39,7 @@ public class TelegramStatusMessageBuilder {
     }
 
     public String buildMemoryMessage(String chatId) {
-        MemorySnapshot snapshot = memoryService.snapshot(chatId);
+        MemoryService.MemorySnapshot snapshot = memoryService.snapshot(chatId);
         if (!snapshot.active()) {
             return "目前未有長期記憶。你可以直接叫我記住、改寫或者刪除長期記憶；我之後亦會自動記低穩定偏好同持續背景。想清除可以打 /forget。";
         }

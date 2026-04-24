@@ -1,36 +1,36 @@
 package com.telegram.codex.integration.codex;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.conversation.domain.MessageConstants;
+import com.telegram.codex.integration.telegram.domain.TelegramConstants;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Component
 public class ReplyParser {
 
+    private final ObjectMapper objectMapper;
     private final JsonPayloadParser jsonPayloadParser;
-    private final ReplyTextExtractor replyTextExtractor;
-    private final SuggestedRepliesExtractor suggestedRepliesExtractor;
 
-    public ReplyParser(
-        JsonPayloadParser jsonPayloadParser,
-        ReplyTextExtractor replyTextExtractor,
-        SuggestedRepliesExtractor suggestedRepliesExtractor
-    ) {
+    public ReplyParser(ObjectMapper objectMapper, JsonPayloadParser jsonPayloadParser) {
+        this.objectMapper = objectMapper;
         this.jsonPayloadParser = jsonPayloadParser;
-        this.replyTextExtractor = replyTextExtractor;
-        this.suggestedRepliesExtractor = suggestedRepliesExtractor;
     }
 
     public ParsedReply parseReply(String rawReply) {
         try {
             Object payload = jsonPayloadParser.parsePayload(rawReply);
-            String text = replyTextExtractor.extractReplyText(payload, rawReply);
-            List<String> suggestedReplies = suggestedRepliesExtractor.extractSuggestedReplies(payload, rawReply);
+            String text = extractReplyText(payload, rawReply);
+            List<String> suggestedReplies = extractSuggestedReplies(payload, rawReply);
             return new ParsedReply(text, suggestedReplies);
         } catch (Exception error) {
-            String fallbackText = replyTextExtractor.fallbackReplyText(rawReply);
-            List<String> fallbackReplies = suggestedRepliesExtractor.sanitizeSuggestedReplies(
+            String fallbackText = fallbackReplyText(rawReply);
+            List<String> fallbackReplies = sanitizeSuggestedReplies(
                 List.of(rawReply),
                 MessageConstants.DEFAULT_SUGGESTED_REPLIES
             );
@@ -39,11 +39,73 @@ public class ReplyParser {
     }
 
     public List<String> parseSuggestedReplies(String rawSuggestedReplies) {
-        return suggestedRepliesExtractor.parseSuggestedReplies(rawSuggestedReplies);
+        if (rawSuggestedReplies == null || rawSuggestedReplies.isBlank()) {
+            return List.of();
+        }
+        try {
+            List<?> payload = objectMapper.readValue(rawSuggestedReplies, new TypeReference<>() {
+            });
+            return sanitizeSuggestedReplies(payload, List.of());
+        } catch (JsonProcessingException error) {
+            return List.of();
+        }
     }
 
     public List<String> sanitizeSuggestedReplies(List<?> replies, List<String> fallback) {
-        return suggestedRepliesExtractor.sanitizeSuggestedReplies(replies, fallback);
+        ArrayList<String> cleaned = new ArrayList<>();
+        for (Object reply : replies) {
+            if (!(reply instanceof String stringReply)) {
+                continue;
+            }
+            String normalized = stringReply.trim().replaceAll("\\s+", " ");
+            if (!normalized.isBlank() && !cleaned.contains(normalized)) {
+                cleaned.add(normalized.length() > TelegramConstants.MAX_SUGGESTED_REPLY_LENGTH ? normalized.substring(0, TelegramConstants.MAX_SUGGESTED_REPLY_LENGTH) : normalized);
+            }
+            if (cleaned.size() == TelegramConstants.MAX_SUGGESTED_REPLIES) {
+                break;
+            }
+        }
+        if (cleaned.size() < TelegramConstants.MAX_SUGGESTED_REPLIES) {
+            return fallback;
+        }
+        return List.copyOf(cleaned);
+    }
+
+    private String extractReplyText(Object payload, String rawReply) {
+        if (payload instanceof Map<?, ?> map) {
+            Object text = map.get("text");
+            if (text instanceof String stringText && !stringText.isBlank()) {
+                return TextNormalizer.normalize(stringText);
+            }
+            return map.values().stream()
+                .filter(String.class::isInstance)
+                .map(String.class::cast)
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .max(String::compareTo)
+                .map(TextNormalizer::normalize)
+                .orElseGet(() -> fallbackReplyText(rawReply));
+        }
+        return fallbackReplyText(rawReply);
+    }
+
+    private String fallbackReplyText(String rawReply) {
+        String normalized = TextNormalizer.normalize(rawReply == null ? "" : rawReply);
+        if (normalized.isBlank()) {
+            throw new IllegalStateException("codex exec returned an empty reply");
+        }
+        return normalized;
+    }
+
+    private List<String> extractSuggestedReplies(Object payload, String rawReply) {
+        if (payload instanceof List<?> list) {
+            return sanitizeSuggestedReplies(list, MessageConstants.DEFAULT_SUGGESTED_REPLIES);
+        }
+        if (payload instanceof Map<?, ?> map) {
+            Object suggestedReplies = map.get("suggested_replies");
+            return sanitizeSuggestedReplies(suggestedReplies instanceof List<?> list ? list : List.of(), MessageConstants.DEFAULT_SUGGESTED_REPLIES);
+        }
+        return sanitizeSuggestedReplies(List.of(rawReply), MessageConstants.DEFAULT_SUGGESTED_REPLIES);
     }
 
     public record ParsedReply(String text, List<String> suggestedReplies) {

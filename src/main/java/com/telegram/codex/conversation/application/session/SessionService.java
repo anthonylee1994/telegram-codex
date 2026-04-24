@@ -4,8 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.conversation.application.gateway.SessionCompactGateway;
 import com.telegram.codex.conversation.domain.ConversationTimeFormatter;
 import com.telegram.codex.conversation.domain.session.ChatSessionRecord;
-import com.telegram.codex.conversation.domain.session.SessionCompactResult;
-import com.telegram.codex.conversation.domain.session.SessionSnapshot;
 import com.telegram.codex.conversation.domain.session.Transcript;
 import com.telegram.codex.conversation.domain.ConversationConstants;
 import com.telegram.codex.conversation.domain.MessageConstants;
@@ -67,5 +65,37 @@ public class SessionService {
             .append("assistant", compactText);
         chatSessionRepository.persist(chatId, compactTranscript.toConversationState(objectMapper));
         return SessionCompactResult.ok(transcript.size(), compactText);
+    }
+
+    public record SessionSnapshot(boolean active, int messageCount, int turnCount, String lastUpdatedAt) {
+
+        public static SessionSnapshot inactive() {
+            return new SessionSnapshot(false, 0, 0, null);
+        }
+
+        public static SessionSnapshot active(int messageCount, int turnCount, String lastUpdatedAt) {
+            return new SessionSnapshot(true, messageCount, turnCount, lastUpdatedAt);
+        }
+    }
+
+    public record SessionCompactResult(Status status, Integer messageCount, Integer originalMessageCount, String compactText) {
+
+        public enum Status {
+            MISSING_SESSION,
+            TOO_SHORT,
+            OK
+        }
+
+        public static SessionCompactResult missingSession() {
+            return new SessionCompactResult(Status.MISSING_SESSION, null, null, null);
+        }
+
+        public static SessionCompactResult tooShort(int messageCount) {
+            return new SessionCompactResult(Status.TOO_SHORT, messageCount, null, null);
+        }
+
+        public static SessionCompactResult ok(int originalMessageCount, String compactText) {
+            return new SessionCompactResult(Status.OK, null, originalMessageCount, compactText);
+        }
     }
 }

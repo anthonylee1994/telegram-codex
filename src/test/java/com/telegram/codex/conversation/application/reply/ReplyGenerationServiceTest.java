@@ -44,13 +44,12 @@ class ReplyGenerationServiceTest {
         when(memoryMergePort.merge("記憶", "你好", "reply")).thenReturn("記憶");
         when(attachmentDownloader.downloadImages(List.of())).thenReturn(List.of());
         when(telegramGateway.withTypingStatus(eq("3"), any())).thenAnswer(invocation -> invocation.getArgument(1, Supplier.class).get());
-        ReplyContextLoader replyContextLoader = new ReplyContextLoader(sessionRepository, memoryRepository);
-        LongTermMemoryRefresher longTermMemoryRefresher = new LongTermMemoryRefresher(memoryRepository, memoryMergePort);
 
         ReplyGenerationService service = new ReplyGenerationService(
             cliClient,
-            replyContextLoader,
-            longTermMemoryRefresher,
+            sessionRepository,
+            memoryRepository,
+            memoryMergePort,
             processedUpdateService,
             sessionService,
             telegramGateway,
@@ -82,13 +81,12 @@ class ReplyGenerationServiceTest {
         when(attachmentDownloader.downloadImages(List.of())).thenReturn(List.of());
         when(telegramGateway.withTypingStatus(eq("3"), any())).thenAnswer(invocation -> invocation.getArgument(1, Supplier.class).get());
         ChatSessionRepository sessionRepository = mockSessionRepository(Optional.empty());
-        ReplyContextLoader replyContextLoader = new ReplyContextLoader(sessionRepository, memoryRepository);
-        LongTermMemoryRefresher longTermMemoryRefresher = new LongTermMemoryRefresher(memoryRepository, memoryMergePort);
 
         ReplyGenerationService service = new ReplyGenerationService(
             cliClient,
-            replyContextLoader,
-            longTermMemoryRefresher,
+            sessionRepository,
+            memoryRepository,
+            memoryMergePort,
             processedUpdateService,
             sessionService,
             telegramGateway,
