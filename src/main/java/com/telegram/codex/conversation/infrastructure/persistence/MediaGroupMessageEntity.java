@@ -7,6 +7,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "media_group_messages")
+@SuppressWarnings("JpaDataSourceORMInspection")
 public class MediaGroupMessageEntity {
 
     @Id

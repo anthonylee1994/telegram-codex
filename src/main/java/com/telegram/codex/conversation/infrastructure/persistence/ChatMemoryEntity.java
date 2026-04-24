@@ -7,6 +7,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "chat_memories")
+@SuppressWarnings("JpaDataSourceORMInspection")
 public class ChatMemoryEntity {
 
     @Id

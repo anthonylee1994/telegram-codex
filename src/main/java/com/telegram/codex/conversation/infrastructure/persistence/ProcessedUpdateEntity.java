@@ -7,6 +7,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "processed_updates")
+@SuppressWarnings("JpaDataSourceORMInspection")
 public class ProcessedUpdateEntity {
 
     @Id
