@@ -54,46 +54,50 @@ public class ReplyGenerationService {
     public void handle(InboundMessage message) {
         try {
             processedUpdateService.pruneIfNeeded();
-            ReplyResult reply = telegramClient.withTypingStatus(message.chatId(), () -> {
-                ReplyContextSnapshot context = loadContext(message);
-                List<Path> imageFilePaths = attachmentDownloader.downloadImages(message.effectiveImageFileIds());
-                try {
-                    return generateReply(context, imageFilePaths);
-                } finally {
-                    attachmentDownloader.cleanup(imageFilePaths);
-                }
-            });
-
-            processedUpdateService.savePendingReply(message.updateId(), message.chatId(), message.messageId(), reply);
-            telegramClient.sendMessage(message.chatId(), reply.text(), reply.suggestedReplies(), false);
-            sessionService.persistConversationState(message.chatId(), reply.conversationState());
-            refreshMemory(message.chatId(), message.text(), reply.text());
-            processedUpdateService.markProcessed(message.updateId(), message.chatId(), message.messageId());
+            ReplyResult reply = generateReplyWithTypingStatus(message);
+            deliverReply(message, reply);
         } catch (Exception error) {
             processedUpdateService.clearProcessing(message.updateId());
             throw error;
         }
     }
 
-    private ReplyResult generateReply(ReplyContextSnapshot context, List<Path> imageFilePaths) {
-        return replyClient.generateReply(
-            context.promptText(),
-            context.lastResponseId(),
-            imageFilePaths,
-            context.replyToText(),
-            context.memoryText()
-        );
+    private ReplyResult generateReplyWithTypingStatus(InboundMessage message) {
+        return telegramClient.withTypingStatus(message.chatId(), () -> generateReply(message));
+    }
+
+    private ReplyResult generateReply(InboundMessage message) {
+        ReplyContextSnapshot context = loadContext(message);
+        List<Path> imageFilePaths = attachmentDownloader.downloadImages(message.effectiveImageFileIds());
+        try {
+            return replyClient.generateReply(
+                context.promptText(),
+                context.lastResponseId(),
+                imageFilePaths,
+                context.replyToText(),
+                context.memoryText()
+            );
+        } finally {
+            attachmentDownloader.cleanup(imageFilePaths);
+        }
+    }
+
+    private void deliverReply(InboundMessage message, ReplyResult reply) {
+        processedUpdateService.savePendingReply(message.updateId(), message.chatId(), message.messageId(), reply);
+        telegramClient.sendMessage(message.chatId(), reply.text(), reply.suggestedReplies(), false);
+        sessionService.persistConversationState(message.chatId(), reply.conversationState());
+        refreshMemory(message.chatId(), message.text(), reply.text());
+        processedUpdateService.markProcessed(message.updateId(), message.chatId(), message.messageId());
     }
 
     private ReplyContextSnapshot loadContext(InboundMessage message) {
-        String promptText = message.text() == null ? "" : message.text();
         String lastResponseId = chatSessionRepository.findActive(message.chatId())
             .map(ChatSessionRecord::lastResponseId)
             .orElse(null);
         String memoryText = chatMemoryRepository.find(message.chatId())
             .map(ChatMemoryRecord::memoryText)
             .orElse(null);
-        return new ReplyContextSnapshot(promptText, lastResponseId, message.replyToText(), memoryText);
+        return new ReplyContextSnapshot(message.textOrEmpty(), lastResponseId, message.replyToText(), memoryText);
     }
 
     private void refreshMemory(String chatId, String userMessage, String assistantReply) {

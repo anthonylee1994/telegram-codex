@@ -39,16 +39,7 @@ public class InboundMessageProcessor {
     }
 
     public void process(InboundMessage message, Map<String, Object> update) {
-        if (unsupportedMessageHandler.handle(message, update)) {
-            return;
-        }
-        if (duplicateUpdateHandler.handle(message)) {
-            return;
-        }
-        if (telegramCommandHandler.handle(message)) {
-            return;
-        }
-        if (!replyRequestGuard.allow(message)) {
+        if (alreadyHandled(message, update)) {
             return;
         }
         jobSchedulerService.enqueueReplyGeneration(message);
@@ -57,5 +48,12 @@ public class InboundMessageProcessor {
     public void deferMediaGroup(InboundMessage message, Duration waitDuration) {
         MediaGroupBufferRepository.EnqueueResult result = mediaGroupStore.enqueue(message, waitDuration.toMillis() / 1000.0);
         jobSchedulerService.scheduleMediaGroupFlush(result.key(), result.deadlineAt(), waitDuration);
+    }
+
+    private boolean alreadyHandled(InboundMessage message, Map<String, Object> update) {
+        return unsupportedMessageHandler.handle(message, update)
+            || duplicateUpdateHandler.handle(message)
+            || telegramCommandHandler.handle(message)
+            || !replyRequestGuard.allow(message);
     }
 }

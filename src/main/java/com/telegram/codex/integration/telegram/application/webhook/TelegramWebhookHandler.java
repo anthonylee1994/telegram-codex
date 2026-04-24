@@ -27,10 +27,14 @@ public class TelegramWebhookHandler {
 
     public void handle(Map<String, Object> update) {
         InboundMessage message = telegramUpdateParser.parseIncomingTelegramMessage(update);
-        if (message != null && message.mediaGroup()) {
+        if (shouldDeferMediaGroup(message)) {
             inboundMessageProcessor.deferMediaGroup(message, Duration.ofMillis(properties.getMediaGroupWaitMs()));
             return;
         }
         inboundMessageProcessor.process(message, update);
+    }
+
+    private boolean shouldDeferMediaGroup(InboundMessage message) {
+        return message != null && message.mediaGroup();
     }
 }

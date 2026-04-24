@@ -42,6 +42,10 @@ public record InboundMessage(
         return imageFileIds.size();
     }
 
+    public String textOrEmpty() {
+        return text == null ? "" : text;
+    }
+
     public List<String> effectiveImageFileIds() {
         return imageFileIds.isEmpty() ? replyToImageFileIds : imageFileIds;
     }

@@ -28,26 +28,34 @@ public class PromptBuilder {
     );
 
     public String buildReplySystemPrompt() {
-        List<String> sections = new ArrayList<>(REPLY_PROMPT_INSTRUCTIONS);
-        return String.join("\n", sections);
+        return String.join("\n", REPLY_PROMPT_INSTRUCTIONS);
     }
 
     public String buildReplyUserPrompt(Transcript transcript, boolean hasImage, int imageCount, String longTermMemory) {
         List<String> sections = new ArrayList<>();
-        if (hasImage) {
-            sections.add("最新一條用戶訊息有附圖。");
+        addImageContext(sections, hasImage, imageCount);
+        addLongTermMemory(sections, longTermMemory);
+        sections.add(renderTranscriptBlock(transcript));
+        return String.join("\n", sections);
+    }
+
+    private void addImageContext(List<String> sections, boolean hasImage, int imageCount) {
+        if (!hasImage) {
+            return;
         }
+        sections.add("最新一條用戶訊息有附圖。");
         if (imageCount > 1) {
             sections.add("今次總共有 " + imageCount + " 張圖，分析時要用圖 1、圖 2、圖 3 呢類編號逐張講。");
         }
-        if (longTermMemory != null && !longTermMemory.isBlank()) {
-            sections.add(renderUntrustedMemoryBlock(longTermMemory));
-            sections.add("只喺長期記憶同當前請求明顯相關時自然利用，唔好主動背誦或者逐條重複。");
-            sections.add("如果用戶今次明確要求新增、修正或者刪除長期記憶，以今次請求為準。");
-        }
+    }
 
-        sections.add(renderTranscriptBlock(transcript));
-        return String.join("\n", sections);
+    private void addLongTermMemory(List<String> sections, String longTermMemory) {
+        if (longTermMemory == null || longTermMemory.isBlank()) {
+            return;
+        }
+        sections.add(renderUntrustedMemoryBlock(longTermMemory));
+        sections.add("只喺長期記憶同當前請求明顯相關時自然利用，唔好主動背誦或者逐條重複。");
+        sections.add("如果用戶今次明確要求新增、修正或者刪除長期記憶，以今次請求為準。");
     }
 
     private String renderTranscriptBlock(Transcript transcript) {
