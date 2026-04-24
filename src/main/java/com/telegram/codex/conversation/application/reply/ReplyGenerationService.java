@@ -1,13 +1,12 @@
 package com.telegram.codex.conversation.application.reply;
 
-import com.telegram.codex.conversation.application.gateway.AttachmentDownloadGateway;
-import com.telegram.codex.conversation.application.gateway.MemoryMergeGateway;
 import com.telegram.codex.conversation.application.gateway.ReplyGenerationGateway;
 import com.telegram.codex.conversation.application.session.SessionService;
 import com.telegram.codex.conversation.application.update.ProcessedUpdateService;
 import com.telegram.codex.conversation.domain.memory.ChatMemoryRecord;
 import com.telegram.codex.conversation.domain.session.ChatSessionRecord;
 import com.telegram.codex.conversation.infrastructure.memory.ChatMemoryRepository;
+import com.telegram.codex.conversation.infrastructure.memory.CodexMemoryClient;
 import com.telegram.codex.conversation.infrastructure.session.ChatSessionRepository;
 import com.telegram.codex.integration.telegram.application.port.out.TelegramGateway;
 import com.telegram.codex.integration.telegram.domain.InboundMessage;
@@ -26,26 +25,26 @@ public class ReplyGenerationService {
     private final ReplyGenerationGateway replyClient;
     private final ChatSessionRepository chatSessionRepository;
     private final ChatMemoryRepository chatMemoryRepository;
-    private final MemoryMergeGateway memoryMergeGateway;
+    private final CodexMemoryClient memoryClient;
     private final ProcessedUpdateService processedUpdateService;
     private final SessionService sessionService;
     private final TelegramGateway telegramClient;
-    private final AttachmentDownloadGateway attachmentDownloader;
+    private final AttachmentDownloader attachmentDownloader;
 
     public ReplyGenerationService(
         ReplyGenerationGateway replyClient,
         ChatSessionRepository chatSessionRepository,
         ChatMemoryRepository chatMemoryRepository,
-        MemoryMergeGateway memoryMergeGateway,
+        CodexMemoryClient memoryClient,
         ProcessedUpdateService processedUpdateService,
         SessionService sessionService,
         TelegramGateway telegramClient,
-        AttachmentDownloadGateway attachmentDownloader
+        AttachmentDownloader attachmentDownloader
     ) {
         this.replyClient = replyClient;
         this.chatSessionRepository = chatSessionRepository;
         this.chatMemoryRepository = chatMemoryRepository;
-        this.memoryMergeGateway = memoryMergeGateway;
+        this.memoryClient = memoryClient;
         this.processedUpdateService = processedUpdateService;
         this.sessionService = sessionService;
         this.telegramClient = telegramClient;
@@ -110,7 +109,7 @@ public class ReplyGenerationService {
 
     private void persistMemory(String chatId, String userMessage, String assistantReply) {
         String existingMemory = chatMemoryRepository.find(chatId).map(ChatMemoryRecord::memoryText).orElse("");
-        String mergedMemory = memoryMergeGateway.merge(existingMemory, userMessage, assistantReply);
+        String mergedMemory = memoryClient.merge(existingMemory, userMessage, assistantReply);
         if (!mergedMemory.equals(existingMemory)) {
             chatMemoryRepository.persist(chatId, mergedMemory);
         }

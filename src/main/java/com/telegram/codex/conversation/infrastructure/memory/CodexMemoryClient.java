@@ -3,7 +3,6 @@ package com.telegram.codex.conversation.infrastructure.memory;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.telegram.codex.conversation.application.gateway.MemoryMergeGateway;
 import com.telegram.codex.integration.codex.ExecRunner;
 import com.telegram.codex.integration.codex.ExecutionException;
 import org.springframework.stereotype.Component;
@@ -12,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-public class CodexMemoryClient implements MemoryMergeGateway {
+public class CodexMemoryClient {
 
     private final ExecRunner execRunner;
     private final ObjectMapper objectMapper;
@@ -22,7 +21,6 @@ public class CodexMemoryClient implements MemoryMergeGateway {
         this.objectMapper = objectMapper;
     }
 
-    @Override
     public String merge(String existingMemory, String userMessage, String assistantReply) {
         String rawReply = execRunner.run(buildPrompt(existingMemory, userMessage, assistantReply), List.of(), memoryOutputSchema());
         try {

@@ -1,6 +1,5 @@
-package com.telegram.codex.integration.telegram.infrastructure;
+package com.telegram.codex.conversation.application.reply;
 
-import com.telegram.codex.conversation.application.gateway.AttachmentDownloadGateway;
 import com.telegram.codex.integration.telegram.application.port.out.TelegramGateway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +15,7 @@ import java.util.List;
 import java.util.Set;
 
 @Component
-public class AttachmentDownloader implements AttachmentDownloadGateway {
+public class AttachmentDownloader {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AttachmentDownloader.class);
 
@@ -26,7 +25,6 @@ public class AttachmentDownloader implements AttachmentDownloadGateway {
         this.telegramClient = telegramClient;
     }
 
-    @Override
     public List<Path> downloadImages(List<String> imageFileIds) {
         ArrayList<Path> imagePaths = new ArrayList<>();
         for (String imageFileId : imageFileIds) {
@@ -35,7 +33,6 @@ public class AttachmentDownloader implements AttachmentDownloadGateway {
         return List.copyOf(imagePaths);
     }
 
-    @Override
     public void cleanup(List<Path> filePaths) {
         Set<Path> uniqueParentDirs = new HashSet<>();
         for (Path filePath : filePaths) {

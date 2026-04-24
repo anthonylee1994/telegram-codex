@@ -3,7 +3,6 @@ package com.telegram.codex.conversation.infrastructure.session;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.telegram.codex.conversation.application.gateway.SessionCompactGateway;
 import com.telegram.codex.integration.codex.ExecRunner;
 import com.telegram.codex.conversation.domain.session.Transcript;
 import com.telegram.codex.integration.codex.ExecutionException;
@@ -13,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-public class CodexSessionCompactClient implements SessionCompactGateway {
+public class CodexSessionCompactClient {
 
     private final ExecRunner execRunner;
     private final ObjectMapper objectMapper;
@@ -23,7 +22,6 @@ public class CodexSessionCompactClient implements SessionCompactGateway {
         this.objectMapper = objectMapper;
     }
 
-    @Override
     public String compact(Transcript transcript) {
         String rawReply = execRunner.run(buildPrompt(transcript), List.of(), outputSchema());
         try {

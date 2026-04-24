@@ -1,13 +1,12 @@
 package com.telegram.codex.conversation.application.reply;
 
-import com.telegram.codex.conversation.application.gateway.AttachmentDownloadGateway;
-import com.telegram.codex.conversation.application.gateway.MemoryMergeGateway;
 import com.telegram.codex.conversation.application.gateway.ReplyGenerationGateway;
 import com.telegram.codex.conversation.application.session.SessionService;
 import com.telegram.codex.conversation.application.update.ProcessedUpdateService;
 import com.telegram.codex.conversation.domain.memory.ChatMemoryRecord;
 import com.telegram.codex.conversation.domain.session.ChatSessionRecord;
 import com.telegram.codex.conversation.infrastructure.memory.ChatMemoryRepository;
+import com.telegram.codex.conversation.infrastructure.memory.CodexMemoryClient;
 import com.telegram.codex.conversation.infrastructure.session.ChatSessionRepository;
 import com.telegram.codex.integration.telegram.application.port.out.TelegramGateway;
 import com.telegram.codex.integration.telegram.domain.InboundMessage;
@@ -32,16 +31,16 @@ class ReplyGenerationServiceTest {
     @Test
     void handleUsesStoredConversationState() {
         ReplyGenerationGateway cliClient = Mockito.mock(ReplyGenerationGateway.class);
-        MemoryMergeGateway memoryMergePort = Mockito.mock(MemoryMergeGateway.class);
+        CodexMemoryClient memoryClient = Mockito.mock(CodexMemoryClient.class);
         ProcessedUpdateService processedUpdateService = Mockito.mock(ProcessedUpdateService.class);
         SessionService sessionService = Mockito.mock(SessionService.class);
         TelegramGateway telegramGateway = Mockito.mock(TelegramGateway.class);
-        AttachmentDownloadGateway attachmentDownloader = Mockito.mock(AttachmentDownloadGateway.class);
+        AttachmentDownloader attachmentDownloader = Mockito.mock(AttachmentDownloader.class);
         when(cliClient.generateReply(anyString(), any(), anyList(), any(), any())).thenReturn(new ReplyResult("next-state", List.of("a", "b", "c"), "reply"));
         ChatSessionRepository sessionRepository = mockSessionRepository(Optional.of(new ChatSessionRecord("3", "[{\"role\":\"user\",\"content\":\"hi\"}]", System.currentTimeMillis())));
         ChatMemoryRepository memoryRepository = Mockito.mock(ChatMemoryRepository.class);
         when(memoryRepository.find("3")).thenReturn(Optional.of(new ChatMemoryRecord("3", "記憶", System.currentTimeMillis())));
-        when(memoryMergePort.merge("記憶", "你好", "reply")).thenReturn("記憶");
+        when(memoryClient.merge("記憶", "你好", "reply")).thenReturn("記憶");
         when(attachmentDownloader.downloadImages(List.of())).thenReturn(List.of());
         when(telegramGateway.withTypingStatus(eq("3"), any())).thenAnswer(invocation -> invocation.getArgument(1, Supplier.class).get());
 
@@ -49,7 +48,7 @@ class ReplyGenerationServiceTest {
             cliClient,
             sessionRepository,
             memoryRepository,
-            memoryMergePort,
+            memoryClient,
             processedUpdateService,
             sessionService,
             telegramGateway,
@@ -73,8 +72,8 @@ class ReplyGenerationServiceTest {
         ProcessedUpdateService processedUpdateService = Mockito.mock(ProcessedUpdateService.class);
         SessionService sessionService = Mockito.mock(SessionService.class);
         TelegramGateway telegramGateway = Mockito.mock(TelegramGateway.class);
-        AttachmentDownloadGateway attachmentDownloader = Mockito.mock(AttachmentDownloadGateway.class);
-        MemoryMergeGateway memoryMergePort = Mockito.mock(MemoryMergeGateway.class);
+        AttachmentDownloader attachmentDownloader = Mockito.mock(AttachmentDownloader.class);
+        CodexMemoryClient memoryClient = Mockito.mock(CodexMemoryClient.class);
         ChatMemoryRepository memoryRepository = Mockito.mock(ChatMemoryRepository.class);
         when(cliClient.generateReply(any(), any(), any(), any(), any())).thenReturn(new ReplyResult("next-state", List.of(), "reply"));
         when(memoryRepository.find("3")).thenReturn(Optional.empty());
@@ -86,7 +85,7 @@ class ReplyGenerationServiceTest {
             cliClient,
             sessionRepository,
             memoryRepository,
-            memoryMergePort,
+            memoryClient,
             processedUpdateService,
             sessionService,
             telegramGateway,
@@ -95,7 +94,7 @@ class ReplyGenerationServiceTest {
 
         service.handle(new InboundMessage("3", List.of(), null, 10, List.of(), List.of(), null, null, "   ", "5", 99));
 
-        verify(memoryMergePort, never()).merge(anyString(), anyString(), anyString());
+        verify(memoryClient, never()).merge(anyString(), anyString(), anyString());
         verify(memoryRepository, never()).persist(anyString(), anyString());
     }
 

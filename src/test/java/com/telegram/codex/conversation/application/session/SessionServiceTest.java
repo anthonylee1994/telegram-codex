@@ -1,10 +1,10 @@
 package com.telegram.codex.conversation.application.session;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.telegram.codex.conversation.application.gateway.SessionCompactGateway;
 import com.telegram.codex.conversation.domain.session.ChatSessionRecord;
 import com.telegram.codex.conversation.domain.session.Transcript;
 import com.telegram.codex.conversation.infrastructure.session.ChatSessionRepository;
+import com.telegram.codex.conversation.infrastructure.session.CodexSessionCompactClient;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -24,7 +24,7 @@ class SessionServiceTest {
         ChatSessionRepository repository = Mockito.mock(ChatSessionRepository.class);
         when(repository.findActive("3")).thenReturn(Optional.empty());
 
-        SessionService.SessionSnapshot snapshot = new SessionService(repository, Mockito.mock(SessionCompactGateway.class), new ObjectMapper()).snapshot("3");
+        SessionService.SessionSnapshot snapshot = new SessionService(repository, Mockito.mock(CodexSessionCompactClient.class), new ObjectMapper()).snapshot("3");
 
         assertFalse(snapshot.active());
     }
@@ -32,7 +32,7 @@ class SessionServiceTest {
     @Test
     void compactReturnsOkAndPersistsCompactTranscript() {
         ChatSessionRepository repository = Mockito.mock(ChatSessionRepository.class);
-        SessionCompactGateway compactClient = Mockito.mock(SessionCompactGateway.class);
+        CodexSessionCompactClient compactClient = Mockito.mock(CodexSessionCompactClient.class);
         ObjectMapper objectMapper = new ObjectMapper();
         String conversationState = Transcript.empty()
             .append("user", "a")
@@ -62,7 +62,7 @@ class SessionServiceTest {
             .toConversationState(objectMapper);
         when(repository.findActive("3")).thenReturn(Optional.of(new ChatSessionRecord("3", conversationState, System.currentTimeMillis())));
 
-        SessionService.SessionSnapshot snapshot = new SessionService(repository, Mockito.mock(SessionCompactGateway.class), objectMapper).snapshot("3");
+        SessionService.SessionSnapshot snapshot = new SessionService(repository, Mockito.mock(CodexSessionCompactClient.class), objectMapper).snapshot("3");
 
         assertTrue(snapshot.active());
         assertEquals(3, snapshot.messageCount());
