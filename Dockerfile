@@ -11,7 +11,7 @@ RUN apt-get update -qq && \
     npm install -g @openai/codex@"$(cat /tmp/.codex-version)" && \
     rm -rf /var/lib/apt/lists/* /tmp/.codex-version
 
-COPY build.gradle settings.gradle gradlew ./
+COPY build.gradle.kts settings.gradle.kts gradle.properties gradlew ./
 COPY gradle gradle
 COPY src src
 COPY bin bin
