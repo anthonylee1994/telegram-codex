@@ -1,8 +1,8 @@
 package com.telegram.codex.conversation.application.reply;
 
 import com.telegram.codex.conversation.application.gateway.ReplyGenerationGateway;
+import com.telegram.codex.conversation.application.ProcessedUpdateService;
 import com.telegram.codex.conversation.application.session.SessionService;
-import com.telegram.codex.conversation.application.update.ProcessedUpdateService;
 import com.telegram.codex.conversation.domain.memory.ChatMemoryRecord;
 import com.telegram.codex.conversation.domain.session.ChatSessionRecord;
 import com.telegram.codex.conversation.infrastructure.memory.ChatMemoryRepository;

@@ -1,4 +1,4 @@
-package com.telegram.codex.conversation.application.update;
+package com.telegram.codex.conversation.application;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

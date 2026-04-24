@@ -1,8 +1,8 @@
 package com.telegram.codex.integration.telegram.application.webhook;
 
-import com.telegram.codex.conversation.application.job.JobSchedulerService;
+import com.telegram.codex.conversation.application.JobSchedulerService;
+import com.telegram.codex.conversation.application.ProcessedUpdateService;
 import com.telegram.codex.conversation.application.session.SessionService;
-import com.telegram.codex.conversation.application.update.ProcessedUpdateService;
 import com.telegram.codex.conversation.domain.ConversationConstants;
 import com.telegram.codex.conversation.domain.MessageConstants;
 import com.telegram.codex.integration.telegram.application.CompactResultSender;

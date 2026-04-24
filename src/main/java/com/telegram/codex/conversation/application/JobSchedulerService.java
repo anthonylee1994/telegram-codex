@@ -1,4 +1,4 @@
-package com.telegram.codex.conversation.application.job;
+package com.telegram.codex.conversation.application;
 
 import com.telegram.codex.conversation.application.reply.ReplyGenerationService;
 import com.telegram.codex.conversation.application.session.SessionService;

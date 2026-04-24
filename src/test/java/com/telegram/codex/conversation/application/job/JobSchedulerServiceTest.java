@@ -7,6 +7,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.telegram.codex.conversation.application.JobSchedulerService;
 import com.telegram.codex.conversation.application.reply.ReplyGenerationService;
 import com.telegram.codex.conversation.application.session.SessionService;
 import com.telegram.codex.conversation.infrastructure.MediaGroupBufferRepository;

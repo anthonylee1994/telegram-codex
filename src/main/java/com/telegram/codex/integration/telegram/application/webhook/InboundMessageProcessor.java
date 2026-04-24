@@ -1,6 +1,6 @@
 package com.telegram.codex.integration.telegram.application.webhook;
 
-import com.telegram.codex.conversation.application.job.JobSchedulerService;
+import com.telegram.codex.conversation.application.JobSchedulerService;
 import com.telegram.codex.conversation.infrastructure.MediaGroupBufferRepository;
 import com.telegram.codex.integration.telegram.domain.InboundMessage;
 import org.springframework.stereotype.Component;
