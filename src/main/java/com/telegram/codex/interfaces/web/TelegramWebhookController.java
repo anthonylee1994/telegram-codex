@@ -1,6 +1,6 @@
 package com.telegram.codex.interfaces.web;
 
-import com.telegram.codex.integration.telegram.application.TelegramWebhookHandler;
+import com.telegram.codex.integration.telegram.application.webhook.TelegramWebhookHandler;
 import com.telegram.codex.shared.config.AppProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

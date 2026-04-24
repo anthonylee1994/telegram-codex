@@ -1,0 +1,103 @@
+package com.telegram.codex.integration.telegram.application.webhook;
+
+import com.telegram.codex.conversation.application.job.JobSchedulerService;
+import com.telegram.codex.conversation.application.memory.MemoryService;
+import com.telegram.codex.conversation.application.session.SessionService;
+import com.telegram.codex.conversation.application.update.ProcessedUpdateService;
+import com.telegram.codex.conversation.domain.ConversationConstants;
+import com.telegram.codex.conversation.domain.MessageConstants;
+import com.telegram.codex.conversation.domain.session.SessionCompactResult;
+import com.telegram.codex.conversation.domain.session.SessionSnapshot;
+import com.telegram.codex.integration.telegram.application.CompactResultSender;
+import com.telegram.codex.integration.telegram.application.port.out.TelegramGateway;
+import com.telegram.codex.integration.telegram.domain.InboundMessage;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Optional;
+
+@Component
+public class TelegramCommandHandler {
+
+    private final TelegramCommandRegistry commandRegistry;
+    private final MemoryService memoryService;
+    private final SessionService sessionService;
+    private final ProcessedUpdateService processedUpdateService;
+    private final TelegramStatusMessageBuilder messageBuilder;
+    private final TelegramGateway telegramClient;
+    private final CompactResultSender compactResultSender;
+    private final JobSchedulerService jobSchedulerService;
+
+    public TelegramCommandHandler(
+        TelegramCommandRegistry commandRegistry,
+        MemoryService memoryService,
+        SessionService sessionService,
+        ProcessedUpdateService processedUpdateService,
+        TelegramStatusMessageBuilder messageBuilder,
+        TelegramGateway telegramClient,
+        CompactResultSender compactResultSender,
+        JobSchedulerService jobSchedulerService
+    ) {
+        this.commandRegistry = commandRegistry;
+        this.memoryService = memoryService;
+        this.sessionService = sessionService;
+        this.processedUpdateService = processedUpdateService;
+        this.messageBuilder = messageBuilder;
+        this.telegramClient = telegramClient;
+        this.compactResultSender = compactResultSender;
+        this.jobSchedulerService = jobSchedulerService;
+    }
+
+    public boolean handle(InboundMessage message) {
+        Optional<TelegramCommandRegistry.TelegramCommand> command = commandRegistry.resolve(message);
+        if (command.isEmpty()) {
+            return false;
+        }
+        executeCommand(command.get(), message);
+        return true;
+    }
+
+    private void executeCommand(TelegramCommandRegistry.TelegramCommand command, InboundMessage message) {
+        switch (command) {
+            case START -> {
+                sessionService.reset(message.chatId());
+                sendAndMarkProcessed(message, MessageConstants.START_MESSAGE, true);
+            }
+            case NEW_SESSION -> {
+                sessionService.reset(message.chatId());
+                sendAndMarkProcessed(message, MessageConstants.NEW_SESSION_MESSAGE, true);
+            }
+            case HELP -> sendAndMarkProcessed(message, MessageConstants.HELP_MESSAGE, true);
+            case STATUS -> sendAndMarkProcessed(message, messageBuilder.buildStatusMessage(message.chatId()), true);
+            case SESSION -> sendAndMarkProcessed(message, messageBuilder.buildSessionMessage(message.chatId()), true);
+            case MEMORY -> sendAndMarkProcessed(message, messageBuilder.buildMemoryMessage(message.chatId()), true);
+            case FORGET -> {
+                memoryService.reset(message.chatId());
+                sendAndMarkProcessed(message, MessageConstants.RESET_MEMORY_MESSAGE, true);
+            }
+            case COMPACT -> executeCompactSession(message);
+        }
+    }
+
+    private void executeCompactSession(InboundMessage message) {
+        SessionSnapshot snapshot = sessionService.snapshot(message.chatId());
+        if (!snapshot.active()) {
+            compactResultSender.send(message.chatId(), SessionCompactResult.missingSession());
+            processedUpdateService.markProcessed(message);
+            return;
+        }
+        if (snapshot.messageCount() < ConversationConstants.MIN_TRANSCRIPT_SIZE_FOR_COMPACT) {
+            compactResultSender.send(message.chatId(), SessionCompactResult.tooShort(snapshot.messageCount()));
+            processedUpdateService.markProcessed(message);
+            return;
+        }
+        jobSchedulerService.enqueueSessionCompact(message.chatId());
+        telegramClient.sendMessage(message.chatId(), MessageConstants.COMPACT_QUEUED_MESSAGE, List.of(), true);
+        processedUpdateService.markProcessed(message);
+    }
+
+    private void sendAndMarkProcessed(InboundMessage message, String text, boolean disableNotification) {
+        telegramClient.sendMessage(message.chatId(), text, List.of(), disableNotification);
+        processedUpdateService.markProcessed(message);
+    }
+}

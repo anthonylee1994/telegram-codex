@@ -1,6 +1,6 @@
 package com.telegram.codex.integration.telegram.infrastructure;
 
-import com.telegram.codex.conversation.application.port.out.AttachmentDownloadPort;
+import com.telegram.codex.conversation.application.gateway.AttachmentDownloadGateway;
 import com.telegram.codex.integration.telegram.application.port.out.TelegramGateway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Set;
 
 @Component
-public class AttachmentDownloader implements AttachmentDownloadPort {
+public class AttachmentDownloader implements AttachmentDownloadGateway {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AttachmentDownloader.class);
 

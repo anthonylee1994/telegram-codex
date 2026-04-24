@@ -1,8 +1,8 @@
 package com.telegram.codex.conversation.application.memory;
 
-import com.telegram.codex.conversation.application.port.out.ChatMemoryPort;
 import com.telegram.codex.conversation.domain.memory.ChatMemoryRecord;
 import com.telegram.codex.conversation.domain.memory.MemorySnapshot;
+import com.telegram.codex.conversation.infrastructure.memory.ChatMemoryRepository;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -16,7 +16,7 @@ class MemoryServiceTest {
 
     @Test
     void snapshotReturnsInactiveWhenMemoryMissing() {
-        ChatMemoryPort repository = Mockito.mock(ChatMemoryPort.class);
+        ChatMemoryRepository repository = Mockito.mock(ChatMemoryRepository.class);
         when(repository.find("3")).thenReturn(Optional.empty());
 
         MemorySnapshot snapshot = new MemoryService(repository).snapshot("3");
@@ -26,7 +26,7 @@ class MemoryServiceTest {
 
     @Test
     void snapshotReturnsActiveWhenMemoryExists() {
-        ChatMemoryPort repository = Mockito.mock(ChatMemoryPort.class);
+        ChatMemoryRepository repository = Mockito.mock(ChatMemoryRepository.class);
         when(repository.find("3")).thenReturn(Optional.of(new ChatMemoryRecord("3", "記憶", 1_700_000_000_000L)));
 
         MemorySnapshot snapshot = new MemoryService(repository).snapshot("3");

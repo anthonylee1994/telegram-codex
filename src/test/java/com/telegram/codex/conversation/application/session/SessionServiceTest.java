@@ -1,12 +1,12 @@
 package com.telegram.codex.conversation.application.session;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.telegram.codex.conversation.application.port.out.ChatSessionPort;
-import com.telegram.codex.conversation.application.port.out.SessionCompactPort;
+import com.telegram.codex.conversation.application.gateway.SessionCompactGateway;
 import com.telegram.codex.conversation.domain.session.ChatSessionRecord;
 import com.telegram.codex.conversation.domain.session.SessionCompactResult;
 import com.telegram.codex.conversation.domain.session.SessionSnapshot;
 import com.telegram.codex.conversation.domain.session.Transcript;
+import com.telegram.codex.conversation.infrastructure.session.ChatSessionRepository;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -23,18 +23,18 @@ class SessionServiceTest {
 
     @Test
     void snapshotReturnsInactiveWhenNoSession() {
-        ChatSessionPort repository = Mockito.mock(ChatSessionPort.class);
+        ChatSessionRepository repository = Mockito.mock(ChatSessionRepository.class);
         when(repository.findActive("3")).thenReturn(Optional.empty());
 
-        SessionSnapshot snapshot = new SessionService(repository, Mockito.mock(SessionCompactPort.class), new ObjectMapper()).snapshot("3");
+        SessionSnapshot snapshot = new SessionService(repository, Mockito.mock(SessionCompactGateway.class), new ObjectMapper()).snapshot("3");
 
         assertFalse(snapshot.active());
     }
 
     @Test
     void compactReturnsOkAndPersistsCompactTranscript() {
-        ChatSessionPort repository = Mockito.mock(ChatSessionPort.class);
-        SessionCompactPort compactClient = Mockito.mock(SessionCompactPort.class);
+        ChatSessionRepository repository = Mockito.mock(ChatSessionRepository.class);
+        SessionCompactGateway compactClient = Mockito.mock(SessionCompactGateway.class);
         ObjectMapper objectMapper = new ObjectMapper();
         String conversationState = Transcript.empty()
             .append("user", "a")
@@ -55,7 +55,7 @@ class SessionServiceTest {
 
     @Test
     void snapshotReturnsMessageStatsWhenSessionExists() {
-        ChatSessionPort repository = Mockito.mock(ChatSessionPort.class);
+        ChatSessionRepository repository = Mockito.mock(ChatSessionRepository.class);
         ObjectMapper objectMapper = new ObjectMapper();
         String conversationState = Transcript.empty()
             .append("user", "a")
@@ -64,7 +64,7 @@ class SessionServiceTest {
             .toConversationState(objectMapper);
         when(repository.findActive("3")).thenReturn(Optional.of(new ChatSessionRecord("3", conversationState, System.currentTimeMillis())));
 
-        SessionSnapshot snapshot = new SessionService(repository, Mockito.mock(SessionCompactPort.class), objectMapper).snapshot("3");
+        SessionSnapshot snapshot = new SessionService(repository, Mockito.mock(SessionCompactGateway.class), objectMapper).snapshot("3");
 
         assertTrue(snapshot.active());
         assertEquals(3, snapshot.messageCount());

@@ -1,7 +1,7 @@
 package com.telegram.codex.integration.codex;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.telegram.codex.conversation.application.port.out.ReplyGenerationPort;
+import com.telegram.codex.conversation.application.gateway.ReplyGenerationGateway;
 import com.telegram.codex.conversation.application.reply.ReplyResult;
 import com.telegram.codex.conversation.domain.session.Transcript;
 import com.telegram.codex.integration.telegram.domain.TelegramConstants;
@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-public class CodexReplyClient implements ReplyGenerationPort {
+public class CodexReplyClient implements ReplyGenerationGateway {
 
     private final ExecRunner execRunner;
     private final ObjectMapper objectMapper;

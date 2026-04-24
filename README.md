@@ -47,7 +47,12 @@ Demo：https://t.me/On99AppBot
 
 ## 架構
 
-而家個 codebase 已經跟 domain / application / infrastructure / interfaces 分開，唔再係以前嗰種按技術或雜項 util 亂堆。
+而家個 codebase 主要跟 `conversation`、`integration`、`interfaces` 分域，但唔再盲目追求 layer purity。原則係：
+
+- 對外系統邊界，例如 Telegram API、Codex CLI，先值得保留 `Port`
+- 呢類真邊界而家統一放喺 `conversation/application/gateway`
+- 純本地 persistence 可以直接用 repository implementation，唔需要為咗「乾淨」再包一層假抽象
+- 主流程 class 應該保持短同直，複雜分支就拆成有業務語意嘅 handler / helper
 
 ```text
 src/main/java/com/telegram/codex/
@@ -57,11 +62,9 @@ src/main/java/com/telegram/codex/
 │   ├── application/
 │   │   ├── job/
 │   │   ├── memory/
-│   │   ├── port/out/
 │   │   ├── reply/
 │   │   ├── session/
-│   │   ├── update/
-│   │   └── webhook/
+│   │   └── update/
 │   ├── domain/
 │   │   ├── memory/
 │   │   ├── session/
@@ -87,11 +90,11 @@ src/main/java/com/telegram/codex/
 ### 分層原則
 
 - `domain` 放純業務概念、規則、value-like model
-- `application` 放 use case orchestration，同 outbound ports
+- `application` 放 use case orchestration，同少量貼業務嘅 helper
 - `infrastructure` 放 JPA、repository、adapter implementation
 - `integration` 放對外系統整合，例如 Telegram 同 Codex
 - `interfaces` 放 HTTP / CLI entrypoints
-- `shared` 只留真係跨 domain 都合理共享嘅 config，唔再放萬能垃圾桶 util
+- `shared` 只留真係跨 domain 都合理共享嘅 config
 
 ## 主要 package map
 
@@ -102,11 +105,14 @@ src/main/java/com/telegram/codex/
 
 ### `conversation`
 
-- `conversation/application/reply/ConversationService.java`
-  對話 use case 主入口，處理 session、memory、reply generation。
+- `conversation/application/reply/ReplyGenerationService.java`
+  對話回覆 use case 主入口，負責附件 download、reply generation、session persist、memory refresh。
 
-- `conversation/application/reply/ReplyGenerationFlow.java`
-  非同步回覆流程，負責附件 download 同主回答生成。
+- `conversation/application/reply/ReplyContextLoader.java`
+  集中讀 reply generation 需要嘅 session / memory / reply context。
+
+- `conversation/application/reply/LongTermMemoryRefresher.java`
+  集中處理長期記憶 merge 同 persist。
 
 - `conversation/application/session/SessionService.java`
   session 讀寫、TTL、compact 相關邏輯。
@@ -117,20 +123,14 @@ src/main/java/com/telegram/codex/
 - `conversation/application/job/JobSchedulerService.java`
   跑 async reply、compact，同 media group flush scheduling。
 
-- `conversation/application/update/ProcessedUpdateFlow.java`
-  duplicate update 保護。
-
-- `conversation/application/webhook/*`
-  command / decision / action routing。
-
-- `conversation/application/port/out/*`
-  application layer 對外依賴接口，例如 `ChatSessionPort`、`ReplyGenerationPort`、`SessionCompactPort`。
+- `conversation/application/update/ProcessedUpdateService.java`
+  duplicate update claim / replay / prune / pending reply 管理。
 
 - `conversation/domain/*`
-  對話核心規則，例如 `ChatRateLimiter`、`MediaGroupMerger`、`Decision`、`Transcript`、memory/session/update records。
+  對話核心規則，例如 `ChatRateLimiter`、`MediaGroupMerger`、`Transcript`、memory/session/update records。
 
 - `conversation/infrastructure/*`
-  conversation domain 對應嘅 repository / persistence adapter。
+  conversation domain 對應嘅 repository / persistence adapter。session / memory 呢類純本地 persistence 而家會畀 application 直接用。
 
 ### `integration/codex`
 
@@ -148,11 +148,23 @@ src/main/java/com/telegram/codex/
 
 ### `integration/telegram`
 
-- `application/TelegramWebhookHandler`
+- `application/webhook/TelegramWebhookHandler`
   Telegram inbound flow 入口。
 
-- `application/InboundMessageProcessor`
-  message decision routing。
+- `application/webhook/InboundMessageProcessor`
+  webhook 主流程 orchestration，將 unsupported、duplicate/replay、command、guard、enqueue 順序串起。
+
+- `application/webhook/DuplicateUpdateHandler`
+  duplicate / replay 判斷同 resend。
+
+- `application/webhook/ReplyRequestGuard`
+  unauthorized、too many images、sensitive intent、rate limit、claim processing 呢堆前置檢查。
+
+- `application/webhook/TelegramCommandHandler`
+  `/start`、`/new`、`/compact` 等 command 分支。
+
+- `application/webhook/TelegramCommandRegistry`
+  Telegram command 判斷。
 
 - `application/CompactResultSender`
   `/compact` 完成後主動 send 結果。
@@ -185,22 +197,21 @@ src/main/java/com/telegram/codex/
 2. controller 驗 `X-Telegram-Bot-Api-Secret-Token`
 3. `TelegramWebhookHandler` 接手處理 Telegram update
 4. `TelegramUpdateParser` 將 payload 轉成 `InboundMessage`
-5. `InboundMessageProcessor` 做 command routing、allowed user、rate limit、duplicate check
+5. `InboundMessageProcessor` 依次交畀 unsupported / duplicate / command / guard handlers 處理
 6. 如果係 media group，先寫入 `MediaGroupBufferRepository`，再等 `JobSchedulerService` flush
-7. 需要生成回覆時，`JobSchedulerService` 用 async path 跑 `ReplyGenerationFlow`
-8. `ReplyGenerationFlow` download 附件，再 call `ConversationService`
-9. `ConversationService` 讀寫 session / memory，經 `ReplyGenerationPort` 走去 `CodexReplyClient`
-10. reply send 成功後先更新 session 同長期記憶
-11. `/compact` 走另一條 async path，完成後由 `CompactResultSender` 主動 send 返 Telegram
+7. 需要生成回覆時，`JobSchedulerService` 用 async path 跑 `ReplyGenerationService`
+8. `ReplyGenerationService` 先用 `ReplyContextLoader` 讀 session / memory，再經 `ReplyGenerationGateway` 走去 `CodexReplyClient`
+9. reply send 成功後先更新 session、processed update 同長期記憶
+10. `/compact` 走另一條 async path，完成後由 `CompactResultSender` 主動 send 返 Telegram
 
 ## 命名同架構規範
 
 而家 repo 有幾條明確規矩，唔好再加舊 style 名：
 
-- outbound dependency 一律用 `*Port`
+- 真正跨外部邊界嘅 dependency 先用 `*Gateway`
 - persistence / adapter implementation 用 `*Repository`、`*Client`、`*Gateway` 呢類有語意嘅名
 - 禁止再新增 `*Store` 命名
-- `application` layer 唔可以直接 import `infrastructure` implementation
+- `conversation/application` 可以直接依賴 `conversation/infrastructure`
 - `interfaces` layer 唔可以直接 import `infrastructure` implementation
 - `integration/telegram/application` 唔可以直接依賴 `integration/telegram/infrastructure`
 

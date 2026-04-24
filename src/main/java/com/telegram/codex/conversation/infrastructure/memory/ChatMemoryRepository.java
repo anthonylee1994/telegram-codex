@@ -1,6 +1,5 @@
 package com.telegram.codex.conversation.infrastructure.memory;
 
-import com.telegram.codex.conversation.application.port.out.ChatMemoryPort;
 import com.telegram.codex.conversation.domain.memory.ChatMemoryRecord;
 import com.telegram.codex.conversation.infrastructure.persistence.ChatMemoryEntity;
 import com.telegram.codex.conversation.infrastructure.persistence.ChatMemoryJpaRepository;
@@ -11,7 +10,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public class ChatMemoryRepository implements ChatMemoryPort {
+public class ChatMemoryRepository {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ChatMemoryRepository.class);
 
@@ -21,12 +20,10 @@ public class ChatMemoryRepository implements ChatMemoryPort {
         this.repository = repository;
     }
 
-    @Override
     public Optional<ChatMemoryRecord> find(String chatId) {
         return repository.findById(chatId).map(entity -> new ChatMemoryRecord(entity.getChatId(), entity.getMemoryText(), entity.getUpdatedAt()));
     }
 
-    @Override
     public void persist(String chatId, String memoryText) {
         String normalized = memoryText == null ? "" : memoryText.trim();
         if (normalized.isEmpty()) {
@@ -40,7 +37,6 @@ public class ChatMemoryRepository implements ChatMemoryPort {
         repository.save(entity);
     }
 
-    @Override
     public void reset(String chatId) {
         repository.deleteById(chatId);
         LOGGER.info("Reset chat memory chat_id={}", chatId);

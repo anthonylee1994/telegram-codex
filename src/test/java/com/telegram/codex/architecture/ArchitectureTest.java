@@ -20,7 +20,6 @@ class ArchitectureTest {
         assertNoForbiddenImports(
             MAIN_JAVA_DIR.resolve("conversation/application"),
             List.of(
-                "import com.telegram.codex.conversation.infrastructure.",
                 "import com.telegram.codex.integration.telegram.infrastructure.",
                 "import com.telegram.codex.integration.codex."
             )

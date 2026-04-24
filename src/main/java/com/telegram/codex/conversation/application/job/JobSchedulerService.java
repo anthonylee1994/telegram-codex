@@ -1,11 +1,11 @@
 package com.telegram.codex.conversation.application.job;
 
-import com.telegram.codex.conversation.application.port.out.MediaGroupBufferPort;
-import com.telegram.codex.conversation.application.reply.ReplyGenerationFlow;
+import com.telegram.codex.conversation.application.reply.ReplyGenerationService;
 import com.telegram.codex.conversation.application.session.SessionService;
-import com.telegram.codex.integration.telegram.domain.InboundMessage;
-import com.telegram.codex.integration.telegram.application.InboundMessageProcessor;
+import com.telegram.codex.conversation.infrastructure.MediaGroupBufferRepository;
 import com.telegram.codex.integration.telegram.application.CompactResultSender;
+import com.telegram.codex.integration.telegram.application.webhook.InboundMessageProcessor;
+import com.telegram.codex.integration.telegram.domain.InboundMessage;
 import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
@@ -19,24 +19,24 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class JobSchedulerService {
 
-    private final MediaGroupBufferPort mediaGroupStore;
+    private final MediaGroupBufferRepository mediaGroupStore;
     private final ObjectProvider<InboundMessageProcessor> inboundMessageProcessorProvider;
-    private final ReplyGenerationFlow replyGenerationFlow;
+    private final ReplyGenerationService replyGenerationService;
     private final ScheduledExecutorService scheduledExecutorService;
     private final SessionService sessionService;
     private final CompactResultSender compactResultSender;
     private final ExecutorService taskExecutor;
 
     public JobSchedulerService(
-        MediaGroupBufferPort mediaGroupStore,
+        MediaGroupBufferRepository mediaGroupStore,
         ObjectProvider<InboundMessageProcessor> inboundMessageProcessorProvider,
-        ReplyGenerationFlow replyGenerationFlow,
+        ReplyGenerationService replyGenerationService,
         SessionService sessionService,
         CompactResultSender compactResultSender
     ) {
         this.mediaGroupStore = mediaGroupStore;
         this.inboundMessageProcessorProvider = inboundMessageProcessorProvider;
-        this.replyGenerationFlow = replyGenerationFlow;
+        this.replyGenerationService = replyGenerationService;
         this.sessionService = sessionService;
         this.compactResultSender = compactResultSender;
         this.taskExecutor = Executors.newVirtualThreadPerTaskExecutor();
@@ -47,7 +47,7 @@ public class JobSchedulerService {
     }
 
     public void enqueueReplyGeneration(InboundMessage message) {
-        taskExecutor.execute(() -> replyGenerationFlow.call(message));
+        taskExecutor.execute(() -> replyGenerationService.handle(message));
     }
 
     public void scheduleMediaGroupFlush(String key, long expectedDeadlineAt, Duration waitDuration) {
@@ -72,7 +72,7 @@ public class JobSchedulerService {
     }
 
     private void flushMediaGroup(String key, long expectedDeadlineAt) {
-        MediaGroupBufferPort.FlushResult result = mediaGroupStore.flush(key, expectedDeadlineAt);
+        MediaGroupBufferRepository.FlushResult result = mediaGroupStore.flush(key, expectedDeadlineAt);
         switch (result.status()) {
             case "ready" -> inboundMessageProcessorProvider.getObject().process(result.message());
             case "pending" -> scheduleMediaGroupFlush(

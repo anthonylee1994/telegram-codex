@@ -1,8 +1,7 @@
 package com.telegram.codex.conversation.application.session;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.telegram.codex.conversation.application.port.out.ChatSessionPort;
-import com.telegram.codex.conversation.application.port.out.SessionCompactPort;
+import com.telegram.codex.conversation.application.gateway.SessionCompactGateway;
 import com.telegram.codex.conversation.domain.ConversationTimeFormatter;
 import com.telegram.codex.conversation.domain.session.ChatSessionRecord;
 import com.telegram.codex.conversation.domain.session.SessionCompactResult;
@@ -10,6 +9,7 @@ import com.telegram.codex.conversation.domain.session.SessionSnapshot;
 import com.telegram.codex.conversation.domain.session.Transcript;
 import com.telegram.codex.conversation.domain.ConversationConstants;
 import com.telegram.codex.conversation.domain.MessageConstants;
+import com.telegram.codex.conversation.infrastructure.session.ChatSessionRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -17,13 +17,13 @@ import java.util.Optional;
 @Service
 public class SessionService {
 
-    private final ChatSessionPort chatSessionRepository;
-    private final SessionCompactPort sessionCompactClient;
+    private final ChatSessionRepository chatSessionRepository;
+    private final SessionCompactGateway sessionCompactClient;
     private final ObjectMapper objectMapper;
 
     public SessionService(
-        ChatSessionPort chatSessionRepository,
-        SessionCompactPort sessionCompactClient,
+        ChatSessionRepository chatSessionRepository,
+        SessionCompactGateway sessionCompactClient,
         ObjectMapper objectMapper
     ) {
         this.chatSessionRepository = chatSessionRepository;

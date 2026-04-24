@@ -1,7 +1,7 @@
 package com.telegram.codex.interfaces.web;
 
 import com.telegram.codex.bootstrap.TelegramCodexApplication;
-import com.telegram.codex.integration.telegram.application.TelegramWebhookHandler;
+import com.telegram.codex.integration.telegram.application.webhook.TelegramWebhookHandler;
 import com.telegram.codex.shared.config.AppProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

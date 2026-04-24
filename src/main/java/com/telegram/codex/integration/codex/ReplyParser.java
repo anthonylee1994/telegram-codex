@@ -1,13 +1,12 @@
 package com.telegram.codex.integration.codex;
 
-import com.telegram.codex.conversation.application.port.out.SuggestedRepliesPort;
 import com.telegram.codex.conversation.domain.MessageConstants;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 @Component
-public class ReplyParser implements SuggestedRepliesPort {
+public class ReplyParser {
 
     private final JsonPayloadParser jsonPayloadParser;
     private final ReplyTextExtractor replyTextExtractor;
@@ -39,7 +38,6 @@ public class ReplyParser implements SuggestedRepliesPort {
         }
     }
 
-    @Override
     public List<String> parseSuggestedReplies(String rawSuggestedReplies) {
         return suggestedRepliesExtractor.parseSuggestedReplies(rawSuggestedReplies);
     }

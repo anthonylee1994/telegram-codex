@@ -1,9 +1,9 @@
 package com.telegram.codex.conversation.application.memory;
 
-import com.telegram.codex.conversation.application.port.out.ChatMemoryPort;
 import com.telegram.codex.conversation.domain.ConversationTimeFormatter;
 import com.telegram.codex.conversation.domain.memory.ChatMemoryRecord;
 import com.telegram.codex.conversation.domain.memory.MemorySnapshot;
+import com.telegram.codex.conversation.infrastructure.memory.ChatMemoryRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -11,9 +11,9 @@ import java.util.Optional;
 @Service
 public class MemoryService {
 
-    private final ChatMemoryPort chatMemoryRepository;
+    private final ChatMemoryRepository chatMemoryRepository;
 
-    public MemoryService(ChatMemoryPort chatMemoryRepository) {
+    public MemoryService(ChatMemoryRepository chatMemoryRepository) {
         this.chatMemoryRepository = chatMemoryRepository;
     }
 

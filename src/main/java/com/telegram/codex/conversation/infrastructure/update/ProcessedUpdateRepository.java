@@ -2,7 +2,6 @@ package com.telegram.codex.conversation.infrastructure.update;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.telegram.codex.conversation.application.port.out.ProcessedUpdatePort;
 import com.telegram.codex.conversation.application.reply.ReplyResult;
 import com.telegram.codex.conversation.domain.update.ProcessedUpdateRecord;
 import com.telegram.codex.conversation.infrastructure.persistence.ProcessedUpdateEntity;
@@ -14,7 +13,7 @@ import java.time.Duration;
 import java.util.Optional;
 
 @Repository
-public class ProcessedUpdateRepository implements ProcessedUpdatePort {
+public class ProcessedUpdateRepository {
 
     private static final long INFLIGHT_TIMEOUT_MS = Duration.ofMinutes(5).toMillis();
 
@@ -26,13 +25,11 @@ public class ProcessedUpdateRepository implements ProcessedUpdatePort {
         this.repository = repository;
     }
 
-    @Override
     public Optional<ProcessedUpdateRecord> find(long updateId) {
         return repository.findById(updateId).map(this::toRecord);
     }
 
     @Transactional
-    @Override
     public boolean beginProcessing(long updateId, String chatId, long messageId) {
         long now = System.currentTimeMillis();
         Optional<ProcessedUpdateEntity> existing = repository.findById(updateId);
@@ -69,7 +66,6 @@ public class ProcessedUpdateRepository implements ProcessedUpdatePort {
     }
 
     @Transactional
-    @Override
     public void clearProcessing(long updateId) {
         repository.findById(updateId).ifPresent(entity -> {
             if (entity.getSentAt() == null && entity.getReplyText() == null && entity.getConversationState() == null) {
@@ -79,7 +75,6 @@ public class ProcessedUpdateRepository implements ProcessedUpdatePort {
     }
 
     @Transactional
-    @Override
     public void markProcessed(long updateId, String chatId, long messageId) {
         ProcessedUpdateEntity entity = repository.findById(updateId).orElseGet(ProcessedUpdateEntity::new);
         long now = System.currentTimeMillis();
@@ -92,7 +87,6 @@ public class ProcessedUpdateRepository implements ProcessedUpdatePort {
     }
 
     @Transactional
-    @Override
     public void savePendingReply(long updateId, String chatId, long messageId, ReplyResult result) {
         ProcessedUpdateEntity entity = repository.findById(updateId).orElseGet(ProcessedUpdateEntity::new);
         entity.setUpdateId(updateId);
@@ -106,7 +100,6 @@ public class ProcessedUpdateRepository implements ProcessedUpdatePort {
         repository.save(entity);
     }
 
-    @Override
     public long pruneSentBefore(long cutoff) {
         return repository.deleteBySentAtIsNotNullAndProcessedAtLessThan(cutoff);
     }

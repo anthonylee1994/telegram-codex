@@ -1,7 +1,6 @@
 package com.telegram.codex.conversation.infrastructure;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.telegram.codex.conversation.application.port.out.MediaGroupBufferPort;
 import com.telegram.codex.conversation.domain.MediaGroupMerger;
 import com.telegram.codex.conversation.infrastructure.persistence.MediaGroupBufferEntity;
 import com.telegram.codex.conversation.infrastructure.persistence.MediaGroupBufferJpaRepository;
@@ -15,7 +14,7 @@ import java.io.IOException;
 import java.util.List;
 
 @Service
-public class MediaGroupBufferRepository implements MediaGroupBufferPort {
+public class MediaGroupBufferRepository {
 
     private final MediaGroupBufferJpaRepository bufferRepository;
     private final MediaGroupMessageJpaRepository messageRepository;
@@ -35,7 +34,6 @@ public class MediaGroupBufferRepository implements MediaGroupBufferPort {
     }
 
     @Transactional
-    @Override
     public EnqueueResult enqueue(InboundMessage message, double waitDurationSeconds) {
         long deadlineAt = System.currentTimeMillis() + Math.round(waitDurationSeconds * 1000.0);
         String key = buildKey(message);
@@ -56,7 +54,6 @@ public class MediaGroupBufferRepository implements MediaGroupBufferPort {
     }
 
     @Transactional
-    @Override
     public FlushResult flush(String key, long expectedDeadlineAt) {
         MediaGroupBufferEntity buffer = bufferRepository.findById(key).orElse(null);
         if (buffer == null) {
@@ -80,7 +77,6 @@ public class MediaGroupBufferRepository implements MediaGroupBufferPort {
     }
 
     @Transactional
-    @Override
     public void clear() {
         messageRepository.deleteAll();
         bufferRepository.deleteAll();
@@ -104,5 +100,26 @@ public class MediaGroupBufferRepository implements MediaGroupBufferPort {
 
     private String buildKey(InboundMessage message) {
         return message.chatId() + ":" + message.mediaGroupId();
+    }
+
+    public record EnqueueResult(long deadlineAt, String key) {
+    }
+
+    public record FlushResult(String status, InboundMessage message, Double waitDurationSeconds) {
+        public static FlushResult missing() {
+            return new FlushResult("missing", null, null);
+        }
+
+        public static FlushResult stale() {
+            return new FlushResult("stale", null, null);
+        }
+
+        public static FlushResult pending(double waitDurationSeconds) {
+            return new FlushResult("pending", null, waitDurationSeconds);
+        }
+
+        public static FlushResult ready(InboundMessage message) {
+            return new FlushResult("ready", message, null);
+        }
     }
 }

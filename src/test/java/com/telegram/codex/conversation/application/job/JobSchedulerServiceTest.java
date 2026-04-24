@@ -7,13 +7,13 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.telegram.codex.conversation.application.port.out.MediaGroupBufferPort;
-import com.telegram.codex.conversation.application.reply.ReplyGenerationFlow;
+import com.telegram.codex.conversation.application.reply.ReplyGenerationService;
 import com.telegram.codex.conversation.application.session.SessionService;
 import com.telegram.codex.conversation.domain.session.SessionCompactResult;
-import com.telegram.codex.integration.telegram.domain.InboundMessage;
-import com.telegram.codex.integration.telegram.application.InboundMessageProcessor;
+import com.telegram.codex.conversation.infrastructure.MediaGroupBufferRepository;
 import com.telegram.codex.integration.telegram.application.CompactResultSender;
+import com.telegram.codex.integration.telegram.application.webhook.InboundMessageProcessor;
+import com.telegram.codex.integration.telegram.domain.InboundMessage;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -36,17 +36,17 @@ class JobSchedulerServiceTest {
 
     @Test
     void enqueueReplyGenerationRunsInsideWebProcess() throws Exception {
-        ReplyGenerationFlow replyGenerationFlow = Mockito.mock(ReplyGenerationFlow.class);
+        ReplyGenerationService replyGenerationService = Mockito.mock(ReplyGenerationService.class);
         CountDownLatch latch = new CountDownLatch(1);
         doAnswer(invocation -> {
             latch.countDown();
             return null;
-        }).when(replyGenerationFlow).call(any());
+        }).when(replyGenerationService).handle(any());
 
         service = new JobSchedulerService(
-            Mockito.mock(MediaGroupBufferPort.class),
+            Mockito.mock(MediaGroupBufferRepository.class),
             mockProcessorProvider(),
-            replyGenerationFlow,
+            replyGenerationService,
             Mockito.mock(SessionService.class),
             Mockito.mock(CompactResultSender.class)
         );
@@ -55,7 +55,7 @@ class JobSchedulerServiceTest {
         service.enqueueReplyGeneration(message);
 
         assertTrue(latch.await(2, TimeUnit.SECONDS));
-        verify(replyGenerationFlow).call(message);
+        verify(replyGenerationService).handle(message);
     }
 
     @Test
@@ -71,9 +71,9 @@ class JobSchedulerServiceTest {
         }).when(compactResultSender).send(eq("3"), eq(result));
 
         service = new JobSchedulerService(
-            Mockito.mock(MediaGroupBufferPort.class),
+            Mockito.mock(MediaGroupBufferRepository.class),
             mockProcessorProvider(),
-            Mockito.mock(ReplyGenerationFlow.class),
+            Mockito.mock(ReplyGenerationService.class),
             sessionService,
             compactResultSender
         );
@@ -87,11 +87,11 @@ class JobSchedulerServiceTest {
 
     @Test
     void scheduleMediaGroupFlushProcessesReadyMessage() throws Exception {
-        MediaGroupBufferPort mediaGroupStore = Mockito.mock(MediaGroupBufferPort.class);
+        MediaGroupBufferRepository mediaGroupStore = Mockito.mock(MediaGroupBufferRepository.class);
         InboundMessageProcessor inboundMessageProcessor = Mockito.mock(InboundMessageProcessor.class);
         CountDownLatch latch = new CountDownLatch(1);
         InboundMessage message = buildMessage();
-        when(mediaGroupStore.flush("3:group", 123L)).thenReturn(MediaGroupBufferPort.FlushResult.ready(message));
+        when(mediaGroupStore.flush("3:group", 123L)).thenReturn(MediaGroupBufferRepository.FlushResult.ready(message));
         doAnswer(invocation -> {
             latch.countDown();
             return null;
@@ -100,7 +100,7 @@ class JobSchedulerServiceTest {
         service = new JobSchedulerService(
             mediaGroupStore,
             mockProcessorProvider(inboundMessageProcessor),
-            Mockito.mock(ReplyGenerationFlow.class),
+            Mockito.mock(ReplyGenerationService.class),
             Mockito.mock(SessionService.class),
             Mockito.mock(CompactResultSender.class)
         );
