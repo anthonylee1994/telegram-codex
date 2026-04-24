@@ -59,7 +59,7 @@ public record InboundMessage(
         private String mediaGroupId;
         private long messageId;
         private List<ProcessingUpdate> processingUpdates = List.of();
-        private List<String> replyToImageFileIds = List.of();
+        private final List<String> replyToImageFileIds = List.of();
         private Long replyToMessageId;
         private String replyToText;
         private String text;
