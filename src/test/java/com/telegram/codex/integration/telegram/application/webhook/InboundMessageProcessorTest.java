@@ -123,14 +123,22 @@ class InboundMessageProcessorTest {
         private final CompactResultSender compactResultSender = Mockito.mock(CompactResultSender.class);
         private final UnsupportedMessageHandler unsupportedMessageHandler = new UnsupportedMessageHandler(telegramClient);
         private final DuplicateUpdateHandler duplicateUpdateHandler = new DuplicateUpdateHandler(processedUpdateService, telegramClient);
+        private final TelegramCommandResponder responder = new TelegramCommandResponder(
+            processedUpdateService,
+            telegramClient,
+            compactResultSender
+        );
+        private final CompactCommandExecutor compactCommandExecutor = new CompactCommandExecutor(
+            sessionService,
+            jobSchedulerService,
+            responder
+        );
         private final TelegramCommandHandler telegramCommandHandler = new TelegramCommandHandler(
             commandRegistry,
             sessionService,
-            processedUpdateService,
             messageBuilder,
-            telegramClient,
-            compactResultSender,
-            jobSchedulerService
+            responder,
+            compactCommandExecutor
         );
         private final ReplyRequestGuard replyRequestGuard = new ReplyRequestGuard(
             properties,

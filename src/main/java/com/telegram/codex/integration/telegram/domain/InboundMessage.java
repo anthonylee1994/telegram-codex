@@ -53,78 +53,25 @@ public record InboundMessage(
     public record ProcessingUpdate(@JsonProperty("update_id") long updateId, @JsonProperty("message_id") long messageId) {
     }
 
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    public static class Builder {
-        private String chatId;
-        private List<String> imageFileIds = List.of();
-        private String mediaGroupId;
-        private long messageId;
-        private List<ProcessingUpdate> processingUpdates = List.of();
-        private final List<String> replyToImageFileIds = List.of();
-        private Long replyToMessageId;
-        private String replyToText;
-        private String text;
-        private String userId;
-        private long updateId;
-
-        public Builder chatId(String chatId) {
-            this.chatId = chatId;
-            return this;
-        }
-
-        public Builder imageFileIds(List<String> imageFileIds) {
-            this.imageFileIds = imageFileIds;
-            return this;
-        }
-
-        public Builder mediaGroupId(String mediaGroupId) {
-            this.mediaGroupId = mediaGroupId;
-            return this;
-        }
-
-        public Builder messageId(long messageId) {
-            this.messageId = messageId;
-            return this;
-        }
-
-        public Builder processingUpdates(List<ProcessingUpdate> processingUpdates) {
-            this.processingUpdates = processingUpdates;
-            return this;
-        }
-
-        public Builder text(String text) {
-            this.text = text;
-            return this;
-        }
-
-        public Builder userId(String userId) {
-            this.userId = userId;
-            return this;
-        }
-
-        public Builder updateId(long updateId) {
-            this.updateId = updateId;
-            return this;
-        }
-
-        public InboundMessage build() {
-            return new InboundMessage(
-                chatId,
-                imageFileIds,
-                mediaGroupId,
-                messageId,
-                processingUpdates,
-                replyToImageFileIds,
-                replyToMessageId,
-                replyToText,
-                text,
-                userId,
-                updateId
-            );
-        }
+    public static InboundMessage forMergedMediaGroup(
+        InboundMessage primary,
+        List<String> imageFileIds,
+        List<ProcessingUpdate> processingUpdates,
+        String text
+    ) {
+        return new InboundMessage(
+            primary.chatId(),
+            imageFileIds,
+            primary.mediaGroupId(),
+            primary.messageId(),
+            processingUpdates,
+            List.of(),
+            null,
+            null,
+            text,
+            primary.userId(),
+            primary.updateId()
+        );
     }
 
     public static List<String> normalizeStrings(List<String> values) {

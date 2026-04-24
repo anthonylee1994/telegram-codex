@@ -14,25 +14,27 @@ public class TelegramUpdateParser implements TelegramMessageParser {
 
     @Override
     public InboundMessage parseIncomingTelegramMessage(Map<String, Object> update) {
-        if (!isValidUpdate(update)) {
+        Map<String, Object> message = extractMessage(update);
+        if (!isValidUpdate(update, message)) {
             return null;
         }
-
-        Map<String, Object> message = TelegramPayloadValueReader.castMap(update.get("message"));
         MessageExtractor extractor = MessageExtractor.from(message);
-
         if (!extractor.isSupported()) {
             return null;
         }
+        return buildInboundMessage(update, extractor);
+    }
 
+    private InboundMessage buildInboundMessage(Map<String, Object> update, MessageExtractor extractor) {
+        MessageExtractor replyToMessage = extractor.getReplyToMessage().orElse(null);
         return new InboundMessage(
             extractor.getChatId(),
             extractor.getImageFileIds(),
             extractor.getMediaGroupId(),
             extractor.getMessageId(),
             List.of(),
-            extractor.getReplyToMessage().map(MessageExtractor::getImageFileIds).orElse(List.of()),
-            extractor.getReplyToMessage().map(MessageExtractor::getMessageId).orElse(null),
+            replyToMessage == null ? List.of() : replyToMessage.getImageFileIds(),
+            replyToMessage == null ? null : replyToMessage.getMessageId(),
             extractor.getReplyToText().orElse(null),
             extractor.getText(),
             extractor.getUserId(),
@@ -40,11 +42,14 @@ public class TelegramUpdateParser implements TelegramMessageParser {
         );
     }
 
-    private boolean isValidUpdate(Map<String, Object> update) {
+    private Map<String, Object> extractMessage(Map<String, Object> update) {
+        return update == null ? null : TelegramPayloadValueReader.castMap(update.get("message"));
+    }
+
+    private boolean isValidUpdate(Map<String, Object> update, Map<String, Object> message) {
         if (update == null || !(update.get("update_id") instanceof Number)) {
             return false;
         }
-        Map<String, Object> message = TelegramPayloadValueReader.castMap(update.get("message"));
         if (message == null || !(message.get("message_id") instanceof Number)) {
             return false;
         }

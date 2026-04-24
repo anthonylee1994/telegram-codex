@@ -47,11 +47,12 @@ public class SessionService {
         if (maybeSession.isEmpty()) {
             return SessionSnapshot.inactive();
         }
-        Transcript transcript = Transcript.fromConversationState(maybeSession.get().lastResponseId(), objectMapper);
+        ChatSessionRecord session = maybeSession.get();
+        Transcript transcript = readTranscript(session);
         return SessionSnapshot.active(
             transcript.size(),
             (int) Math.ceil(transcript.size() / 2.0),
-            ConversationTimeFormatter.format(maybeSession.get().updatedAt())
+            ConversationTimeFormatter.format(session.updatedAt())
         );
     }
 
@@ -60,15 +61,12 @@ public class SessionService {
         if (maybeSession.isEmpty()) {
             return SessionCompactResult.missingSession();
         }
-        Transcript transcript = Transcript.fromConversationState(maybeSession.get().lastResponseId(), objectMapper);
+        Transcript transcript = readTranscript(maybeSession.get());
         if (transcript.size() < ConversationConstants.MIN_TRANSCRIPT_SIZE_FOR_COMPACT) {
             return SessionCompactResult.tooShort(transcript.size());
         }
         String compactText = sessionCompactClient.compact(transcript);
-        Transcript compactTranscript = Transcript.empty()
-            .append("user", MessageConstants.COMPACT_BASELINE_MESSAGE)
-            .append("assistant", compactText);
-        chatSessionRepository.persist(chatId, compactTranscript.toConversationState(objectMapper));
+        persistCompactTranscript(chatId, compactText);
         return SessionCompactResult.ok(transcript.size(), compactText);
     }
 
@@ -89,6 +87,17 @@ public class SessionService {
 
     public void resetMemory(String chatId) {
         chatMemoryRepository.reset(chatId);
+    }
+
+    private Transcript readTranscript(ChatSessionRecord session) {
+        return Transcript.fromConversationState(session.lastResponseId(), objectMapper);
+    }
+
+    private void persistCompactTranscript(String chatId, String compactText) {
+        Transcript compactTranscript = Transcript.empty()
+            .append("user", MessageConstants.COMPACT_BASELINE_MESSAGE)
+            .append("assistant", compactText);
+        chatSessionRepository.persist(chatId, compactTranscript.toConversationState(objectMapper));
     }
 
     public record SessionSnapshot(boolean active, int messageCount, int turnCount, String lastUpdatedAt) {

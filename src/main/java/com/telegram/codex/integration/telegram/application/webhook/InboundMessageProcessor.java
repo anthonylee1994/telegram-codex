@@ -6,6 +6,7 @@ import com.telegram.codex.integration.telegram.domain.InboundMessage;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 @Component
@@ -17,6 +18,7 @@ public class InboundMessageProcessor {
     private final ReplyRequestGuard replyRequestGuard;
     private final MediaGroupBufferRepository mediaGroupStore;
     private final JobSchedulerService jobSchedulerService;
+    private final List<ProcessingStep> processingSteps;
 
     public InboundMessageProcessor(
         UnsupportedMessageHandler unsupportedMessageHandler,
@@ -32,6 +34,12 @@ public class InboundMessageProcessor {
         this.replyRequestGuard = replyRequestGuard;
         this.mediaGroupStore = mediaGroupStore;
         this.jobSchedulerService = jobSchedulerService;
+        this.processingSteps = List.of(
+            this::handleUnsupportedMessage,
+            this::handleDuplicateUpdate,
+            this::handleTelegramCommand,
+            this::handleBlockedReplyRequest
+        );
     }
 
     public void process(InboundMessage message) {
@@ -39,7 +47,7 @@ public class InboundMessageProcessor {
     }
 
     public void process(InboundMessage message, Map<String, Object> update) {
-        if (alreadyHandled(message, update)) {
+        if (handledByProcessingStep(message, update)) {
             return;
         }
         jobSchedulerService.enqueueReplyGeneration(message);
@@ -50,10 +58,33 @@ public class InboundMessageProcessor {
         jobSchedulerService.scheduleMediaGroupFlush(result.key(), result.deadlineAt(), waitDuration);
     }
 
-    private boolean alreadyHandled(InboundMessage message, Map<String, Object> update) {
-        return unsupportedMessageHandler.handle(message, update)
-            || duplicateUpdateHandler.handle(message)
-            || telegramCommandHandler.handle(message)
-            || !replyRequestGuard.allow(message);
+    private boolean handledByProcessingStep(InboundMessage message, Map<String, Object> update) {
+        for (ProcessingStep step : processingSteps) {
+            if (step.handle(message, update)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean handleUnsupportedMessage(InboundMessage message, Map<String, Object> update) {
+        return unsupportedMessageHandler.handle(message, update);
+    }
+
+    private boolean handleDuplicateUpdate(InboundMessage message, Map<String, Object> update) {
+        return duplicateUpdateHandler.handle(message);
+    }
+
+    private boolean handleTelegramCommand(InboundMessage message, Map<String, Object> update) {
+        return telegramCommandHandler.handle(message);
+    }
+
+    private boolean handleBlockedReplyRequest(InboundMessage message, Map<String, Object> update) {
+        return !replyRequestGuard.allow(message);
+    }
+
+    @FunctionalInterface
+    private interface ProcessingStep {
+        boolean handle(InboundMessage message, Map<String, Object> update);
     }
 }

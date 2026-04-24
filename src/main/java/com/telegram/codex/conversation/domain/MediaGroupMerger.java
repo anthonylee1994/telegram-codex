@@ -35,15 +35,6 @@ public class MediaGroupMerger {
             .map(message -> new InboundMessage.ProcessingUpdate(message.updateId(), message.messageId()))
             .toList();
 
-        return InboundMessage.builder()
-            .chatId(primary.chatId())
-            .imageFileIds(aggregatedImageFileIds)
-            .mediaGroupId(primary.mediaGroupId())
-            .messageId(primary.messageId())
-            .processingUpdates(processingUpdates)
-            .text(aggregatedText)
-            .userId(primary.userId())
-            .updateId(primary.updateId())
-            .build();
+        return InboundMessage.forMergedMediaGroup(primary, aggregatedImageFileIds, processingUpdates, aggregatedText);
     }
 }

@@ -35,20 +35,14 @@ public class CodexReplyClient implements ReplyGenerationGateway {
         String replyToText,
         String longTermMemory
     ) {
-        Transcript transcript = Transcript.fromConversationState(conversationState, objectMapper);
-        String userMessage = buildUserMessage(text, imageFilePaths, replyToText);
-        Transcript nextTranscript = transcript.append("user", userMessage);
-        String systemPrompt = promptBuilder.buildReplySystemPrompt();
-        String userPrompt = promptBuilder.buildReplyUserPrompt(
-            nextTranscript,
-            !imageFilePaths.isEmpty(),
-            imageFilePaths.size(),
-            longTermMemory
+        Transcript nextTranscript = appendUserMessage(conversationState, text, imageFilePaths, replyToText);
+        String rawReply = execRunner.run(
+            promptBuilder.buildReplySystemPrompt(),
+            buildReplyPrompt(nextTranscript, imageFilePaths, longTermMemory),
+            imageFilePaths,
+            replyOutputSchema()
         );
-        String rawReply = execRunner.run(systemPrompt, userPrompt, imageFilePaths, replyOutputSchema());
-        ReplyParser.ParsedReply parsedReply = replyParser.parseReply(rawReply);
-        Transcript updatedTranscript = nextTranscript.append("assistant", parsedReply.text());
-        return new ReplyResult(updatedTranscript.toConversationState(objectMapper), parsedReply.suggestedReplies(), parsedReply.text());
+        return buildReplyResult(nextTranscript, rawReply);
     }
 
     private Map<String, Object> replyOutputSchema() {
@@ -69,10 +63,7 @@ public class CodexReplyClient implements ReplyGenerationGateway {
     }
 
     private String buildUserMessage(String text, List<Path> imageFilePaths, String replyToText) {
-        String baseText = text == null ? "" : text;
-        if (baseText.isBlank() && !imageFilePaths.isEmpty()) {
-            baseText = buildUnpromptedImageMessage(imageFilePaths.size());
-        }
+        String baseText = normalizeUserText(text, imageFilePaths);
         if (replyToText == null || replyToText.isBlank()) {
             return baseText;
         }
@@ -81,6 +72,39 @@ public class CodexReplyClient implements ReplyGenerationGateway {
             "被引用訊息：" + replyToText,
             "你今次嘅新訊息：" + (baseText.isBlank() ? "（冇文字）" : baseText)
         );
+    }
+
+    private Transcript appendUserMessage(
+        String conversationState,
+        String text,
+        List<Path> imageFilePaths,
+        String replyToText
+    ) {
+        Transcript transcript = Transcript.fromConversationState(conversationState, objectMapper);
+        return transcript.append("user", buildUserMessage(text, imageFilePaths, replyToText));
+    }
+
+    private String buildReplyPrompt(Transcript nextTranscript, List<Path> imageFilePaths, String longTermMemory) {
+        return promptBuilder.buildReplyUserPrompt(
+            nextTranscript,
+            !imageFilePaths.isEmpty(),
+            imageFilePaths.size(),
+            longTermMemory
+        );
+    }
+
+    private ReplyResult buildReplyResult(Transcript nextTranscript, String rawReply) {
+        ReplyParser.ParsedReply parsedReply = replyParser.parseReply(rawReply);
+        Transcript updatedTranscript = nextTranscript.append("assistant", parsedReply.text());
+        return new ReplyResult(updatedTranscript.toConversationState(objectMapper), parsedReply.suggestedReplies(), parsedReply.text());
+    }
+
+    private String normalizeUserText(String text, List<Path> imageFilePaths) {
+        String baseText = text == null ? "" : text;
+        if (!baseText.isBlank() || imageFilePaths.isEmpty()) {
+            return baseText;
+        }
+        return buildUnpromptedImageMessage(imageFilePaths.size());
     }
 
     private String buildUnpromptedImageMessage(int imageCount) {

@@ -41,17 +41,16 @@ public class MessageExtractor {
     }
 
     public String getText() {
-        String text = TelegramPayloadValueReader.stringValue(message.get("text"));
+        String text = textValue("text");
         if (!text.isBlank()) {
             return TelegramPayloadValueReader.blankToNull(text);
         }
-        return TelegramPayloadValueReader.blankToNull(TelegramPayloadValueReader.stringValue(message.get("caption")));
+        return TelegramPayloadValueReader.blankToNull(textValue("caption"));
     }
 
     public List<String> getImageFileIds() {
-        return getDocument()
-            .filter(this::isImageDocument)
-            .map(doc -> List.of(TelegramPayloadValueReader.stringValue(doc.get("file_id"))))
+        return imageDocumentFileId()
+            .map(List::of)
             .orElseGet(() -> getPhotoFileId().map(List::of).orElse(List.of()));
     }
 
@@ -61,19 +60,7 @@ public class MessageExtractor {
     }
 
     public Optional<String> getReplyToText() {
-        return getReplyToMessage().flatMap(reply -> {
-            Optional<String> text = Optional.ofNullable(reply.getText());
-            if (text.isPresent()) {
-                return text;
-            }
-            if (reply.hasPhoto()) {
-                return Optional.of(MessageConstants.REPLY_TO_IMAGE);
-            }
-            if (reply.getDocument().filter(reply::isImageDocument).isPresent()) {
-                return Optional.of(MessageConstants.REPLY_TO_IMAGE_DOCUMENT);
-            }
-            return Optional.empty();
-        });
+        return getReplyToMessage().flatMap(this::resolveReplyToText);
     }
 
     public boolean hasPhoto() {
@@ -83,7 +70,7 @@ public class MessageExtractor {
     public boolean isSupported() {
         return message.get("text") instanceof String
             || hasPhoto()
-            || getDocument().filter(this::isImageDocument).isPresent();
+            || imageDocumentFileId().isPresent();
     }
 
     private Optional<Map<String, Object>> getChat() {
@@ -96,6 +83,30 @@ public class MessageExtractor {
 
     private Optional<Map<String, Object>> getDocument() {
         return Optional.ofNullable(TelegramPayloadValueReader.castMap(message.get("document")));
+    }
+
+    private String textValue(String key) {
+        return TelegramPayloadValueReader.stringValue(message.get(key));
+    }
+
+    private Optional<String> imageDocumentFileId() {
+        return getDocument()
+            .filter(this::isImageDocument)
+            .map(document -> TelegramPayloadValueReader.stringValue(document.get("file_id")));
+    }
+
+    private Optional<String> resolveReplyToText(MessageExtractor reply) {
+        Optional<String> text = Optional.ofNullable(reply.getText());
+        if (text.isPresent()) {
+            return text;
+        }
+        if (reply.hasPhoto()) {
+            return Optional.of(MessageConstants.REPLY_TO_IMAGE);
+        }
+        if (reply.imageDocumentFileId().isPresent()) {
+            return Optional.of(MessageConstants.REPLY_TO_IMAGE_DOCUMENT);
+        }
+        return Optional.empty();
     }
 
     private Optional<String> getPhotoFileId() {

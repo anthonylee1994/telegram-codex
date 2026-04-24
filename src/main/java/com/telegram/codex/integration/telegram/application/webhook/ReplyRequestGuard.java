@@ -38,36 +38,56 @@ public class ReplyRequestGuard {
     }
 
     public boolean allow(InboundMessage message) {
-        if (!properties.allowedTelegramUserIds().isEmpty() && !properties.allowedTelegramUserIds().contains(message.userId())) {
-            LOGGER.warn("Rejected unauthorized Telegram user chat_id={} user_id={}", message.chatId(), message.userId());
-            sendAndMarkProcessed(message, MessageConstants.UNAUTHORIZED_MESSAGE);
-            return false;
-        }
-
-        if (message.mediaGroup() && message.imageCount() > properties.getMaxMediaGroupImages()) {
-            sendAndMarkProcessed(message, MessageConstants.TOO_MANY_IMAGES_MESSAGE);
-            return false;
-        }
-
-        if (sensitiveIntentGuard.shouldBlock(message)) {
-            sendAndMarkProcessed(message, MessageConstants.SENSITIVE_INTENT_MESSAGE);
-            return false;
-        }
-
-        if (!rateLimiter.allow(message.chatId())) {
-            sendAndMarkProcessed(message, MessageConstants.RATE_LIMIT_MESSAGE);
-            return false;
-        }
-
-        if (!processedUpdateService.beginProcessing(message)) {
-            LOGGER.info("Ignored duplicate update update_id={}", message.updateId());
-            return false;
-        }
-        return true;
+        return allowAuthorizedUser(message)
+            && allowSupportedMediaGroupSize(message)
+            && allowSafeIntent(message)
+            && allowChatRate(message)
+            && beginProcessing(message);
     }
 
     private void sendAndMarkProcessed(InboundMessage message, String text) {
         telegramClient.sendMessage(message.chatId(), text, List.of(), false);
         processedUpdateService.markProcessed(message);
+    }
+
+    private boolean allowAuthorizedUser(InboundMessage message) {
+        if (properties.allowedTelegramUserIds().isEmpty() || properties.allowedTelegramUserIds().contains(message.userId())) {
+            return true;
+        }
+        LOGGER.warn("Rejected unauthorized Telegram user chat_id={} user_id={}", message.chatId(), message.userId());
+        sendAndMarkProcessed(message, MessageConstants.UNAUTHORIZED_MESSAGE);
+        return false;
+    }
+
+    private boolean allowSupportedMediaGroupSize(InboundMessage message) {
+        if (!message.mediaGroup() || message.imageCount() <= properties.getMaxMediaGroupImages()) {
+            return true;
+        }
+        sendAndMarkProcessed(message, MessageConstants.TOO_MANY_IMAGES_MESSAGE);
+        return false;
+    }
+
+    private boolean allowSafeIntent(InboundMessage message) {
+        if (!sensitiveIntentGuard.shouldBlock(message)) {
+            return true;
+        }
+        sendAndMarkProcessed(message, MessageConstants.SENSITIVE_INTENT_MESSAGE);
+        return false;
+    }
+
+    private boolean allowChatRate(InboundMessage message) {
+        if (rateLimiter.allow(message.chatId())) {
+            return true;
+        }
+        sendAndMarkProcessed(message, MessageConstants.RATE_LIMIT_MESSAGE);
+        return false;
+    }
+
+    private boolean beginProcessing(InboundMessage message) {
+        if (processedUpdateService.beginProcessing(message)) {
+            return true;
+        }
+        LOGGER.info("Ignored duplicate update update_id={}", message.updateId());
+        return false;
     }
 }

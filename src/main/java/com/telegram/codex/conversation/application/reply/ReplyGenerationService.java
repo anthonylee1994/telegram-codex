@@ -67,15 +67,14 @@ public class ReplyGenerationService {
     }
 
     private ReplyResult generateReply(InboundMessage message) {
-        ReplyContextSnapshot context = loadContext(message);
         List<Path> imageFilePaths = attachmentDownloader.downloadImages(message.effectiveImageFileIds());
         try {
             return replyClient.generateReply(
-                context.promptText(),
-                context.lastResponseId(),
+                message.textOrEmpty(),
+                findLastResponseId(message.chatId()),
                 imageFilePaths,
-                context.replyToText(),
-                context.memoryText()
+                message.replyToText(),
+                findMemoryText(message.chatId())
             );
         } finally {
             attachmentDownloader.cleanup(imageFilePaths);
@@ -90,14 +89,16 @@ public class ReplyGenerationService {
         processedUpdateService.markProcessed(message.updateId(), message.chatId(), message.messageId());
     }
 
-    private ReplyContextSnapshot loadContext(InboundMessage message) {
-        String lastResponseId = chatSessionRepository.findActive(message.chatId())
+    private String findLastResponseId(String chatId) {
+        return chatSessionRepository.findActive(chatId)
             .map(ChatSessionRecord::lastResponseId)
             .orElse(null);
-        String memoryText = chatMemoryRepository.find(message.chatId())
+    }
+
+    private String findMemoryText(String chatId) {
+        return chatMemoryRepository.find(chatId)
             .map(ChatMemoryRecord::memoryText)
             .orElse(null);
-        return new ReplyContextSnapshot(message.textOrEmpty(), lastResponseId, message.replyToText(), memoryText);
     }
 
     private void refreshMemory(String chatId, String userMessage, String assistantReply) {

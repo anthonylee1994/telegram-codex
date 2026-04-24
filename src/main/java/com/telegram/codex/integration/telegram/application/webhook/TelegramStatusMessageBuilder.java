@@ -16,7 +16,7 @@ public class TelegramStatusMessageBuilder {
         SessionService.SessionSnapshot snapshot = sessionService.snapshot(chatId);
         return String.join("\n",
             "Bot 狀態：OK 🤖",
-            "Session 狀態：" + (snapshot.active() ? "已生效 ✅" : "未生效 ❌"),
+            "Session 狀態：" + renderSessionStatus(snapshot),
             "只支持：文字、圖片"
         );
     }
@@ -49,5 +49,9 @@ public class TelegramStatusMessageBuilder {
             "你可以直接叫我改寫或者刪除長期記憶。",
             "想清除可以打 /forget。"
         );
+    }
+
+    private String renderSessionStatus(SessionService.SessionSnapshot snapshot) {
+        return snapshot.active() ? "已生效 ✅" : "未生效 ❌";
     }
 }

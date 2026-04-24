@@ -2,39 +2,26 @@ package com.telegram.codex.integration.telegram.application.webhook;
 
 import com.telegram.codex.integration.telegram.application.port.in.TelegramMessageParser;
 import com.telegram.codex.integration.telegram.domain.InboundMessage;
-import com.telegram.codex.shared.config.AppProperties;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
 import java.util.Map;
 
 @Component
 public class TelegramWebhookHandler {
 
-    private final AppProperties properties;
-    private final InboundMessageProcessor inboundMessageProcessor;
     private final TelegramMessageParser telegramUpdateParser;
+    private final TelegramWebhookRouter webhookRouter;
 
     public TelegramWebhookHandler(
-        AppProperties properties,
-        InboundMessageProcessor inboundMessageProcessor,
-        TelegramMessageParser telegramUpdateParser
+        TelegramMessageParser telegramUpdateParser,
+        TelegramWebhookRouter webhookRouter
     ) {
-        this.properties = properties;
-        this.inboundMessageProcessor = inboundMessageProcessor;
         this.telegramUpdateParser = telegramUpdateParser;
+        this.webhookRouter = webhookRouter;
     }
 
     public void handle(Map<String, Object> update) {
         InboundMessage message = telegramUpdateParser.parseIncomingTelegramMessage(update);
-        if (shouldDeferMediaGroup(message)) {
-            inboundMessageProcessor.deferMediaGroup(message, Duration.ofMillis(properties.getMediaGroupWaitMs()));
-            return;
-        }
-        inboundMessageProcessor.process(message, update);
-    }
-
-    private boolean shouldDeferMediaGroup(InboundMessage message) {
-        return message != null && message.mediaGroup();
+        webhookRouter.route(message, update);
     }
 }

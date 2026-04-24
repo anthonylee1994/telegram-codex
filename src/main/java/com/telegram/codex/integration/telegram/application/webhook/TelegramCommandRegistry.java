@@ -25,9 +25,8 @@ public class TelegramCommandRegistry {
     }
 
     public Optional<TelegramCommand> resolve(InboundMessage message) {
-        String text = message.text() == null ? "" : message.text();
         return COMMANDS.stream()
-            .filter(command -> command.matches(text))
+            .filter(command -> command.matches(message.textOrEmpty()))
             .findFirst()
             .map(CommandSpec::command);
     }
