@@ -52,6 +52,6 @@ public class TelegramStatusMessageBuilder {
     }
 
     private String renderSessionStatus(SessionService.SessionSnapshot snapshot) {
-        return snapshot.active() ? "已生效 ✅" : "未生效 ❌";
+        return snapshot.active() ? "已生效" : "未生效";
     }
 }
