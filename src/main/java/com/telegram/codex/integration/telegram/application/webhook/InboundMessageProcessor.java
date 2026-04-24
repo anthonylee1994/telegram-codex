@@ -3,11 +3,11 @@ package com.telegram.codex.integration.telegram.application.webhook;
 import com.telegram.codex.conversation.application.JobSchedulerService;
 import com.telegram.codex.conversation.infrastructure.MediaGroupBufferRepository;
 import com.telegram.codex.integration.telegram.domain.InboundMessage;
+import com.telegram.codex.integration.telegram.domain.webhook.TelegramUpdate;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 
 @Component
 public class InboundMessageProcessor {
@@ -47,7 +47,7 @@ public class InboundMessageProcessor {
         process(message, null);
     }
 
-    public void process(InboundMessage message, Map<String, Object> update) {
+    public void process(InboundMessage message, TelegramUpdate update) {
         if (handledByProcessingStep(message, update)) {
             return;
         }
@@ -59,7 +59,7 @@ public class InboundMessageProcessor {
         jobSchedulerService.scheduleMediaGroupFlush(result.key(), result.deadlineAt(), waitDuration);
     }
 
-    private boolean handledByProcessingStep(InboundMessage message, Map<String, Object> update) {
+    private boolean handledByProcessingStep(InboundMessage message, TelegramUpdate update) {
         for (ProcessingStep step : processingSteps) {
             if (step.handle(message, update)) {
                 return true;
@@ -68,24 +68,24 @@ public class InboundMessageProcessor {
         return false;
     }
 
-    private boolean handleUnsupportedMessage(InboundMessage message, Map<String, Object> update) {
+    private boolean handleUnsupportedMessage(InboundMessage message, TelegramUpdate update) {
         return unsupportedMessageHandler.handle(message, update);
     }
 
-    private boolean handleDuplicateUpdate(InboundMessage message, Map<String, Object> update) {
+    private boolean handleDuplicateUpdate(InboundMessage message, TelegramUpdate update) {
         return duplicateUpdateHandler.handle(message);
     }
 
-    private boolean handleTelegramCommand(InboundMessage message, Map<String, Object> update) {
+    private boolean handleTelegramCommand(InboundMessage message, TelegramUpdate update) {
         return telegramCommandHandler.handle(message);
     }
 
-    private boolean handleBlockedReplyRequest(InboundMessage message, Map<String, Object> update) {
+    private boolean handleBlockedReplyRequest(InboundMessage message, TelegramUpdate update) {
         return !replyRequestGuard.allow(message);
     }
 
     @FunctionalInterface
     private interface ProcessingStep {
-        boolean handle(InboundMessage message, Map<String, Object> update);
+        boolean handle(InboundMessage message, TelegramUpdate update);
     }
 }

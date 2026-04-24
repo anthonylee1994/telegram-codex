@@ -9,12 +9,12 @@ import com.telegram.codex.conversation.infrastructure.MediaGroupBufferRepository
 import com.telegram.codex.integration.telegram.application.CompactResultSender;
 import com.telegram.codex.integration.telegram.application.port.out.TelegramGateway;
 import com.telegram.codex.integration.telegram.domain.InboundMessage;
+import com.telegram.codex.integration.telegram.domain.webhook.TelegramUpdate;
 import com.telegram.codex.shared.config.AppProperties;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static org.mockito.Mockito.never;
@@ -41,7 +41,7 @@ class InboundMessageProcessorTest {
         );
         when(fixture.processedUpdateService.find(99)).thenReturn(Optional.empty());
 
-        fixture.processor.process(message, Map.of());
+        fixture.processor.process(message, new TelegramUpdate(99L, null));
 
         verify(fixture.telegramClient).sendMessage("3", MessageConstants.SENSITIVE_INTENT_MESSAGE, List.of(), false);
         verify(fixture.processedUpdateService).markProcessed(message);
@@ -55,7 +55,7 @@ class InboundMessageProcessorTest {
         when(fixture.processedUpdateService.find(99)).thenReturn(Optional.empty());
         when(fixture.sessionService.snapshot("3")).thenReturn(SessionService.SessionSnapshot.inactive());
 
-        fixture.processor.process(message, Map.of());
+        fixture.processor.process(message, new TelegramUpdate(99L, null));
 
         verify(fixture.compactResultSender).send("3", SessionService.SessionCompactResult.missingSession());
         verify(fixture.jobSchedulerService, never()).enqueueSessionCompact("3");
@@ -70,7 +70,7 @@ class InboundMessageProcessorTest {
         when(fixture.processedUpdateService.find(99)).thenReturn(Optional.empty());
         when(fixture.sessionService.snapshot("3")).thenReturn(SessionService.SessionSnapshot.active(2, 1, "just now"));
 
-        fixture.processor.process(message, Map.of());
+        fixture.processor.process(message, new TelegramUpdate(99L, null));
 
         verify(fixture.compactResultSender).send("3", SessionService.SessionCompactResult.tooShort(2));
         verify(fixture.jobSchedulerService, never()).enqueueSessionCompact("3");
@@ -85,7 +85,7 @@ class InboundMessageProcessorTest {
         when(fixture.processedUpdateService.find(99)).thenReturn(Optional.empty());
         when(fixture.sessionService.snapshot("3")).thenReturn(SessionService.SessionSnapshot.active(4, 2, "just now"));
 
-        fixture.processor.process(message, Map.of());
+        fixture.processor.process(message, new TelegramUpdate(99L, null));
 
         verify(fixture.jobSchedulerService).enqueueSessionCompact("3");
         verify(fixture.telegramClient).sendMessage("3", MessageConstants.COMPACT_QUEUED_MESSAGE, List.of(), true);

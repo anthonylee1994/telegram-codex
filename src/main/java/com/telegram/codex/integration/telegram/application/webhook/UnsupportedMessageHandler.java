@@ -3,11 +3,11 @@ package com.telegram.codex.integration.telegram.application.webhook;
 import com.telegram.codex.conversation.domain.MessageConstants;
 import com.telegram.codex.integration.telegram.application.port.out.TelegramGateway;
 import com.telegram.codex.integration.telegram.domain.InboundMessage;
-import com.telegram.codex.integration.telegram.domain.TelegramPayloadValueReader;
+import com.telegram.codex.integration.telegram.domain.webhook.TelegramMessage;
+import com.telegram.codex.integration.telegram.domain.webhook.TelegramUpdate;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Map;
 
 @Component
 public class UnsupportedMessageHandler {
@@ -18,7 +18,7 @@ public class UnsupportedMessageHandler {
         this.telegramClient = telegramClient;
     }
 
-    public boolean handle(InboundMessage message, Map<String, Object> update) {
+    public boolean handle(InboundMessage message, TelegramUpdate update) {
         if (message != null && !message.unsupported()) {
             return false;
         }
@@ -32,12 +32,11 @@ public class UnsupportedMessageHandler {
         return true;
     }
 
-    private String extractChatId(Map<String, Object> update) {
-        Map<String, Object> message = TelegramPayloadValueReader.castMap(update.get("message"));
-        if (message == null) {
+    private String extractChatId(TelegramUpdate update) {
+        TelegramMessage message = update.message();
+        if (message == null || message.chat() == null || message.chat().id() == null) {
             return null;
         }
-        Map<String, Object> chat = TelegramPayloadValueReader.castMap(message.get("chat"));
-        return chat == null ? null : TelegramPayloadValueReader.stringValue(chat.get("id"));
+        return String.valueOf(message.chat().id());
     }
 }

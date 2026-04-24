@@ -3,18 +3,18 @@ package com.telegram.codex.integration.telegram.infrastructure;
 import com.telegram.codex.integration.telegram.application.port.in.TelegramMessageParser;
 import com.telegram.codex.integration.telegram.domain.InboundMessage;
 import com.telegram.codex.integration.telegram.domain.MessageExtractor;
-import com.telegram.codex.integration.telegram.domain.TelegramPayloadValueReader;
+import com.telegram.codex.integration.telegram.domain.webhook.TelegramMessage;
+import com.telegram.codex.integration.telegram.domain.webhook.TelegramUpdate;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Map;
 
 @Component
 public class TelegramUpdateParser implements TelegramMessageParser {
 
     @Override
-    public InboundMessage parseIncomingTelegramMessage(Map<String, Object> update) {
-        Map<String, Object> message = extractMessage(update);
+    public InboundMessage parseIncomingTelegramMessage(TelegramUpdate update) {
+        TelegramMessage message = extractMessage(update);
         if (!isValidUpdate(update, message)) {
             return null;
         }
@@ -25,7 +25,7 @@ public class TelegramUpdateParser implements TelegramMessageParser {
         return buildInboundMessage(update, extractor);
     }
 
-    private InboundMessage buildInboundMessage(Map<String, Object> update, MessageExtractor extractor) {
+    private InboundMessage buildInboundMessage(TelegramUpdate update, MessageExtractor extractor) {
         MessageExtractor replyToMessage = extractor.getReplyToMessage().orElse(null);
         return new InboundMessage(
             extractor.getChatId(),
@@ -38,22 +38,21 @@ public class TelegramUpdateParser implements TelegramMessageParser {
             extractor.getReplyToText().orElse(null),
             extractor.getText(),
             extractor.getUserId(),
-            TelegramPayloadValueReader.longValue(update.get("update_id"))
+            update.updateId()
         );
     }
 
-    private Map<String, Object> extractMessage(Map<String, Object> update) {
-        return update == null ? null : TelegramPayloadValueReader.castMap(update.get("message"));
+    private TelegramMessage extractMessage(TelegramUpdate update) {
+        return update == null ? null : update.message();
     }
 
-    private boolean isValidUpdate(Map<String, Object> update, Map<String, Object> message) {
-        if (update == null || !(update.get("update_id") instanceof Number)) {
+    private boolean isValidUpdate(TelegramUpdate update, TelegramMessage message) {
+        if (update == null || update.updateId() == null) {
             return false;
         }
-        if (message == null || !(message.get("message_id") instanceof Number)) {
+        if (message == null || message.messageId() == null) {
             return false;
         }
-        return TelegramPayloadValueReader.castMap(message.get("from")) != null
-            && TelegramPayloadValueReader.castMap(message.get("chat")) != null;
+        return message.from() != null && message.chat() != null;
     }
 }

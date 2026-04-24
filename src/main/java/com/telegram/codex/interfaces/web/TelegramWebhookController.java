@@ -1,6 +1,7 @@
 package com.telegram.codex.interfaces.web;
 
 import com.telegram.codex.integration.telegram.application.webhook.TelegramWebhookHandler;
+import com.telegram.codex.integration.telegram.domain.webhook.TelegramUpdate;
 import com.telegram.codex.shared.config.AppProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,14 +30,14 @@ public class TelegramWebhookController {
     @PostMapping("/telegram/webhook")
     public ResponseEntity<Map<String, Object>> create(
         @RequestHeader(value = "X-Telegram-Bot-Api-Secret-Token", required = false) String secretToken,
-        @RequestBody(required = false) Map<String, Object> payload
+        @RequestBody(required = false) TelegramUpdate payload
     ) {
         if (!properties.getTelegramWebhookSecret().equals(secretToken)) {
             LOGGER.warn("Rejected Telegram webhook with invalid secret");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("ok", false));
         }
         try {
-            webhookHandler.handle(payload == null ? Map.of() : payload);
+            webhookHandler.handle(payload);
             return ResponseEntity.ok(Map.of("ok", true));
         } catch (Exception error) {
             LOGGER.error("Failed to process Telegram webhook: {}", error.getMessage(), error);

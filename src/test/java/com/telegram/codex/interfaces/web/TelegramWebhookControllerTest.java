@@ -2,6 +2,7 @@ package com.telegram.codex.interfaces.web;
 
 import com.telegram.codex.bootstrap.TelegramCodexApplication;
 import com.telegram.codex.integration.telegram.application.webhook.TelegramWebhookHandler;
+import com.telegram.codex.integration.telegram.domain.webhook.TelegramUpdate;
 import com.telegram.codex.shared.config.AppProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +15,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -59,12 +60,12 @@ class TelegramWebhookControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.ok").value(true));
 
-        verify(webhookHandler).handle(anyMap());
+        verify(webhookHandler).handle(any(TelegramUpdate.class));
     }
 
     @Test
     void returnsInternalServerErrorWhenHandlerFails() throws Exception {
-        doThrow(new IllegalStateException("boom")).when(webhookHandler).handle(anyMap());
+        doThrow(new IllegalStateException("boom")).when(webhookHandler).handle(any(TelegramUpdate.class));
 
         mockMvc.perform(post("/telegram/webhook")
                 .contentType(MediaType.APPLICATION_JSON)

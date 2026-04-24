@@ -2,10 +2,14 @@ package com.telegram.codex.integration.telegram.domain;
 
 import com.telegram.codex.conversation.domain.MessageConstants;
 import com.telegram.codex.integration.telegram.domain.document.DocumentConstants;
+import com.telegram.codex.integration.telegram.domain.webhook.TelegramChat;
+import com.telegram.codex.integration.telegram.domain.webhook.TelegramDocument;
+import com.telegram.codex.integration.telegram.domain.webhook.TelegramMessage;
+import com.telegram.codex.integration.telegram.domain.webhook.TelegramPhotoSize;
+import com.telegram.codex.integration.telegram.domain.webhook.TelegramUser;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -14,30 +18,30 @@ import java.util.Optional;
  */
 public class MessageExtractor {
 
-    private final Map<String, Object> message;
+    private final TelegramMessage message;
 
-    public MessageExtractor(Map<String, Object> message) {
+    public MessageExtractor(TelegramMessage message) {
         this.message = message;
     }
 
-    public static MessageExtractor from(Map<String, Object> message) {
+    public static MessageExtractor from(TelegramMessage message) {
         return new MessageExtractor(message);
     }
 
     public String getChatId() {
-        return TelegramPayloadValueReader.stringValue(getChat().map(chat -> chat.get("id")).orElse(null));
+        return TelegramPayloadValueReader.stringValue(getChat().map(TelegramChat::id).orElse(null));
     }
 
     public long getMessageId() {
-        return TelegramPayloadValueReader.longValue(message.get("message_id"));
+        return message.messageId();
     }
 
     public String getUserId() {
-        return TelegramPayloadValueReader.stringValue(getFrom().map(from -> from.get("id")).orElse(null));
+        return TelegramPayloadValueReader.stringValue(getFrom().map(TelegramUser::id).orElse(null));
     }
 
     public String getMediaGroupId() {
-        return TelegramPayloadValueReader.blankToNull(TelegramPayloadValueReader.stringValue(message.get("media_group_id")));
+        return TelegramPayloadValueReader.blankToNull(TelegramPayloadValueReader.stringValue(message.mediaGroupId()));
     }
 
     public String getText() {
@@ -55,7 +59,7 @@ public class MessageExtractor {
     }
 
     public Optional<MessageExtractor> getReplyToMessage() {
-        return Optional.ofNullable(TelegramPayloadValueReader.castMap(message.get("reply_to_message")))
+        return Optional.ofNullable(message.replyToMessage())
             .map(MessageExtractor::new);
     }
 
@@ -64,35 +68,43 @@ public class MessageExtractor {
     }
 
     public boolean hasPhoto() {
-        return !TelegramPayloadValueReader.castListOfMaps(message.get("photo")).isEmpty();
+        return !getPhotos().isEmpty();
     }
 
     public boolean isSupported() {
-        return message.get("text") instanceof String
+        return message.text() instanceof String
             || hasPhoto()
             || imageDocumentFileId().isPresent();
     }
 
-    private Optional<Map<String, Object>> getChat() {
-        return Optional.ofNullable(TelegramPayloadValueReader.castMap(message.get("chat")));
+    private Optional<TelegramChat> getChat() {
+        return Optional.ofNullable(message.chat());
     }
 
-    private Optional<Map<String, Object>> getFrom() {
-        return Optional.ofNullable(TelegramPayloadValueReader.castMap(message.get("from")));
+    private Optional<TelegramUser> getFrom() {
+        return Optional.ofNullable(message.from());
     }
 
-    private Optional<Map<String, Object>> getDocument() {
-        return Optional.ofNullable(TelegramPayloadValueReader.castMap(message.get("document")));
+    private Optional<TelegramDocument> getDocument() {
+        return Optional.ofNullable(message.document());
+    }
+
+    private List<TelegramPhotoSize> getPhotos() {
+        return message.photo() == null ? List.of() : message.photo();
     }
 
     private String textValue(String key) {
-        return TelegramPayloadValueReader.stringValue(message.get(key));
+        return switch (key) {
+            case "text" -> TelegramPayloadValueReader.stringValue(message.text());
+            case "caption" -> TelegramPayloadValueReader.stringValue(message.caption());
+            default -> "";
+        };
     }
 
     private Optional<String> imageDocumentFileId() {
         return getDocument()
             .filter(this::isImageDocument)
-            .map(document -> TelegramPayloadValueReader.stringValue(document.get("file_id")));
+            .map(document -> TelegramPayloadValueReader.stringValue(document.fileId()));
     }
 
     private Optional<String> resolveReplyToText(MessageExtractor reply) {
@@ -110,24 +122,23 @@ public class MessageExtractor {
     }
 
     private Optional<String> getPhotoFileId() {
-        List<Map<String, Object>> photos = TelegramPayloadValueReader.castListOfMaps(message.get("photo"));
-        return photos.stream()
+        return getPhotos().stream()
             .max(Comparator.comparingLong(photo -> {
-                Long fileSize = TelegramPayloadValueReader.longObjectValue(photo.get("file_size"));
+                Long fileSize = photo.fileSize();
                 return fileSize != null ? fileSize : 0L;
             }))
-            .map(photo -> TelegramPayloadValueReader.stringValue(photo.get("file_id")));
+            .map(photo -> TelegramPayloadValueReader.stringValue(photo.fileId()));
     }
 
-    private boolean isImageDocument(Map<String, Object> document) {
-        if (document == null || document.get("file_id") == null) {
+    private boolean isImageDocument(TelegramDocument document) {
+        if (document == null || document.fileId() == null) {
             return false;
         }
-        String mimeType = TelegramPayloadValueReader.stringValue(document.get("mime_type")).toLowerCase();
+        String mimeType = TelegramPayloadValueReader.stringValue(document.mimeType()).toLowerCase();
         if (DocumentConstants.IMAGE_MIME_TYPE_PREFIXES.stream().anyMatch(mimeType::startsWith)) {
             return true;
         }
-        String fileName = TelegramPayloadValueReader.stringValue(document.get("file_name")).toLowerCase();
+        String fileName = TelegramPayloadValueReader.stringValue(document.fileName()).toLowerCase();
         return DocumentConstants.IMAGE_EXTENSIONS.stream().anyMatch(fileName::endsWith);
     }
 }
