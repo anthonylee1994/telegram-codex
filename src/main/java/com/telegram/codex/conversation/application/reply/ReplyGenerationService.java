@@ -69,6 +69,7 @@ public class ReplyGenerationService {
     private ReplyResult generateReply(InboundMessage message) {
         List<Path> imageFilePaths = attachmentDownloader.downloadImages(message.effectiveImageFileIds());
         try {
+            // 冇新圖但 reply-to 有圖時，effectiveImageFileIds() 會退回引用圖片，令模型仍然見到上下文。
             return replyClient.generateReply(
                 message.textOrEmpty(),
                 findLastResponseId(message.chatId()),
@@ -82,6 +83,7 @@ public class ReplyGenerationService {
     }
 
     private void deliverReply(InboundMessage message, ReplyResult reply) {
+        // 先落 pending reply，再 send Telegram；咁中途重試時可以重播未完成回覆。
         processedUpdateService.savePendingReply(message.updateId(), message.chatId(), message.messageId(), reply);
         telegramClient.sendMessage(message.chatId(), reply.text(), reply.suggestedReplies(), false);
         sessionService.persistConversationState(message.chatId(), reply.conversationState());

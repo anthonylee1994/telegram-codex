@@ -45,6 +45,7 @@ public class TelegramClient implements TelegramGateway {
         TelegramMessageFormatter.NormalizedReply normalizedReply = messageFormatter.normalizeReply(text, suggestedReplies);
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("chat_id", chatId);
+        // Telegram 最終食 HTML；normalizeReply 先拆 JSON-like payload，再喺呢度做 Telegram-specific formatting。
         params.put("text", messageFormatter.formatForTelegram(normalizedReply.text()));
         params.put("parse_mode", "HTML");
         Map<String, Object> replyMarkup = messageFormatter.buildReplyMarkup(normalizedReply.suggestedReplies(), removeKeyboard);

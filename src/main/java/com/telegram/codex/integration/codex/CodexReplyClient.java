@@ -81,6 +81,7 @@ public class CodexReplyClient implements ReplyGenerationGateway {
         String replyToText
     ) {
         Transcript transcript = Transcript.fromConversationState(conversationState, objectMapper);
+        // 呢度係寫返「今次 user turn」入 transcript；真正送去模型嘅 prompt 之後再由 PromptBuilder 組。
         return transcript.append("user", buildUserMessage(text, imageFilePaths, replyToText));
     }
 

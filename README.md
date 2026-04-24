@@ -68,7 +68,6 @@ src/main/java/com/telegram/codex/
 │   │   ├── reply/
 │   │   │   ├── ReplyGenerationService.java
 │   │   │   ├── ReplyResult.java
-│   │   │   ├── ReplyContextSnapshot.java
 │   │   │   └── AttachmentDownloader.java
 │   │   └── session/
 │   │       ├── SessionService.java
@@ -200,12 +199,34 @@ src/main/java/com/telegram/codex/
 2. controller 驗 `X-Telegram-Bot-Api-Secret-Token`
 3. `TelegramWebhookHandler` 接手處理 Telegram update
 4. `TelegramUpdateParser` 將 payload 轉成 `InboundMessage`
-5. `InboundMessageProcessor` 依次交畀 unsupported / duplicate / command / guard handlers 處理
-6. 如果係 media group，先寫入 `MediaGroupBufferRepository`，再等 `JobSchedulerService` flush
-7. 需要生成回覆時，`JobSchedulerService` 用 async path 跑 `ReplyGenerationService`
-8. `ReplyGenerationService` 先用 `ReplyContextLoader` 讀 session / memory，再經 `ReplyGenerationGateway` 走去 `CodexReplyClient`
-9. reply send 成功後先更新 session、processed update 同長期記憶
-10. `/compact` 走另一條 async path，完成後由 `CompactResultSender` 主動 send 返 Telegram
+5. `TelegramWebhookRouter` 判斷係直接處理，定係先 defer media group
+6. `InboundMessageProcessor` 依次交畀 unsupported / duplicate / command / guard steps 處理
+7. 如果四關都過，`JobSchedulerService` 先 enqueue reply generation
+8. `ReplyGenerationService` download 圖片、讀 session / memory，再經 `ReplyGenerationGateway` 走去 `CodexReplyClient`
+9. `CodexReplyClient` 將 transcript + prompt 組好，經 `ExecRunner` call `codex exec`
+10. reply send 成功後先更新 session、processed update 同長期記憶；`/compact` 就走另一條 async path，完成後由 `CompactResultSender` 主動 send 返 Telegram
+
+## 超短 Codebase Map
+
+如果只想最快明主 flow，可以直接睇呢幾個 class：
+
+1. [`interfaces/web/TelegramWebhookController.java`](./src/main/java/com/telegram/codex/interfaces/web/TelegramWebhookController.java)
+   Telegram webhook HTTP 入口，只做驗 secret 同 handoff。
+
+2. [`integration/telegram/application/webhook/TelegramWebhookHandler.java`](./src/main/java/com/telegram/codex/integration/telegram/application/webhook/TelegramWebhookHandler.java)
+   將 raw update parse 成 `InboundMessage`，再交俾 router。
+
+3. [`integration/telegram/application/webhook/InboundMessageProcessor.java`](./src/main/java/com/telegram/codex/integration/telegram/application/webhook/InboundMessageProcessor.java)
+   入 reply flow 前嘅四關：unsupported、duplicate/replay、command、guard。
+
+4. [`conversation/application/reply/ReplyGenerationService.java`](./src/main/java/com/telegram/codex/conversation/application/reply/ReplyGenerationService.java)
+   真正 reply use case 主入口：整 context、call model、send reply、persist session、refresh memory。
+
+5. [`integration/codex/CodexReplyClient.java`](./src/main/java/com/telegram/codex/integration/codex/CodexReplyClient.java)
+   將 transcript 同 prompt 組好，再 call `codex exec`。
+
+6. [`integration/telegram/infrastructure/TelegramClient.java`](./src/main/java/com/telegram/codex/integration/telegram/infrastructure/TelegramClient.java)
+   將 reply 轉成 Telegram HTML / keyboard markup，再 call Telegram API。
 
 ## 命名同架構規範
 

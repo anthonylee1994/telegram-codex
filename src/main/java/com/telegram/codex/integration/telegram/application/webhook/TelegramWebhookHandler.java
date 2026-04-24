@@ -21,6 +21,7 @@ public class TelegramWebhookHandler {
     }
 
     public void handle(Map<String, Object> update) {
+        // Handler 只做 parse + handoff；真正 routing 留返俾 router，避免呢層再塞入業務判斷。
         InboundMessage message = telegramUpdateParser.parseIncomingTelegramMessage(update);
         webhookRouter.route(message, update);
     }

@@ -34,6 +34,7 @@ public class InboundMessageProcessor {
         this.replyRequestGuard = replyRequestGuard;
         this.mediaGroupStore = mediaGroupStore;
         this.jobSchedulerService = jobSchedulerService;
+        // 順序好重要：先擋 unsupported / duplicate，再處理 command，最後先落一般 reply flow。
         this.processingSteps = List.of(
             this::handleUnsupportedMessage,
             this::handleDuplicateUpdate,
