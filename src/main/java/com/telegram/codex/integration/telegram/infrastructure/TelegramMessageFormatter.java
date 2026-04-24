@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -19,6 +20,13 @@ public class TelegramMessageFormatter {
     private static final Pattern STRIKETHROUGH_PATTERN = Pattern.compile("~~([^~\\n]+)~~");
     private static final Pattern BOLD_PATTERN = Pattern.compile("\\*\\*([^*\\n]+)\\*\\*");
     private static final Pattern ITALIC_PATTERN = Pattern.compile("(?<!_)__([^_\\n]+)__(?!_)");
+    private static final List<InlineRule> INLINE_RULES = List.of(
+        new InlineRule(INLINE_CODE_PATTERN, match -> wrap("code", match.group(1))),
+        new InlineRule(BOLD_PATTERN, match -> wrap("b", match.group(1))),
+        new InlineRule(SPOILER_PATTERN, match -> wrap("tg-spoiler", match.group(1))),
+        new InlineRule(STRIKETHROUGH_PATTERN, match -> wrap("s", match.group(1))),
+        new InlineRule(ITALIC_PATTERN, TelegramMessageFormatter::formatItalicMatch)
+    );
 
     private final ReplyParser replyParser;
 
@@ -34,13 +42,11 @@ public class TelegramMessageFormatter {
         Matcher matcher = FENCED_CODE_BLOCK_PATTERN.matcher(text);
         int cursor = 0;
         while (matcher.find()) {
-            formatted.append(formatInlineCode(text.substring(cursor, matcher.start())));
-            formatted.append("<pre><code>");
-            formatted.append(escapeHtml(stripSingleLeadingNewline(matcher.group(1))));
-            formatted.append("</code></pre>");
+            formatted.append(formatInlineSegment(text.substring(cursor, matcher.start())));
+            formatted.append(renderCodeBlock(matcher.group(1)));
             cursor = matcher.end();
         }
-        formatted.append(formatInlineCode(text.substring(cursor)));
+        formatted.append(formatInlineSegment(text.substring(cursor)));
         return formatted.toString();
     }
 
@@ -104,99 +110,44 @@ public class TelegramMessageFormatter {
         return text;
     }
 
-    private static String formatInlineCode(String text) {
+    private static String renderCodeBlock(String text) {
+        return "<pre><code>" + escapeHtml(stripSingleLeadingNewline(text)) + "</code></pre>";
+    }
+
+    private static String formatInlineSegment(String text) {
         if (text == null || text.isEmpty()) {
             return "";
         }
+        return applyRules(text, 0);
+    }
+
+    private static String applyRules(String text, int ruleIndex) {
+        if (ruleIndex >= INLINE_RULES.size()) {
+            return escapeHtml(text);
+        }
+        return applyRule(text, INLINE_RULES.get(ruleIndex), ruleIndex);
+    }
+
+    private static String applyRule(String text, InlineRule rule, int ruleIndex) {
         StringBuilder formatted = new StringBuilder();
-        Matcher matcher = INLINE_CODE_PATTERN.matcher(text);
+        Matcher matcher = rule.pattern().matcher(text);
         int cursor = 0;
         while (matcher.find()) {
-            formatted.append(formatBold(text.substring(cursor, matcher.start())));
-            formatted.append("<code>");
-            formatted.append(escapeHtml(matcher.group(1)));
-            formatted.append("</code>");
+            formatted.append(applyRules(text.substring(cursor, matcher.start()), ruleIndex + 1));
+            formatted.append(rule.replacement().apply(matcher));
             cursor = matcher.end();
         }
-        formatted.append(formatBold(text.substring(cursor)));
+        formatted.append(applyRules(text.substring(cursor), ruleIndex + 1));
         return formatted.toString();
     }
 
-    private static String formatBold(String text) {
-        if (text == null || text.isEmpty()) {
-            return "";
+    private static String formatItalicMatch(Matcher matcher) {
+        String marker = matcher.group();
+        String content = matcher.group(1);
+        if (!shouldFormatItalic(marker, content)) {
+            return marker;
         }
-        StringBuilder formatted = new StringBuilder();
-        Matcher matcher = BOLD_PATTERN.matcher(text);
-        int cursor = 0;
-        while (matcher.find()) {
-            formatted.append(formatSpoiler(text.substring(cursor, matcher.start())));
-            formatted.append("<b>");
-            formatted.append(escapeHtml(matcher.group(1)));
-            formatted.append("</b>");
-            cursor = matcher.end();
-        }
-        formatted.append(formatSpoiler(text.substring(cursor)));
-        return formatted.toString();
-    }
-
-    private static String formatSpoiler(String text) {
-        if (text == null || text.isEmpty()) {
-            return "";
-        }
-        StringBuilder formatted = new StringBuilder();
-        Matcher matcher = SPOILER_PATTERN.matcher(text);
-        int cursor = 0;
-        while (matcher.find()) {
-            formatted.append(formatStrikethrough(text.substring(cursor, matcher.start())));
-            formatted.append("<tg-spoiler>");
-            formatted.append(escapeHtml(matcher.group(1)));
-            formatted.append("</tg-spoiler>");
-            cursor = matcher.end();
-        }
-        formatted.append(formatStrikethrough(text.substring(cursor)));
-        return formatted.toString();
-    }
-
-    private static String formatStrikethrough(String text) {
-        if (text == null || text.isEmpty()) {
-            return "";
-        }
-        StringBuilder formatted = new StringBuilder();
-        Matcher matcher = STRIKETHROUGH_PATTERN.matcher(text);
-        int cursor = 0;
-        while (matcher.find()) {
-            formatted.append(formatItalic(text.substring(cursor, matcher.start())));
-            formatted.append("<s>");
-            formatted.append(escapeHtml(matcher.group(1)));
-            formatted.append("</s>");
-            cursor = matcher.end();
-        }
-        formatted.append(formatItalic(text.substring(cursor)));
-        return formatted.toString();
-    }
-
-    private static String formatItalic(String text) {
-        if (text == null || text.isEmpty()) {
-            return "";
-        }
-        StringBuilder formatted = new StringBuilder();
-        Matcher matcher = ITALIC_PATTERN.matcher(text);
-        int cursor = 0;
-        while (matcher.find()) {
-            String content = matcher.group(1);
-            formatted.append(escapeHtml(text.substring(cursor, matcher.start())));
-            if (shouldFormatItalic(matcher.group(), content)) {
-                formatted.append("<i>");
-                formatted.append(escapeHtml(content));
-                formatted.append("</i>");
-            } else {
-                formatted.append(escapeHtml(matcher.group()));
-            }
-            cursor = matcher.end();
-        }
-        formatted.append(escapeHtml(text.substring(cursor)));
-        return formatted.toString();
+        return wrap("i", content);
     }
 
     private static boolean shouldFormatItalic(String marker, String content) {
@@ -214,6 +165,10 @@ public class TelegramMessageFormatter {
         return false;
     }
 
+    private static String wrap(String tag, String content) {
+        return "<" + tag + ">" + escapeHtml(content) + "</" + tag + ">";
+    }
+
     private static String escapeHtml(String text) {
         if (text == null) {
             return "";
@@ -222,5 +177,8 @@ public class TelegramMessageFormatter {
             .replace("&", "&amp;")
             .replace("<", "&lt;")
             .replace(">", "&gt;");
+    }
+
+    private record InlineRule(Pattern pattern, Function<Matcher, String> replacement) {
     }
 }
