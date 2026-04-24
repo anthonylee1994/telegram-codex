@@ -1,12 +1,12 @@
 package com.telegram.codex.integration.telegram.infrastructure;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.telegram.codex.integration.codex.ReplyParser;
 import com.telegram.codex.integration.telegram.domain.TelegramConstants;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -50,21 +50,21 @@ public class TelegramMessageFormatter {
         return formatted.toString();
     }
 
-    public Map<String, Object> buildReplyMarkup(List<String> suggestedReplies, boolean removeKeyboard) {
+    public TelegramReplyMarkup buildReplyMarkup(List<String> suggestedReplies, boolean removeKeyboard) {
         if (removeKeyboard) {
-            return Map.of("remove_keyboard", true);
+            return new RemoveKeyboardMarkup(true);
         }
         List<String> cleanedReplies = cleanReplies(suggestedReplies);
         if (cleanedReplies.isEmpty()) {
             return null;
         }
-        List<List<Map<String, String>>> keyboard = cleanedReplies.stream()
-            .map(reply -> List.of(Map.of("text", reply)))
+        List<List<KeyboardButton>> keyboard = cleanedReplies.stream()
+            .map(reply -> List.of(new KeyboardButton(reply)))
             .toList();
-        return Map.of(
-            "keyboard", keyboard,
-            "resize_keyboard", true,
-            "one_time_keyboard", true
+        return new ReplyKeyboardMarkup(
+            keyboard,
+            true,
+            true
         );
     }
 
@@ -180,5 +180,25 @@ public class TelegramMessageFormatter {
     }
 
     private record InlineRule(Pattern pattern, Function<Matcher, String> replacement) {
+    }
+
+    public sealed interface TelegramReplyMarkup permits RemoveKeyboardMarkup, ReplyKeyboardMarkup {
+    }
+
+    public record RemoveKeyboardMarkup(
+        @JsonProperty("remove_keyboard") boolean removeKeyboard
+    ) implements TelegramReplyMarkup {
+    }
+
+    public record ReplyKeyboardMarkup(
+        @JsonProperty("keyboard") List<List<KeyboardButton>> keyboard,
+        @JsonProperty("resize_keyboard") boolean resizeKeyboard,
+        @JsonProperty("one_time_keyboard") boolean oneTimeKeyboard
+    ) implements TelegramReplyMarkup {
+    }
+
+    public record KeyboardButton(
+        @JsonProperty("text") String text
+    ) {
     }
 }

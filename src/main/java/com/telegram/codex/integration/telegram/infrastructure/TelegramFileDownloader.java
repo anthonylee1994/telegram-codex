@@ -1,9 +1,9 @@
 package com.telegram.codex.integration.telegram.infrastructure;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.integration.telegram.domain.TelegramConstants;
-import com.telegram.codex.integration.telegram.domain.TelegramPayloadValueReader;
 import com.telegram.codex.shared.config.AppProperties;
 import org.springframework.stereotype.Component;
 
@@ -15,7 +15,6 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 
 @Component
 public class TelegramFileDownloader {
@@ -31,8 +30,8 @@ public class TelegramFileDownloader {
     }
 
     public Path downloadFileToTemp(String fileId) {
-        Map<String, Object> file = getFile(fileId);
-        String filePath = String.valueOf(file.get("file_path"));
+        TelegramFileResult file = getFile(fileId);
+        String filePath = file.filePath();
         try {
             Path tempDir = Files.createTempDirectory("telegram-codex-file-");
             Path outputPath = tempDir.resolve(Path.of(filePath).getFileName().toString());
@@ -48,18 +47,18 @@ public class TelegramFileDownloader {
         }
     }
 
-    private Map<String, Object> getFile(String fileId) {
+    private TelegramFileResult getFile(String fileId) {
         try {
             HttpRequest request = HttpRequest.newBuilder(
                 URI.create(TelegramConstants.TELEGRAM_API_BASE + properties.getTelegramBotToken() + "/getFile?file_id=" + URLEncoder.encode(fileId, StandardCharsets.UTF_8))
             ).GET().build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             validateStatusCode(response.statusCode(), "call Telegram getFile");
-            Map<String, Object> payload = objectMapper.readValue(response.body(), new TypeReference<>() {
+            TelegramApiResponse<TelegramFileResult> payload = objectMapper.readValue(response.body(), new TypeReference<>() {
             });
-            Map<String, Object> result = TelegramPayloadValueReader.castMap(payload.get("result"));
             validateTelegramResponse(payload);
-            if (result == null || result.get("file_path") == null) {
+            TelegramFileResult result = payload.result();
+            if (result == null || result.filePath() == null || result.filePath().isBlank()) {
                 throw new IllegalStateException("Telegram getFile did not include a file path");
             }
             return result;
@@ -74,9 +73,20 @@ public class TelegramFileDownloader {
         }
     }
 
-    private void validateTelegramResponse(Map<String, Object> payload) {
-        if (payload == null || !Boolean.TRUE.equals(payload.get("ok"))) {
+    private void validateTelegramResponse(TelegramApiResponse<?> payload) {
+        if (payload == null || !Boolean.TRUE.equals(payload.ok())) {
             throw new IllegalStateException("Failed to call Telegram getFile: invalid response");
         }
+    }
+
+    private record TelegramApiResponse<T>(
+        @JsonProperty("ok") Boolean ok,
+        @JsonProperty("result") T result
+    ) {
+    }
+
+    private record TelegramFileResult(
+        @JsonProperty("file_path") String filePath
+    ) {
     }
 }

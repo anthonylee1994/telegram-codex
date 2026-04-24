@@ -2,11 +2,12 @@ package com.telegram.codex.integration.codex;
 
 import com.telegram.codex.conversation.domain.MessageConstants;
 import com.telegram.codex.integration.telegram.domain.TelegramConstants;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 @Component
 public class ReplyParser {
@@ -19,7 +20,7 @@ public class ReplyParser {
 
     public ParsedReply parseReply(String rawReply) {
         try {
-            Object payload = jsonPayloadParser.parsePayload(rawReply);
+            JsonNode payload = jsonPayloadParser.parsePayload(rawReply);
             String text = extractReplyText(payload, rawReply);
             List<String> suggestedReplies = extractSuggestedReplies(payload, rawReply);
             return new ParsedReply(text, suggestedReplies);
@@ -53,20 +54,19 @@ public class ReplyParser {
         return List.copyOf(cleaned);
     }
 
-    private String extractReplyText(Object payload, String rawReply) {
-        if (payload instanceof Map<?, ?> map) {
-            Object text = map.get("text");
-            if (text instanceof String stringText && !stringText.isBlank()) {
-                return TextNormalizer.normalize(stringText);
+    private String extractReplyText(JsonNode payload, String rawReply) {
+        if (payload != null && payload.isObject()) {
+            JsonNode text = payload.get("text");
+            if (text != null && text.isTextual() && !text.asText().isBlank()) {
+                return TextNormalizer.normalize(text.asText());
             }
-            return map.values().stream()
-                .filter(String.class::isInstance)
-                .map(String.class::cast)
-                .map(String::trim)
-                .filter(value -> !value.isBlank())
-                .max(String::compareTo)
-                .map(TextNormalizer::normalize)
-                .orElseGet(() -> fallbackReplyText(rawReply));
+            String candidate = findTextCandidate(payload.elements());
+            if (candidate != null) {
+                return TextNormalizer.normalize(candidate);
+            }
+        }
+        if (payload != null && payload.isTextual() && !payload.asText().isBlank()) {
+            return TextNormalizer.normalize(payload.asText());
         }
         return fallbackReplyText(rawReply);
     }
@@ -79,15 +79,46 @@ public class ReplyParser {
         return normalized;
     }
 
-    private List<String> extractSuggestedReplies(Object payload, String rawReply) {
-        if (payload instanceof List<?> list) {
-            return sanitizeSuggestedReplies(list, MessageConstants.DEFAULT_SUGGESTED_REPLIES);
+    private List<String> extractSuggestedReplies(JsonNode payload, String rawReply) {
+        if (payload != null && payload.isArray()) {
+            return sanitizeSuggestedReplies(asTextList(payload.elements()), MessageConstants.DEFAULT_SUGGESTED_REPLIES);
         }
-        if (payload instanceof Map<?, ?> map) {
-            Object suggestedReplies = map.get("suggested_replies");
-            return sanitizeSuggestedReplies(suggestedReplies instanceof List<?> list ? list : List.of(), MessageConstants.DEFAULT_SUGGESTED_REPLIES);
+        if (payload != null && payload.isObject()) {
+            JsonNode suggestedReplies = payload.get("suggested_replies");
+            if (suggestedReplies != null && suggestedReplies.isArray()) {
+                return sanitizeSuggestedReplies(asTextList(suggestedReplies.elements()), MessageConstants.DEFAULT_SUGGESTED_REPLIES);
+            }
         }
         return sanitizeSuggestedReplies(List.of(rawReply), MessageConstants.DEFAULT_SUGGESTED_REPLIES);
+    }
+
+    private String findTextCandidate(Iterator<JsonNode> values) {
+        String candidate = null;
+        while (values.hasNext()) {
+            JsonNode value = values.next();
+            if (!value.isTextual()) {
+                continue;
+            }
+            String normalized = value.asText().trim();
+            if (normalized.isBlank()) {
+                continue;
+            }
+            if (candidate == null || normalized.compareTo(candidate) > 0) {
+                candidate = normalized;
+            }
+        }
+        return candidate;
+    }
+
+    private List<String> asTextList(Iterator<JsonNode> values) {
+        ArrayList<String> replies = new ArrayList<>();
+        while (values.hasNext()) {
+            JsonNode value = values.next();
+            if (value.isTextual()) {
+                replies.add(value.asText());
+            }
+        }
+        return List.copyOf(replies);
     }
 
     public record ParsedReply(String text, List<String> suggestedReplies) {

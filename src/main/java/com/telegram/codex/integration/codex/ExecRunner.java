@@ -1,6 +1,7 @@
 package com.telegram.codex.integration.codex;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.telegram.codex.integration.codex.schema.CodexOutputSchema;
 import com.telegram.codex.shared.config.AppProperties;
 import org.springframework.stereotype.Component;
 
@@ -10,7 +11,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @Component
 public class ExecRunner {
@@ -23,11 +23,11 @@ public class ExecRunner {
         this.objectMapper = objectMapper;
     }
 
-    public String run(String prompt, List<Path> imageFilePaths, Map<String, Object> outputSchema) {
+    public String run(String prompt, List<Path> imageFilePaths, CodexOutputSchema outputSchema) {
         return run(null, prompt, imageFilePaths, outputSchema);
     }
 
-    public String run(String systemPrompt, String userPrompt, List<Path> imageFilePaths, Map<String, Object> outputSchema) {
+    public String run(String systemPrompt, String userPrompt, List<Path> imageFilePaths, CodexOutputSchema outputSchema) {
         Path tempDir = null;
         try {
             tempDir = Files.createTempDirectory("telegram-codex-");

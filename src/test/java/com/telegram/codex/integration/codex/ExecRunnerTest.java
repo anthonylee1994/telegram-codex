@@ -1,19 +1,21 @@
 package com.telegram.codex.integration.codex;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.telegram.codex.integration.codex.schema.CodexOutputSchema;
 import com.telegram.codex.shared.config.AppProperties;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ExecRunnerTest {
+
+    private static final CodexOutputSchema TEST_SCHEMA = new TestOutputSchema("object");
 
     @Test
     void runUsesTempDirectoryAsWorkingDirectory() {
@@ -23,7 +25,7 @@ class ExecRunnerTest {
         properties.setTelegramWebhookSecret("secret");
         CapturingExecRunner execRunner = new CapturingExecRunner(properties, new ObjectMapper());
 
-        String reply = execRunner.run("prompt", List.of(), Map.of("type", "object"));
+        String reply = execRunner.run("prompt", List.of(), TEST_SCHEMA);
 
         assertEquals("{\"text\":\"ok\",\"suggested_replies\":[\"a\",\"b\",\"c\"]}", reply);
         assertEquals(execRunner.outputPath.getParent(), execRunner.workingDirectory);
@@ -38,7 +40,7 @@ class ExecRunnerTest {
         properties.setTelegramWebhookSecret("secret");
         CapturingExecRunner execRunner = new CapturingExecRunner(properties, new ObjectMapper());
 
-        execRunner.run("system rules", "user payload", List.of(), Map.of("type", "object"));
+        execRunner.run("system rules", "user payload", List.of(), TEST_SCHEMA);
 
         assertTrue(execRunner.prompt.contains("<system_prompt>"));
         assertTrue(execRunner.prompt.contains("system rules"));
@@ -66,5 +68,8 @@ class ExecRunnerTest {
             Files.writeString(outputPath, "{\"text\":\"ok\",\"suggested_replies\":[\"a\",\"b\",\"c\"]}");
             return new ProcessExecutor.ProcessResult(0, "", "", false);
         }
+    }
+
+    private record TestOutputSchema(String type) implements CodexOutputSchema {
     }
 }

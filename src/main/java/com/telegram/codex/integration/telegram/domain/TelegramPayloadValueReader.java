@@ -1,40 +1,13 @@
 package com.telegram.codex.integration.telegram.domain;
 
-import java.util.List;
-import java.util.Map;
-
 public final class TelegramPayloadValueReader {
 
     private TelegramPayloadValueReader() {
         // Utility class
     }
 
-    @SuppressWarnings("unchecked")
-    public static Map<String, Object> castMap(Object value) {
-        return value instanceof Map<?, ?> ? (Map<String, Object>) value : null;
-    }
-
-    @SuppressWarnings("unchecked")
-    public static List<Map<String, Object>> castListOfMaps(Object value) {
-        if (!(value instanceof List<?> list)) {
-            return List.of();
-        }
-        return list.stream()
-            .filter(item -> item instanceof Map<?, ?>)
-            .map(item -> (Map<String, Object>) item)
-            .toList();
-    }
-
     public static String stringValue(Object value) {
         return value == null ? "" : String.valueOf(value);
-    }
-
-    public static long longValue(Object value) {
-        return ((Number) value).longValue();
-    }
-
-    public static Long longObjectValue(Object value) {
-        return value instanceof Number number ? number.longValue() : null;
     }
 
     public static String blankToNull(String value) {

@@ -1,7 +1,9 @@
 package com.telegram.codex.integration.telegram.infrastructure;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.telegram.codex.integration.telegram.domain.TelegramConstants;
 import com.telegram.codex.shared.config.AppProperties;
 import org.springframework.stereotype.Component;
@@ -12,6 +14,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -30,7 +34,7 @@ public class TelegramApiClient {
         this.typingStatusManager = typingStatusManager;
     }
 
-    public void postForm(String methodName, Map<String, Object> params) {
+    public void postForm(String methodName, TelegramFormRequest params) {
         try {
             String body = buildFormBody(params);
             HttpRequest request = HttpRequest.newBuilder(URI.create(apiBase() + "/" + methodName))
@@ -39,7 +43,7 @@ public class TelegramApiClient {
                 .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             validateStatusCode(response.statusCode(), "call Telegram " + methodName);
-            Map<String, Object> payload = objectMapper.readValue(response.body(), new TypeReference<>() {
+            TelegramApiResponse<JsonNode> payload = objectMapper.readValue(response.body(), new TypeReference<>() {
             });
             validateTelegramResponse(payload, methodName);
         } catch (java.io.IOException | InterruptedException error) {
@@ -52,13 +56,13 @@ public class TelegramApiClient {
     }
 
     public void sendChatAction(String chatId, String action) {
-        postForm("sendChatAction", Map.of("chat_id", chatId, "action", action));
+        postForm("sendChatAction", new SendChatActionRequest(chatId, action));
     }
 
-    private String buildFormBody(Map<String, Object> params) {
-        return params.entrySet().stream()
-            .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" +
-                URLEncoder.encode(String.valueOf(entry.getValue()), StandardCharsets.UTF_8))
+    private String buildFormBody(TelegramFormRequest params) {
+        return params.toFormFields().stream()
+            .map(entry -> URLEncoder.encode(entry.key(), StandardCharsets.UTF_8) + "=" +
+                URLEncoder.encode(entry.value(), StandardCharsets.UTF_8))
             .reduce((a, b) -> a + "&" + b)
             .orElse("");
     }
@@ -73,9 +77,76 @@ public class TelegramApiClient {
         }
     }
 
-    private void validateTelegramResponse(Map<String, Object> payload, String operation) {
-        if (payload == null || !Boolean.TRUE.equals(payload.get("ok"))) {
+    private void validateTelegramResponse(TelegramApiResponse<?> payload, String operation) {
+        if (payload == null || !Boolean.TRUE.equals(payload.ok())) {
             throw new IllegalStateException("Failed to " + operation + ": invalid response");
         }
+    }
+
+    public interface TelegramFormRequest {
+        List<FormField> toFormFields();
+    }
+
+    public record FormField(String key, String value) {
+    }
+
+    public record SendMessageRequest(
+        String chatId,
+        String text,
+        String parseMode,
+        String replyMarkup
+    ) implements TelegramFormRequest {
+        @Override
+        public List<FormField> toFormFields() {
+            ArrayList<FormField> fields = new ArrayList<>();
+            fields.add(new FormField("chat_id", chatId));
+            fields.add(new FormField("text", text));
+            fields.add(new FormField("parse_mode", parseMode));
+            if (replyMarkup != null && !replyMarkup.isBlank()) {
+                fields.add(new FormField("reply_markup", replyMarkup));
+            }
+            return List.copyOf(fields);
+        }
+    }
+
+    public record SendChatActionRequest(
+        String chatId,
+        String action
+    ) implements TelegramFormRequest {
+        @Override
+        public List<FormField> toFormFields() {
+            return List.of(
+                new FormField("chat_id", chatId),
+                new FormField("action", action)
+            );
+        }
+    }
+
+    public record SetWebhookRequest(
+        String url,
+        String secretToken
+    ) implements TelegramFormRequest {
+        @Override
+        public List<FormField> toFormFields() {
+            return List.of(
+                new FormField("url", url),
+                new FormField("secret_token", secretToken)
+            );
+        }
+    }
+
+    public record SetMyCommandsRequest(
+        String commands
+    ) implements TelegramFormRequest {
+        @Override
+        public List<FormField> toFormFields() {
+            return List.of(new FormField("commands", commands));
+        }
+    }
+
+    private record TelegramApiResponse<T>(
+        @JsonProperty("ok") Boolean ok,
+        @JsonProperty("result") T result
+    ) {
     }
 }

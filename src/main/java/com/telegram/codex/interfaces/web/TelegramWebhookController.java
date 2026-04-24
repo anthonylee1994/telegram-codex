@@ -12,8 +12,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Map;
-
 @RestController
 public class TelegramWebhookController {
 
@@ -28,20 +26,20 @@ public class TelegramWebhookController {
     }
 
     @PostMapping("/telegram/webhook")
-    public ResponseEntity<Map<String, Object>> create(
+    public ResponseEntity<ApiStatusResponse> create(
         @RequestHeader(value = "X-Telegram-Bot-Api-Secret-Token", required = false) String secretToken,
         @RequestBody(required = false) TelegramUpdate payload
     ) {
         if (!properties.getTelegramWebhookSecret().equals(secretToken)) {
             LOGGER.warn("Rejected Telegram webhook with invalid secret");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("ok", false));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiStatusResponse(false));
         }
         try {
             webhookHandler.handle(payload);
-            return ResponseEntity.ok(Map.of("ok", true));
+            return ResponseEntity.ok(new ApiStatusResponse(true));
         } catch (Exception error) {
             LOGGER.error("Failed to process Telegram webhook: {}", error.getMessage(), error);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("ok", false));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiStatusResponse(false));
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.telegram.codex.interfaces.cli;
 
 import com.telegram.codex.integration.telegram.application.port.out.TelegramGateway;
+import com.telegram.codex.integration.telegram.domain.TelegramBotCommand;
 import com.telegram.codex.shared.config.AppProperties;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
@@ -8,7 +9,6 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Map;
 
 @Component
 public class CliTaskRunner implements CommandLineRunner {
@@ -39,13 +39,13 @@ public class CliTaskRunner implements CommandLineRunner {
             telegramClient.setWebhook(properties.getBaseUrl() + "/telegram/webhook", properties.getTelegramWebhookSecret());
         } else if ("telegram:update-commands".equals(task)) {
             telegramClient.setMyCommands(List.of(
-                Map.of("command", "status", "description", "Bot 狀態"),
-                Map.of("command", "session", "description", "目前 session 狀態"),
-                Map.of("command", "memory", "description", "長期記憶狀態"),
-                Map.of("command", "forget", "description", "清除長期記憶"),
-                Map.of("command", "compact", "description", "壓縮目前對話 context"),
-                Map.of("command", "new", "description", "新 session"),
-                Map.of("command", "help", "description", "使用說明")
+                new TelegramBotCommand("status", "Bot 狀態"),
+                new TelegramBotCommand("session", "目前 session 狀態"),
+                new TelegramBotCommand("memory", "長期記憶狀態"),
+                new TelegramBotCommand("forget", "清除長期記憶"),
+                new TelegramBotCommand("compact", "壓縮目前對話 context"),
+                new TelegramBotCommand("new", "新 session"),
+                new TelegramBotCommand("help", "使用說明")
             ));
         } else {
             throw new IllegalArgumentException("Unknown task: " + task);

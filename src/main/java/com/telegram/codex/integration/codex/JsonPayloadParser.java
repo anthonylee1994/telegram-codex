@@ -1,12 +1,12 @@
 package com.telegram.codex.integration.codex;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -22,19 +22,17 @@ public class JsonPayloadParser {
         this.objectMapper = objectMapper;
     }
 
-    public Object parsePayload(String rawReply) {
+    public JsonNode parsePayload(String rawReply) {
         for (String candidate : candidatePayloads(rawReply)) {
             if (candidate.isBlank()) {
                 continue;
             }
             try {
-                Object payload = objectMapper.readValue(candidate, new TypeReference<>() {
-                });
-                if (payload instanceof String stringPayload) {
-                    payload = objectMapper.readValue(stringPayload, new TypeReference<>() {
-                    });
+                JsonNode payload = objectMapper.readTree(candidate);
+                if (payload != null && payload.isTextual()) {
+                    payload = objectMapper.readTree(payload.textValue());
                 }
-                if (payload instanceof Map<?, ?> || payload instanceof List<?>) {
+                if (payload != null && (payload.isObject() || payload.isArray() || payload.isTextual())) {
                     return payload;
                 }
             } catch (Exception ignored) {
@@ -68,7 +66,7 @@ public class JsonPayloadParser {
             return null;
         }
         try {
-            return objectMapper.writeValueAsString(Map.of("text", replyText, "suggested_replies", suggestedReplies));
+            return objectMapper.writeValueAsString(new ReplyPayload(replyText, suggestedReplies));
         } catch (JsonProcessingException error) {
             throw new IllegalStateException("Failed to build relaxed payload", error);
         }
@@ -90,5 +88,11 @@ public class JsonPayloadParser {
             replies.add(TextNormalizer.normalize(replyMatcher.group(1)));
         }
         return List.copyOf(replies);
+    }
+
+    private record ReplyPayload(
+        @JsonProperty("text") String text,
+        @JsonProperty("suggested_replies") List<String> suggestedReplies
+    ) {
     }
 }

@@ -1,15 +1,15 @@
 package com.telegram.codex.conversation.infrastructure.session;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.conversation.domain.session.Transcript;
 import com.telegram.codex.integration.codex.ExecRunner;
 import com.telegram.codex.integration.codex.ExecutionException;
+import com.telegram.codex.integration.codex.schema.CodexOutputSchema;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Map;
 
 @Component
 public class CodexSessionCompactClient {
@@ -25,9 +25,8 @@ public class CodexSessionCompactClient {
     public String compact(Transcript transcript) {
         String rawReply = execRunner.run(buildPrompt(transcript), List.of(), outputSchema());
         try {
-            Map<String, Object> payload = objectMapper.readValue(rawReply, new TypeReference<>() {
-            });
-            String compact = String.valueOf(payload.getOrDefault("compact", "")).trim();
+            CompactPayload payload = objectMapper.readValue(rawReply, CompactPayload.class);
+            String compact = payload.compact().trim();
             if (compact.isBlank()) {
                 throw new ExecutionException("session compact returned an empty reply");
             }
@@ -52,7 +51,39 @@ public class CodexSessionCompactClient {
         );
     }
 
-    private Map<String, Object> outputSchema() {
-        return Map.of("type", "object", "additionalProperties", false, "required", List.of("compact"), "properties", Map.of("compact", Map.of("type", "string", "minLength", 1)));
+    private CodexOutputSchema outputSchema() {
+        return new CompactOutputSchema(
+            "object",
+            false,
+            List.of("compact"),
+            new CompactProperties(new StringPropertySchema("string", 1))
+        );
+    }
+
+    private record CompactPayload(
+        @JsonProperty("compact") String compact
+    ) {
+        private CompactPayload {
+            compact = compact == null ? "" : compact;
+        }
+    }
+
+    private record CompactOutputSchema(
+        @JsonProperty("type") String type,
+        @JsonProperty("additionalProperties") boolean additionalProperties,
+        @JsonProperty("required") List<String> required,
+        @JsonProperty("properties") CompactProperties properties
+    ) implements CodexOutputSchema {
+    }
+
+    private record CompactProperties(
+        @JsonProperty("compact") StringPropertySchema compact
+    ) {
+    }
+
+    private record StringPropertySchema(
+        @JsonProperty("type") String type,
+        @JsonProperty("minLength") Integer minLength
+    ) {
     }
 }

@@ -4,12 +4,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.conversation.application.gateway.ReplyGenerationGateway;
 import com.telegram.codex.conversation.application.reply.ReplyResult;
 import com.telegram.codex.conversation.domain.session.Transcript;
+import com.telegram.codex.integration.codex.schema.CodexOutputSchema;
 import com.telegram.codex.integration.telegram.domain.TelegramConstants;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.IntStream;
 
 @Component
@@ -45,18 +46,18 @@ public class CodexReplyClient implements ReplyGenerationGateway {
         return buildReplyResult(nextTranscript, rawReply);
     }
 
-    private Map<String, Object> replyOutputSchema() {
-        return Map.of(
-            "type", "object",
-            "additionalProperties", false,
-            "required", List.of("text", "suggested_replies"),
-            "properties", Map.of(
-                "text", Map.of("type", "string", "minLength", 1),
-                "suggested_replies", Map.of(
-                    "type", "array",
-                    "minItems", TelegramConstants.MAX_SUGGESTED_REPLIES,
-                    "maxItems", TelegramConstants.MAX_SUGGESTED_REPLIES,
-                    "items", Map.of("type", "string", "minLength", 1)
+    private CodexOutputSchema replyOutputSchema() {
+        return new ReplyOutputSchema(
+            "object",
+            false,
+            List.of("text", "suggested_replies"),
+            new ReplyProperties(
+                new StringPropertySchema("string", 1),
+                new SuggestedRepliesSchema(
+                    "array",
+                    TelegramConstants.MAX_SUGGESTED_REPLIES,
+                    TelegramConstants.MAX_SUGGESTED_REPLIES,
+                    new StringPropertySchema("string", 1)
                 )
             )
         );
@@ -114,5 +115,33 @@ public class CodexReplyClient implements ReplyGenerationGateway {
         }
         String labels = String.join("、", IntStream.rangeClosed(1, imageCount).mapToObj(index -> "圖 " + index).toList());
         return "我上載咗 " + imageCount + " 張圖。請按 " + labels + " 逐張描述，再比較異同同整理重點。";
+    }
+
+    private record ReplyOutputSchema(
+        @JsonProperty("type") String type,
+        @JsonProperty("additionalProperties") boolean additionalProperties,
+        @JsonProperty("required") List<String> required,
+        @JsonProperty("properties") ReplyProperties properties
+    ) implements CodexOutputSchema {
+    }
+
+    private record ReplyProperties(
+        @JsonProperty("text") StringPropertySchema text,
+        @JsonProperty("suggested_replies") SuggestedRepliesSchema suggestedReplies
+    ) {
+    }
+
+    private record StringPropertySchema(
+        @JsonProperty("type") String type,
+        @JsonProperty("minLength") Integer minLength
+    ) {
+    }
+
+    private record SuggestedRepliesSchema(
+        @JsonProperty("type") String type,
+        @JsonProperty("minItems") int minItems,
+        @JsonProperty("maxItems") int maxItems,
+        @JsonProperty("items") StringPropertySchema items
+    ) {
     }
 }

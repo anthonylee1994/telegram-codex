@@ -1,14 +1,14 @@
 package com.telegram.codex.conversation.infrastructure.memory;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.integration.codex.ExecRunner;
 import com.telegram.codex.integration.codex.ExecutionException;
+import com.telegram.codex.integration.codex.schema.CodexOutputSchema;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Map;
 
 @Component
 public class CodexMemoryClient {
@@ -24,9 +24,8 @@ public class CodexMemoryClient {
     public String merge(String existingMemory, String userMessage, String assistantReply) {
         String rawReply = execRunner.run(buildPrompt(existingMemory, userMessage, assistantReply), List.of(), memoryOutputSchema());
         try {
-            Map<String, Object> payload = objectMapper.readValue(rawReply, new TypeReference<>() {
-            });
-            return String.valueOf(payload.getOrDefault("memory", "")).trim();
+            MemoryPayload payload = objectMapper.readValue(rawReply, MemoryPayload.class);
+            return payload.memory().trim();
         } catch (JsonProcessingException error) {
             throw new ExecutionException("memory merge returned invalid JSON", error);
         }
@@ -63,12 +62,38 @@ public class CodexMemoryClient {
         );
     }
 
-    private Map<String, Object> memoryOutputSchema() {
-        return Map.of(
-            "type", "object",
-            "additionalProperties", false,
-            "required", List.of("memory"),
-            "properties", Map.of("memory", Map.of("type", "string"))
+    private CodexOutputSchema memoryOutputSchema() {
+        return new MemoryOutputSchema(
+            "object",
+            false,
+            List.of("memory"),
+            new MemoryProperties(new StringPropertySchema("string"))
         );
+    }
+
+    private record MemoryPayload(
+        @JsonProperty("memory") String memory
+    ) {
+        private MemoryPayload {
+            memory = memory == null ? "" : memory;
+        }
+    }
+
+    private record MemoryOutputSchema(
+        @JsonProperty("type") String type,
+        @JsonProperty("additionalProperties") boolean additionalProperties,
+        @JsonProperty("required") List<String> required,
+        @JsonProperty("properties") MemoryProperties properties
+    ) implements CodexOutputSchema {
+    }
+
+    private record MemoryProperties(
+        @JsonProperty("memory") StringPropertySchema memory
+    ) {
+    }
+
+    private record StringPropertySchema(
+        @JsonProperty("type") String type
+    ) {
     }
 }

@@ -1,8 +1,9 @@
 package com.telegram.codex.integration.telegram.application.port.out;
 
+import com.telegram.codex.integration.telegram.domain.TelegramBotCommand;
+
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Supplier;
 
 public interface TelegramGateway {
@@ -15,5 +16,5 @@ public interface TelegramGateway {
 
     void setWebhook(String url, String secretToken);
 
-    void setMyCommands(List<Map<String, String>> commands);
+    void setMyCommands(List<TelegramBotCommand> commands);
 }
