@@ -47,149 +47,56 @@ Demo：https://t.me/On99AppBot
 
 ## 架構
 
-而家個 codebase 主要跟 `conversation`、`integration`、`interfaces` 分域，但唔再盲目追求 layer purity。原則係：
+而家個 codebase 主要跟 `conversation`、`integration`、`interfaces` 分域。原則好簡單：
 
 - 對外系統邊界，例如 Telegram API、Codex CLI，先值得保留 `Gateway`
-- 呢類真邊界而家統一放喺 `conversation/application/gateway`（只保留必要嘅）
 - 純本地 persistence 可以直接用 repository implementation，唔需要為咗「乾淨」再包一層假抽象
 - 主流程 class 應該保持短同直，複雜分支就拆成有業務語意嘅 handler / helper
-- 單一 file 嘅 package 會直接放喺 parent directory，避免過深 nesting
-
-```text
-src/main/java/com/telegram/codex/
-├── bootstrap/
-│   └── TelegramCodexApplication.java
-├── conversation/
-│   ├── application/
-│   │   ├── JobSchedulerService.java
-│   │   ├── ProcessedUpdateService.java
-│   │   ├── gateway/
-│   │   │   └── ReplyGenerationGateway.java
-│   │   ├── reply/
-│   │   │   ├── ReplyGenerationService.java
-│   │   │   ├── ReplyResult.java
-│   │   │   └── AttachmentDownloader.java
-│   │   └── session/
-│   │       ├── SessionService.java
-│   │       └── CodexSessionCompactClient.java
-│   ├── domain/
-│   │   ├── memory/
-│   │   ├── session/
-│   │   └── update/
-│   └── infrastructure/
-│       ├── memory/
-│       │   ├── ChatMemoryRepository.java
-│       │   └── CodexMemoryClient.java
-│       ├── persistence/
-│       ├── session/
-│       │   ├── ChatSessionRepository.java
-│       │   └── CodexSessionCompactClient.java
-│       └── update/
-├── integration/
-│   ├── codex/
-│   └── telegram/
-│       ├── application/
-│       ├── domain/
-│       └── infrastructure/
-├── interfaces/
-│   ├── cli/
-│   └── web/
-└── shared/
-    └── config/
-```
-
-### 分層原則
-
-- `domain` 放純業務概念、規則、value-like model
-- `application` 放 use case orchestration，同少量貼業務嘅 helper
-- `infrastructure` 放 JPA、repository、adapter implementation
-- `integration` 放對外系統整合，例如 Telegram 同 Codex
-- `interfaces` 放 HTTP / CLI entrypoints
-- `shared` 只留真係跨 domain 都合理共享嘅 config
+- `conversation` 管 session、memory、reply、processed update 呢啲 bot 內部業務
+- `integration` 管 Telegram 同 Codex 呢啲外部系統整合
+- `interfaces` 管 HTTP / CLI entrypoints，`shared` 只留 config
 
 ## 主要 package map
 
-### `bootstrap`
-
-- `bootstrap/TelegramCodexApplication.java`
-  Spring Boot 入口。
-
 ### `conversation`
 
-- `conversation/application/reply/ReplyGenerationService.java`
-  對話回覆 use case 主入口，負責附件 download、reply generation、session persist、memory refresh。
-
-- `conversation/application/session/SessionService.java`
-  session 讀寫、TTL、compact、同埋長期記憶管理。
-
-- `conversation/application/JobSchedulerService.java`
-  跑 async reply、compact，同 media group flush scheduling。
-
-- `conversation/application/ProcessedUpdateService.java`
-  duplicate update claim / replay / prune / pending reply 管理。
-
-- `conversation/domain/*`
-  對話核心規則，例如 `ChatRateLimiter`、`MediaGroupMerger`、`Transcript`、memory/session/update records。
-
-- `conversation/infrastructure/*`
-  conversation domain 對應嘅 repository / client。session / memory 呢類純本地 persistence 會畀 application 直接用。
+- `application/reply/ReplyGenerationService`
+  reply use case 主入口。
+- `application/session/SessionService`
+  session / memory / compact 管理。
+- `application/ProcessedUpdateService`
+  duplicate claim / replay / pending reply lifecycle。
+- `domain` + `infrastructure`
+  對話規則、records、repository、client。
 
 ### `integration/codex`
 
 - `CodexReplyClient`
-  真正接 `codex exec` 生成 reply。
-
+  組 transcript / prompt，再 call `codex exec`。
 - `ExecRunner`
   process execution 包裝。
-
-- `PromptBuilder`
-  組 prompt。
-
-- `ReplyParser`
-  parse Codex output。
+- `PromptBuilder` / `ReplyParser`
+  分別負責組 prompt 同 parse output。
 
 ### `integration/telegram`
 
-- `application/webhook/TelegramWebhookHandler`
-  Telegram inbound flow 入口。
-
-- `application/webhook/InboundMessageProcessor`
-  webhook 主流程 orchestration，將 unsupported、duplicate/replay、command、guard、enqueue 順序串起。
-
-- `application/webhook/DuplicateUpdateHandler`
-  duplicate / replay 判斷同 resend。
-
-- `application/webhook/ReplyRequestGuard`
-  unauthorized、too many images、sensitive intent、rate limit、claim processing 呢堆前置檢查。
-
-- `application/webhook/TelegramCommandHandler`
-  `/start`、`/new`、`/compact` 等 command 分支。
-
-- `application/webhook/TelegramCommandRegistry`
-  Telegram command 判斷。
-
+- `application/webhook`
+  inbound flow：parse 後 routing、command、guard、enqueue。
 - `application/CompactResultSender`
   `/compact` 完成後主動 send 結果。
-
 - `infrastructure/TelegramClient`
   Telegram API adapter。
-
 - `infrastructure/TelegramUpdateParser`
-  將 webhook payload 轉成 app 內部 `InboundMessage`。
-
-- `infrastructure/AttachmentDownloader`
-  附件下載 adapter。
+  將 webhook payload 轉成 `InboundMessage`。
 
 ### `interfaces`
 
-- `interfaces/web/TelegramWebhookController.java`
+- `web/TelegramWebhookController`
   `POST /telegram/webhook` 入口。
-
-- `interfaces/web/HealthController.java`
+- `web/HealthController`
   `GET /health`。
-
-- `interfaces/cli/CliTaskRunner.java`
-  CLI task 入口，例如 set webhook、update commands。
+- `cli/CliTaskRunner`
+  CLI tasks，例如 set webhook、update commands。
 
 ## Runtime Flow
 
