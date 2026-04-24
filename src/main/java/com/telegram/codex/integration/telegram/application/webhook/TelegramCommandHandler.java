@@ -1,7 +1,6 @@
 package com.telegram.codex.integration.telegram.application.webhook;
 
 import com.telegram.codex.conversation.application.job.JobSchedulerService;
-import com.telegram.codex.conversation.application.memory.MemoryService;
 import com.telegram.codex.conversation.application.session.SessionService;
 import com.telegram.codex.conversation.application.update.ProcessedUpdateService;
 import com.telegram.codex.conversation.domain.ConversationConstants;
@@ -18,7 +17,6 @@ import java.util.Optional;
 public class TelegramCommandHandler {
 
     private final TelegramCommandRegistry commandRegistry;
-    private final MemoryService memoryService;
     private final SessionService sessionService;
     private final ProcessedUpdateService processedUpdateService;
     private final TelegramStatusMessageBuilder messageBuilder;
@@ -28,7 +26,6 @@ public class TelegramCommandHandler {
 
     public TelegramCommandHandler(
         TelegramCommandRegistry commandRegistry,
-        MemoryService memoryService,
         SessionService sessionService,
         ProcessedUpdateService processedUpdateService,
         TelegramStatusMessageBuilder messageBuilder,
@@ -37,7 +34,6 @@ public class TelegramCommandHandler {
         JobSchedulerService jobSchedulerService
     ) {
         this.commandRegistry = commandRegistry;
-        this.memoryService = memoryService;
         this.sessionService = sessionService;
         this.processedUpdateService = processedUpdateService;
         this.messageBuilder = messageBuilder;
@@ -70,7 +66,7 @@ public class TelegramCommandHandler {
             case SESSION -> sendAndMarkProcessed(message, messageBuilder.buildSessionMessage(message.chatId()), true);
             case MEMORY -> sendAndMarkProcessed(message, messageBuilder.buildMemoryMessage(message.chatId()), true);
             case FORGET -> {
-                memoryService.reset(message.chatId());
+                sessionService.resetMemory(message.chatId());
                 sendAndMarkProcessed(message, MessageConstants.RESET_MEMORY_MESSAGE, true);
             }
             case COMPACT -> executeCompactSession(message);

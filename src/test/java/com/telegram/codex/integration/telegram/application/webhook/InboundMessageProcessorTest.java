@@ -1,7 +1,6 @@
 package com.telegram.codex.integration.telegram.application.webhook;
 
 import com.telegram.codex.conversation.application.job.JobSchedulerService;
-import com.telegram.codex.conversation.application.memory.MemoryService;
 import com.telegram.codex.conversation.application.session.SessionService;
 import com.telegram.codex.conversation.application.update.ProcessedUpdateService;
 import com.telegram.codex.conversation.domain.ChatRateLimiter;
@@ -118,7 +117,6 @@ class InboundMessageProcessorTest {
         private final SensitiveIntentGuard sensitiveIntentGuard = new SensitiveIntentGuard();
         private final MediaGroupBufferRepository mediaGroupStore = Mockito.mock(MediaGroupBufferRepository.class);
         private final JobSchedulerService jobSchedulerService = Mockito.mock(JobSchedulerService.class);
-        private final MemoryService memoryService = Mockito.mock(MemoryService.class);
         private final SessionService sessionService = Mockito.mock(SessionService.class);
         private final TelegramStatusMessageBuilder messageBuilder = Mockito.mock(TelegramStatusMessageBuilder.class);
         private final TelegramGateway telegramClient = Mockito.mock(TelegramGateway.class);
@@ -127,7 +125,6 @@ class InboundMessageProcessorTest {
         private final DuplicateUpdateHandler duplicateUpdateHandler = new DuplicateUpdateHandler(processedUpdateService, telegramClient);
         private final TelegramCommandHandler telegramCommandHandler = new TelegramCommandHandler(
             commandRegistry,
-            memoryService,
             sessionService,
             processedUpdateService,
             messageBuilder,

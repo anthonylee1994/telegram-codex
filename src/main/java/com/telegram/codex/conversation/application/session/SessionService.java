@@ -2,10 +2,12 @@ package com.telegram.codex.conversation.application.session;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.conversation.domain.ConversationTimeFormatter;
+import com.telegram.codex.conversation.domain.memory.ChatMemoryRecord;
 import com.telegram.codex.conversation.domain.session.ChatSessionRecord;
 import com.telegram.codex.conversation.domain.session.Transcript;
 import com.telegram.codex.conversation.domain.ConversationConstants;
 import com.telegram.codex.conversation.domain.MessageConstants;
+import com.telegram.codex.conversation.infrastructure.memory.ChatMemoryRepository;
 import com.telegram.codex.conversation.infrastructure.session.ChatSessionRepository;
 import com.telegram.codex.conversation.infrastructure.session.CodexSessionCompactClient;
 import org.springframework.stereotype.Service;
@@ -18,15 +20,18 @@ public class SessionService {
     private final ChatSessionRepository chatSessionRepository;
     private final CodexSessionCompactClient sessionCompactClient;
     private final ObjectMapper objectMapper;
+    private final ChatMemoryRepository chatMemoryRepository;
 
     public SessionService(
         ChatSessionRepository chatSessionRepository,
         CodexSessionCompactClient sessionCompactClient,
-        ObjectMapper objectMapper
+        ObjectMapper objectMapper,
+        ChatMemoryRepository chatMemoryRepository
     ) {
         this.chatSessionRepository = chatSessionRepository;
         this.sessionCompactClient = sessionCompactClient;
         this.objectMapper = objectMapper;
+        this.chatMemoryRepository = chatMemoryRepository;
     }
 
     public void persistConversationState(String chatId, String conversationState) {
@@ -67,6 +72,25 @@ public class SessionService {
         return SessionCompactResult.ok(transcript.size(), compactText);
     }
 
+    public MemorySnapshot memorySnapshot(String chatId) {
+        Optional<ChatMemoryRecord> maybeMemory = chatMemoryRepository.find(chatId);
+        if (maybeMemory.isEmpty()) {
+            return MemorySnapshot.inactive();
+        }
+        ChatMemoryRecord memory = maybeMemory.get();
+        if (memory.memoryText() == null || memory.memoryText().isBlank()) {
+            return MemorySnapshot.inactive();
+        }
+        return MemorySnapshot.active(
+            memory.memoryText(),
+            ConversationTimeFormatter.format(memory.updatedAt())
+        );
+    }
+
+    public void resetMemory(String chatId) {
+        chatMemoryRepository.reset(chatId);
+    }
+
     public record SessionSnapshot(boolean active, int messageCount, int turnCount, String lastUpdatedAt) {
 
         public static SessionSnapshot inactive() {
@@ -96,6 +120,17 @@ public class SessionService {
 
         public static SessionCompactResult ok(int originalMessageCount, String compactText) {
             return new SessionCompactResult(Status.OK, null, originalMessageCount, compactText);
+        }
+    }
+
+    public record MemorySnapshot(boolean active, String memoryText, String lastUpdatedAt) {
+
+        public static MemorySnapshot inactive() {
+            return new MemorySnapshot(false, null, null);
+        }
+
+        public static MemorySnapshot active(String memoryText, String lastUpdatedAt) {
+            return new MemorySnapshot(true, memoryText, lastUpdatedAt);
         }
     }
 }

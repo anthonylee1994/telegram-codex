@@ -1,17 +1,14 @@
 package com.telegram.codex.integration.telegram.application.webhook;
 
-import com.telegram.codex.conversation.application.memory.MemoryService;
 import com.telegram.codex.conversation.application.session.SessionService;
 import org.springframework.stereotype.Component;
 
 @Component
 public class TelegramStatusMessageBuilder {
 
-    private final MemoryService memoryService;
     private final SessionService sessionService;
 
-    public TelegramStatusMessageBuilder(MemoryService memoryService, SessionService sessionService) {
-        this.memoryService = memoryService;
+    public TelegramStatusMessageBuilder(SessionService sessionService) {
         this.sessionService = sessionService;
     }
 
@@ -39,7 +36,7 @@ public class TelegramStatusMessageBuilder {
     }
 
     public String buildMemoryMessage(String chatId) {
-        MemoryService.MemorySnapshot snapshot = memoryService.snapshot(chatId);
+        SessionService.MemorySnapshot snapshot = sessionService.memorySnapshot(chatId);
         if (!snapshot.active()) {
             return "目前未有長期記憶。你可以直接叫我記住、改寫或者刪除長期記憶；我之後亦會自動記低穩定偏好同持續背景。想清除可以打 /forget。";
         }
