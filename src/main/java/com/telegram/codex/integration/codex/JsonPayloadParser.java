@@ -22,9 +22,9 @@ public class JsonPayloadParser {
         this.objectMapper = objectMapper;
     }
 
-    public Object parsePayload(String rawReply) throws Exception {
+    public Object parsePayload(String rawReply) {
         for (String candidate : candidatePayloads(rawReply)) {
-            if (candidate == null || candidate.isBlank()) {
+            if (candidate.isBlank()) {
                 continue;
             }
             try {
@@ -49,7 +49,7 @@ public class JsonPayloadParser {
         String unwrapped = normalized.replaceFirst("^```(?:json)?\\s*", "").replaceFirst("\\s*```$", "").trim();
         String extracted = extractJsonObject(unwrapped);
         String relaxed = extractRelaxedPayload(extracted == null ? unwrapped : extracted);
-        return List.of(normalized, unwrapped, extracted, relaxed);
+        return List.of(normalized, unwrapped, extracted == null ? "" : extracted, relaxed == null ? "" : relaxed);
     }
 
     private String extractJsonObject(String text) {
@@ -64,11 +64,11 @@ public class JsonPayloadParser {
     private String extractRelaxedPayload(String text) {
         String replyText = extractRelaxedText(text);
         List<String> suggestedReplies = extractRelaxedSuggestedReplies(text);
-        if ((replyText == null || replyText.isBlank()) && suggestedReplies.isEmpty()) {
+        if (replyText.isBlank() && suggestedReplies.isEmpty()) {
             return null;
         }
         try {
-            return objectMapper.writeValueAsString(Map.of("text", replyText == null ? "" : replyText, "suggested_replies", suggestedReplies));
+            return objectMapper.writeValueAsString(Map.of("text", replyText, "suggested_replies", suggestedReplies));
         } catch (JsonProcessingException error) {
             throw new IllegalStateException("Failed to build relaxed payload", error);
         }

@@ -55,19 +55,19 @@ public class TelegramCommandHandler {
         switch (command) {
             case START -> {
                 sessionService.reset(message.chatId());
-                sendAndMarkProcessed(message, MessageConstants.START_MESSAGE, true);
+                sendAndMarkProcessed(message, MessageConstants.START_MESSAGE);
             }
             case NEW_SESSION -> {
                 sessionService.reset(message.chatId());
-                sendAndMarkProcessed(message, MessageConstants.NEW_SESSION_MESSAGE, true);
+                sendAndMarkProcessed(message, MessageConstants.NEW_SESSION_MESSAGE);
             }
-            case HELP -> sendAndMarkProcessed(message, MessageConstants.HELP_MESSAGE, true);
-            case STATUS -> sendAndMarkProcessed(message, messageBuilder.buildStatusMessage(message.chatId()), true);
-            case SESSION -> sendAndMarkProcessed(message, messageBuilder.buildSessionMessage(message.chatId()), true);
-            case MEMORY -> sendAndMarkProcessed(message, messageBuilder.buildMemoryMessage(message.chatId()), true);
+            case HELP -> sendAndMarkProcessed(message, MessageConstants.HELP_MESSAGE);
+            case STATUS -> sendAndMarkProcessed(message, messageBuilder.buildStatusMessage(message.chatId()));
+            case SESSION -> sendAndMarkProcessed(message, messageBuilder.buildSessionMessage(message.chatId()));
+            case MEMORY -> sendAndMarkProcessed(message, messageBuilder.buildMemoryMessage(message.chatId()));
             case FORGET -> {
                 sessionService.resetMemory(message.chatId());
-                sendAndMarkProcessed(message, MessageConstants.RESET_MEMORY_MESSAGE, true);
+                sendAndMarkProcessed(message, MessageConstants.RESET_MEMORY_MESSAGE);
             }
             case COMPACT -> executeCompactSession(message);
         }
@@ -90,8 +90,8 @@ public class TelegramCommandHandler {
         processedUpdateService.markProcessed(message);
     }
 
-    private void sendAndMarkProcessed(InboundMessage message, String text, boolean disableNotification) {
-        telegramClient.sendMessage(message.chatId(), text, List.of(), disableNotification);
+    private void sendAndMarkProcessed(InboundMessage message, String text) {
+        telegramClient.sendMessage(message.chatId(), text, List.of(), true);
         processedUpdateService.markProcessed(message);
     }
 }

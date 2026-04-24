@@ -41,7 +41,7 @@ public class PromptBuilder {
             sections.add("今次總共有 " + imageCount + " 張圖，分析時要用圖 1、圖 2、圖 3 呢類編號逐張講。");
         }
         if (longTermMemory != null && !longTermMemory.isBlank()) {
-            sections.add(renderUntrustedBlock("untrusted_memory", longTermMemory));
+            sections.add(renderUntrustedMemoryBlock(longTermMemory));
             sections.add("只喺長期記憶同當前請求明顯相關時自然利用，唔好主動背誦或者逐條重複。");
             sections.add("如果用戶今次明確要求新增、修正或者刪除長期記憶，以今次請求為準。");
         }
@@ -59,11 +59,11 @@ public class PromptBuilder {
         return String.join("\n", lines);
     }
 
-    private String renderUntrustedBlock(String tagName, String content) {
+    private String renderUntrustedMemoryBlock(String content) {
         return String.join("\n",
-                "<" + tagName + ">",
+                "<untrusted_memory>",
                 content,
-                "</" + tagName + ">"
+                "</untrusted_memory>"
         );
     }
 }

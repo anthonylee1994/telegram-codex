@@ -30,7 +30,4 @@ public class ChatRateLimiter {
         return true;
     }
 
-    public void reset() {
-        hits.clear();
-    }
 }

@@ -76,12 +76,6 @@ public class MediaGroupBufferRepository {
         return FlushResult.ready(mediaGroupMerger.merge(messages));
     }
 
-    @Transactional
-    public void clear() {
-        messageRepository.deleteAll();
-        bufferRepository.deleteAll();
-    }
-
     private String writeMessage(InboundMessage message) {
         try {
             return objectMapper.writeValueAsString(message);

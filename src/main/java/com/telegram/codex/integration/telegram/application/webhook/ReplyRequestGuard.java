@@ -40,22 +40,22 @@ public class ReplyRequestGuard {
     public boolean allow(InboundMessage message) {
         if (!properties.allowedTelegramUserIds().isEmpty() && !properties.allowedTelegramUserIds().contains(message.userId())) {
             LOGGER.warn("Rejected unauthorized Telegram user chat_id={} user_id={}", message.chatId(), message.userId());
-            sendAndMarkProcessed(message, MessageConstants.UNAUTHORIZED_MESSAGE, false);
+            sendAndMarkProcessed(message, MessageConstants.UNAUTHORIZED_MESSAGE);
             return false;
         }
 
         if (message.mediaGroup() && message.imageCount() > properties.getMaxMediaGroupImages()) {
-            sendAndMarkProcessed(message, MessageConstants.TOO_MANY_IMAGES_MESSAGE, false);
+            sendAndMarkProcessed(message, MessageConstants.TOO_MANY_IMAGES_MESSAGE);
             return false;
         }
 
         if (sensitiveIntentGuard.shouldBlock(message)) {
-            sendAndMarkProcessed(message, MessageConstants.SENSITIVE_INTENT_MESSAGE, false);
+            sendAndMarkProcessed(message, MessageConstants.SENSITIVE_INTENT_MESSAGE);
             return false;
         }
 
         if (!rateLimiter.allow(message.chatId())) {
-            sendAndMarkProcessed(message, MessageConstants.RATE_LIMIT_MESSAGE, false);
+            sendAndMarkProcessed(message, MessageConstants.RATE_LIMIT_MESSAGE);
             return false;
         }
 
@@ -66,8 +66,8 @@ public class ReplyRequestGuard {
         return true;
     }
 
-    private void sendAndMarkProcessed(InboundMessage message, String text, boolean disableNotification) {
-        telegramClient.sendMessage(message.chatId(), text, List.of(), disableNotification);
+    private void sendAndMarkProcessed(InboundMessage message, String text) {
+        telegramClient.sendMessage(message.chatId(), text, List.of(), false);
         processedUpdateService.markProcessed(message);
     }
 }

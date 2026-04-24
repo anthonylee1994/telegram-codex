@@ -1,8 +1,5 @@
 package com.telegram.codex.integration.codex;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.conversation.domain.MessageConstants;
 import com.telegram.codex.integration.telegram.domain.TelegramConstants;
 import org.springframework.stereotype.Component;
@@ -14,11 +11,9 @@ import java.util.Map;
 @Component
 public class ReplyParser {
 
-    private final ObjectMapper objectMapper;
     private final JsonPayloadParser jsonPayloadParser;
 
-    public ReplyParser(ObjectMapper objectMapper, JsonPayloadParser jsonPayloadParser) {
-        this.objectMapper = objectMapper;
+    public ReplyParser(JsonPayloadParser jsonPayloadParser) {
         this.jsonPayloadParser = jsonPayloadParser;
     }
 
@@ -35,19 +30,6 @@ public class ReplyParser {
                 MessageConstants.DEFAULT_SUGGESTED_REPLIES
             );
             return new ParsedReply(fallbackText, fallbackReplies);
-        }
-    }
-
-    public List<String> parseSuggestedReplies(String rawSuggestedReplies) {
-        if (rawSuggestedReplies == null || rawSuggestedReplies.isBlank()) {
-            return List.of();
-        }
-        try {
-            List<?> payload = objectMapper.readValue(rawSuggestedReplies, new TypeReference<>() {
-            });
-            return sanitizeSuggestedReplies(payload, List.of());
-        } catch (JsonProcessingException error) {
-            return List.of();
         }
     }
 

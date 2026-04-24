@@ -13,6 +13,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 @Component
 public class AttachmentDownloader {
@@ -49,8 +50,8 @@ public class AttachmentDownloader {
         if (directory == null || !Files.exists(directory)) {
             return;
         }
-        try {
-            Files.walk(directory)
+        try (Stream<Path> paths = Files.walk(directory)) {
+            paths
                 .sorted(Comparator.reverseOrder())
                 .forEach(path -> {
                     try {

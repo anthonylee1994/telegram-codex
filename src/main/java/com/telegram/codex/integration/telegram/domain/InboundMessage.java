@@ -157,11 +157,7 @@ public record InboundMessage(
     }
 
     private static String normalizeNullableString(String value) {
-        if (value == null) {
-            return null;
-        }
-        String normalized = value.trim();
-        return normalized.isEmpty() ? null : normalized;
+        return TelegramPayloadValueReader.blankToNull(value);
     }
 
     private static List<ProcessingUpdate> normalizeProcessingUpdates(

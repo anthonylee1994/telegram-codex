@@ -52,15 +52,6 @@ public final class Transcript {
         return messages.size();
     }
 
-    public List<String> toPromptLines() {
-        ArrayList<String> lines = new ArrayList<>();
-        for (int index = 0; index < messages.size(); index += 1) {
-            Map<String, String> message = messages.get(index);
-            lines.add((index + 1) + ". " + message.get("role") + ": " + message.get("content"));
-        }
-        return List.copyOf(lines);
-    }
-
     public List<String> toTaggedPromptLines() {
         ArrayList<String> lines = new ArrayList<>();
         for (int index = 0; index < messages.size(); index += 1) {

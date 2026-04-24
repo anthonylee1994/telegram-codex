@@ -7,6 +7,4 @@ import java.util.List;
 public interface ProcessedUpdateJpaRepository extends JpaRepository<ProcessedUpdateEntity, Long> {
 
     long deleteBySentAtIsNotNullAndProcessedAtLessThan(long cutoff);
-
-    List<ProcessedUpdateEntity> findByChatId(String chatId);
 }

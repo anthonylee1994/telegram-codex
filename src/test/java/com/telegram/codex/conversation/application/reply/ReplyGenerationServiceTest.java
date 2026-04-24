@@ -36,7 +36,9 @@ class ReplyGenerationServiceTest {
         TelegramGateway telegramGateway = Mockito.mock(TelegramGateway.class);
         AttachmentDownloader attachmentDownloader = Mockito.mock(AttachmentDownloader.class);
         when(cliClient.generateReply(anyString(), any(), anyList(), any(), any())).thenReturn(new ReplyResult("next-state", List.of("a", "b", "c"), "reply"));
-        ChatSessionRepository sessionRepository = mockSessionRepository(Optional.of(new ChatSessionRecord("3", "[{\"role\":\"user\",\"content\":\"hi\"}]", System.currentTimeMillis())));
+        ChatSessionRepository sessionRepository = mockSessionRepository(
+            new ChatSessionRecord("3", "[{\"role\":\"user\",\"content\":\"hi\"}]", System.currentTimeMillis())
+        );
         ChatMemoryRepository memoryRepository = Mockito.mock(ChatMemoryRepository.class);
         when(memoryRepository.find("3")).thenReturn(Optional.of(new ChatMemoryRecord("3", "記憶", System.currentTimeMillis())));
         when(memoryClient.merge("記憶", "你好", "reply")).thenReturn("記憶");
@@ -78,7 +80,7 @@ class ReplyGenerationServiceTest {
         when(memoryRepository.find("3")).thenReturn(Optional.empty());
         when(attachmentDownloader.downloadImages(List.of())).thenReturn(List.of());
         when(telegramGateway.withTypingStatus(eq("3"), any())).thenAnswer(invocation -> invocation.getArgument(1, Supplier.class).get());
-        ChatSessionRepository sessionRepository = mockSessionRepository(Optional.empty());
+        ChatSessionRepository sessionRepository = mockSessionRepository(null);
 
         ReplyGenerationService service = new ReplyGenerationService(
             cliClient,
@@ -97,9 +99,9 @@ class ReplyGenerationServiceTest {
         verify(memoryRepository, never()).persist(anyString(), anyString());
     }
 
-    private ChatSessionRepository mockSessionRepository(Optional<ChatSessionRecord> record) {
+    private ChatSessionRepository mockSessionRepository(ChatSessionRecord record) {
         ChatSessionRepository repository = Mockito.mock(ChatSessionRepository.class);
-        when(repository.findActive("3")).thenReturn(record);
+        when(repository.findActive("3")).thenReturn(Optional.ofNullable(record));
         return repository;
     }
 

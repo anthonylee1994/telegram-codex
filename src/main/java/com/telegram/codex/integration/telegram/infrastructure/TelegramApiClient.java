@@ -30,7 +30,7 @@ public class TelegramApiClient {
         this.typingStatusManager = typingStatusManager;
     }
 
-    public Object postForm(String methodName, Map<String, Object> params) {
+    public void postForm(String methodName, Map<String, Object> params) {
         try {
             String body = buildFormBody(params);
             HttpRequest request = HttpRequest.newBuilder(URI.create(apiBase() + "/" + methodName))
@@ -42,7 +42,6 @@ public class TelegramApiClient {
             Map<String, Object> payload = objectMapper.readValue(response.body(), new TypeReference<>() {
             });
             validateTelegramResponse(payload, methodName);
-            return payload.get("result");
         } catch (java.io.IOException | InterruptedException error) {
             throw new IllegalStateException("Failed to call Telegram " + methodName, error);
         }

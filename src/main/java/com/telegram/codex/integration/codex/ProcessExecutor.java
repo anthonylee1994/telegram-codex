@@ -28,8 +28,8 @@ public final class ProcessExecutor {
         }
 
         boolean exited = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
-        String stdout = readStreamToString(process.getInputStream(), StandardCharsets.UTF_8);
-        String stderr = readStreamToString(process.getErrorStream(), StandardCharsets.UTF_8);
+        String stdout = readStreamToString(process.getInputStream());
+        String stderr = readStreamToString(process.getErrorStream());
 
         if (!exited) {
             process.destroyForcibly();
@@ -39,15 +39,12 @@ public final class ProcessExecutor {
         return new ProcessResult(process.exitValue(), stdout, stderr, false);
     }
 
-    private static String readStreamToString(InputStream stream, Charset charset) throws IOException {
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, charset))) {
+    private static String readStreamToString(InputStream stream) throws IOException {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
             return reader.lines().collect(Collectors.joining("\n"));
         }
     }
 
     public record ProcessResult(int exitCode, String stdout, String stderr, boolean timedOut) {
-        public boolean success() {
-            return exitCode == 0 && !timedOut;
-        }
     }
 }

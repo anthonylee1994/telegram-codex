@@ -58,10 +58,6 @@ public class ExecRunner {
                 throw new ExecutionException("codex exec returned an empty reply");
             }
             return replyText;
-        } catch (ExecutionTimeoutException error) {
-            throw error;
-        } catch (ExecutionException error) {
-            throw error;
         } catch (IOException | InterruptedException error) {
             throw new ExecutionException("Failed to run codex exec", error);
         } finally {

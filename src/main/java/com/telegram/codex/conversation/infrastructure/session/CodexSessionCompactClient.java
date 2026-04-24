@@ -32,8 +32,6 @@ public class CodexSessionCompactClient {
                 throw new ExecutionException("session compact returned an empty reply");
             }
             return compact;
-        } catch (ExecutionException error) {
-            throw error;
         } catch (JsonProcessingException error) {
             throw new ExecutionException("session compact returned invalid JSON", error);
         }

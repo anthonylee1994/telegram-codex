@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ExecRunnerTest {
 
     @Test
-    void runUsesTempDirectoryAsWorkingDirectory() throws Exception {
+    void runUsesTempDirectoryAsWorkingDirectory() {
         AppProperties properties = new AppProperties();
         properties.setBaseUrl("https://example.com");
         properties.setTelegramBotToken("token");
@@ -31,7 +31,7 @@ class ExecRunnerTest {
     }
 
     @Test
-    void runWrapsSystemPromptAndUserPromptAsSeparateSections() throws Exception {
+    void runWrapsSystemPromptAndUserPromptAsSeparateSections() {
         AppProperties properties = new AppProperties();
         properties.setBaseUrl("https://example.com");
         properties.setTelegramBotToken("token");
