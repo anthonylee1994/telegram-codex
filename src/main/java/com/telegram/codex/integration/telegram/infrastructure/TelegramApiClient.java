@@ -2,8 +2,8 @@ package com.telegram.codex.integration.telegram.infrastructure;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.telegram.codex.shared.config.AppProperties;
 import com.telegram.codex.integration.telegram.domain.TelegramConstants;
+import com.telegram.codex.shared.config.AppProperties;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;

@@ -1,12 +1,5 @@
 package com.telegram.codex.conversation.application.job;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import com.telegram.codex.conversation.application.JobSchedulerService;
 import com.telegram.codex.conversation.application.reply.ReplyGenerationService;
 import com.telegram.codex.conversation.application.session.SessionService;
@@ -14,14 +7,22 @@ import com.telegram.codex.conversation.infrastructure.MediaGroupBufferRepository
 import com.telegram.codex.integration.telegram.application.CompactResultSender;
 import com.telegram.codex.integration.telegram.application.webhook.InboundMessageProcessor;
 import com.telegram.codex.integration.telegram.domain.InboundMessage;
-import java.time.Duration;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.ObjectProvider;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class JobSchedulerServiceTest {
 

@@ -2,9 +2,6 @@ package com.telegram.codex.integration.codex;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.shared.config.AppProperties;
-import com.telegram.codex.integration.codex.CodexConstants;
-import com.telegram.codex.integration.codex.ExecutionException;
-import com.telegram.codex.integration.codex.ExecutionTimeoutException;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;

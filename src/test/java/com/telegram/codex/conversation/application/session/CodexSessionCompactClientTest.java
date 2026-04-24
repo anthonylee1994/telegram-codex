@@ -1,9 +1,9 @@
 package com.telegram.codex.conversation.application.session;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.telegram.codex.conversation.domain.session.Transcript;
 import com.telegram.codex.conversation.infrastructure.session.CodexSessionCompactClient;
 import com.telegram.codex.integration.codex.ExecRunner;
-import com.telegram.codex.conversation.domain.session.Transcript;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
