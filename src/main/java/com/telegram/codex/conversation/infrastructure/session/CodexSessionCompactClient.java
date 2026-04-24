@@ -1,12 +1,12 @@
 package com.telegram.codex.conversation.infrastructure.session;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.conversation.domain.session.Transcript;
 import com.telegram.codex.integration.codex.ExecRunner;
 import com.telegram.codex.integration.codex.ExecutionException;
 import com.telegram.codex.integration.codex.schema.CodexOutputSchema;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

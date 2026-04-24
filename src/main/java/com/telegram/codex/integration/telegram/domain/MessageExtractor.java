@@ -72,7 +72,7 @@ public class MessageExtractor {
     }
 
     public boolean isSupported() {
-        return message.text() instanceof String
+        return message.text() != null
             || hasPhoto()
             || imageDocumentFileId().isPresent();
     }

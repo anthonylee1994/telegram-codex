@@ -1,9 +1,9 @@
 package com.telegram.codex.integration.telegram.infrastructure;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.integration.telegram.domain.TelegramConstants;
 import com.telegram.codex.shared.config.AppProperties;
 import org.springframework.stereotype.Component;
@@ -16,7 +16,6 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Supplier;
 
 @Component

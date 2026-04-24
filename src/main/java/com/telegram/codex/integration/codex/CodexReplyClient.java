@@ -1,12 +1,12 @@
 package com.telegram.codex.integration.codex;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telegram.codex.conversation.application.gateway.ReplyGenerationGateway;
 import com.telegram.codex.conversation.application.reply.ReplyResult;
 import com.telegram.codex.conversation.domain.session.Transcript;
 import com.telegram.codex.integration.codex.schema.CodexOutputSchema;
 import com.telegram.codex.integration.telegram.domain.TelegramConstants;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
