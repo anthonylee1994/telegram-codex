@@ -49,7 +49,6 @@ class ArchitectureTest {
     @Test
     void mainCodeDoesNotIntroduceLegacyStoreTypeNames() {
         List<String> violations = findDeclarationViolations(
-            MAIN_JAVA_DIR,
             Pattern.compile("\\b(class|interface|record)\\s+[A-Za-z0-9_]*Store\\b")
         );
         assertTrue(violations.isEmpty(), String.join("\n", violations));
@@ -73,15 +72,15 @@ class ArchitectureTest {
         }
     }
 
-    private List<String> findDeclarationViolations(Path root, Pattern forbiddenDeclarationPattern) {
-        try (Stream<Path> stream = Files.walk(root)) {
+    private List<String> findDeclarationViolations(Pattern forbiddenDeclarationPattern) {
+        try (Stream<Path> stream = Files.walk(MAIN_JAVA_DIR)) {
             return stream
                 .filter(path -> path.toString().endsWith(".java"))
                 .filter(path -> fileMatches(path, forbiddenDeclarationPattern))
                 .map(path -> path + " declares forbidden legacy *Store type name")
                 .toList();
         } catch (IOException error) {
-            throw new IllegalStateException("Failed to scan declaration names under " + root, error);
+            throw new IllegalStateException("Failed to scan declaration names under " + MAIN_JAVA_DIR, error);
         }
     }
 

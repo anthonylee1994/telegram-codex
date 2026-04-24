@@ -46,10 +46,6 @@ public record InboundMessage(
         return imageFileIds.isEmpty() ? replyToImageFileIds : imageFileIds;
     }
 
-    public boolean replyingToFile() {
-        return !replyToImageFileIds.isEmpty();
-    }
-
     public record ProcessingUpdate(@JsonProperty("update_id") long updateId, @JsonProperty("message_id") long messageId) {
     }
 
@@ -92,21 +88,6 @@ public record InboundMessage(
 
         public Builder processingUpdates(List<ProcessingUpdate> processingUpdates) {
             this.processingUpdates = processingUpdates;
-            return this;
-        }
-
-        public Builder replyToImageFileIds(List<String> replyToImageFileIds) {
-            this.replyToImageFileIds = replyToImageFileIds;
-            return this;
-        }
-
-        public Builder replyToMessageId(Long replyToMessageId) {
-            this.replyToMessageId = replyToMessageId;
-            return this;
-        }
-
-        public Builder replyToText(String replyToText) {
-            this.replyToText = replyToText;
             return this;
         }
 

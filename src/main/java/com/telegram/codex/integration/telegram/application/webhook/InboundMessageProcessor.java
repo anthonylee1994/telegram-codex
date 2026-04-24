@@ -54,9 +54,8 @@ public class InboundMessageProcessor {
         jobSchedulerService.enqueueReplyGeneration(message);
     }
 
-    public Object deferMediaGroup(InboundMessage message, Duration waitDuration) {
+    public void deferMediaGroup(InboundMessage message, Duration waitDuration) {
         MediaGroupBufferRepository.EnqueueResult result = mediaGroupStore.enqueue(message, waitDuration.toMillis() / 1000.0);
         jobSchedulerService.scheduleMediaGroupFlush(result.key(), result.deadlineAt(), waitDuration);
-        return TelegramWebhookHandler.DEFERRED;
     }
 }

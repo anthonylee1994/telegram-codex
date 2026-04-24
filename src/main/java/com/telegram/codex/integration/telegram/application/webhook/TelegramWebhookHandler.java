@@ -11,8 +11,6 @@ import java.util.Map;
 @Component
 public class TelegramWebhookHandler {
 
-    public static final Object DEFERRED = new Object();
-
     private final AppProperties properties;
     private final InboundMessageProcessor inboundMessageProcessor;
     private final TelegramMessageParser telegramUpdateParser;
@@ -30,10 +28,8 @@ public class TelegramWebhookHandler {
     public void handle(Map<String, Object> update) {
         InboundMessage message = telegramUpdateParser.parseIncomingTelegramMessage(update);
         if (message != null && message.mediaGroup()) {
-            Object deferred = inboundMessageProcessor.deferMediaGroup(message, Duration.ofMillis(properties.getMediaGroupWaitMs()));
-            if (deferred == DEFERRED) {
-                return;
-            }
+            inboundMessageProcessor.deferMediaGroup(message, Duration.ofMillis(properties.getMediaGroupWaitMs()));
+            return;
         }
         inboundMessageProcessor.process(message, update);
     }

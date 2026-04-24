@@ -30,16 +30,8 @@ public class MediaGroupMessageEntity {
         this.updateId = updateId;
     }
 
-    public String getMediaGroupKey() {
-        return mediaGroupKey;
-    }
-
     public void setMediaGroupKey(String mediaGroupKey) {
         this.mediaGroupKey = mediaGroupKey;
-    }
-
-    public long getMessageId() {
-        return messageId;
     }
 
     public void setMessageId(long messageId) {

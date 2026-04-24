@@ -58,7 +58,7 @@ public class TelegramFileDownloader {
             Map<String, Object> payload = objectMapper.readValue(response.body(), new TypeReference<>() {
             });
             Map<String, Object> result = TelegramPayloadValueReader.castMap(payload.get("result"));
-            validateTelegramResponse(payload, "getFile");
+            validateTelegramResponse(payload);
             if (result == null || result.get("file_path") == null) {
                 throw new IllegalStateException("Telegram getFile did not include a file path");
             }
@@ -74,9 +74,9 @@ public class TelegramFileDownloader {
         }
     }
 
-    private void validateTelegramResponse(Map<String, Object> payload, String operation) {
+    private void validateTelegramResponse(Map<String, Object> payload) {
         if (payload == null || !Boolean.TRUE.equals(payload.get("ok"))) {
-            throw new IllegalStateException("Failed to " + operation + ": invalid response");
+            throw new IllegalStateException("Failed to call Telegram getFile: invalid response");
         }
     }
 }
