@@ -24,7 +24,7 @@ server:
     port: ${PORT:3000}
 logging:
     level:
-        root: INFO
+        root: DEBUG
 app:
     base-url: ${BASE_URL:}
     telegram-bot-token: ${TELEGRAM_BOT_TOKEN:}

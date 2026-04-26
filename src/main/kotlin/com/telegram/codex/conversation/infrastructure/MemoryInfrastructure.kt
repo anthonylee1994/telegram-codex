@@ -20,9 +20,9 @@ class CodexMemoryClient(
         val rawReply = execRunner.run(buildPrompt(existingMemory, userMessage, assistantReply), emptyList(), memoryOutputSchema())
         return try {
             val payload = objectMapper.treeToValue(jsonPayloadParser.parsePayload(rawReply), MemoryPayload::class.java)
-            payload.memory.trim()
+            payload.memory?.trim().orEmpty()
         } catch (error: Exception) {
-            LOGGER.warn("Ignored invalid memory merge reply error={}", error.message)
+            LOGGER.debug("Ignored invalid memory merge reply error={}", error.message)
             existingMemory?.trim().orEmpty()
         }
     }
@@ -61,10 +61,8 @@ class CodexMemoryClient(
         MemoryOutputSchema("object", false, listOf("memory"), MemoryProperties(StringPropertySchema("string")))
 
     private data class MemoryPayload(
-        @param:JsonProperty("memory") val rawMemory: String?,
-    ) {
-        val memory: String = rawMemory ?: ""
-    }
+        @param:JsonProperty("memory") val memory: String?,
+    )
 
     private data class MemoryOutputSchema(
         @param:JsonProperty("type") val type: String,
