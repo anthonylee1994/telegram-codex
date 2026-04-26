@@ -40,5 +40,15 @@ class CodexMemoryClientTest {
         assertEquals("- 記住用廣東話", client.merge("", "記住我用廣東話", "好"))
     }
 
+    @Test
+    fun mergeKeepsExistingMemoryWhenReplyIsInvalid() {
+        val execRunner = Mockito.mock(ExecRunner::class.java)
+        Mockito.doReturn("唔係 JSON").`when`(execRunner)
+            .run(Mockito.anyString(), Mockito.anyList(), Mockito.any(CodexOutputSchema::class.java))
+        val client = CodexMemoryClient(execRunner, mapper(), JsonPayloadParser(mapper()))
+
+        assertEquals("- 舊記憶", client.merge(" - 舊記憶 ", "你好", "你好"))
+    }
+
     private fun mapper(): ObjectMapper = ObjectMapper()
 }

@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.telegram.codex.conversation.domain.ChatMemoryRecord
 import com.telegram.codex.integration.codex.CodexOutputSchema
 import com.telegram.codex.integration.codex.ExecRunner
-import com.telegram.codex.integration.codex.ExecutionException
 import com.telegram.codex.integration.codex.JsonPayloadParser
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -23,7 +22,8 @@ class CodexMemoryClient(
             val payload = objectMapper.treeToValue(jsonPayloadParser.parsePayload(rawReply), MemoryPayload::class.java)
             payload.memory.trim()
         } catch (error: Exception) {
-            throw ExecutionException("memory merge returned invalid JSON", error)
+            LOGGER.debug("Ignored invalid memory merge reply error={}", error.message)
+            existingMemory?.trim().orEmpty()
         }
     }
 
@@ -80,6 +80,10 @@ class CodexMemoryClient(
     private data class StringPropertySchema(
         @param:JsonProperty("type") val type: String,
     )
+
+    companion object {
+        private val LOGGER = LoggerFactory.getLogger(CodexMemoryClient::class.java)
+    }
 }
 
 @Repository
