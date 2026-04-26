@@ -24,23 +24,13 @@ class AttachmentDownloader(
     private val telegramClient: TelegramGateway,
 ) {
     fun downloadImages(imageFileIds: List<String>): List<Path> {
-        val imagePaths = ArrayList<Path>()
-        for (imageFileId in imageFileIds) {
-            imagePaths.add(telegramClient.downloadFileToTemp(imageFileId))
-        }
-        return imagePaths.toList()
+        return imageFileIds.map(telegramClient::downloadFileToTemp)
     }
 
     fun cleanup(filePaths: List<Path?>) {
-        val uniqueParentDirs = HashSet<Path>()
-        for (filePath in filePaths) {
-            if (filePath?.parent != null) {
-                uniqueParentDirs.add(filePath.parent)
-            }
-        }
-        for (parentDir in uniqueParentDirs) {
-            deleteDirectoryRecursively(parentDir)
-        }
+        filePaths.mapNotNull { it?.parent }
+            .toSet()
+            .forEach(::deleteDirectoryRecursively)
     }
 
     private fun deleteDirectoryRecursively(directory: Path?) {
@@ -118,10 +108,10 @@ class ReplyGenerationService(
     }
 
     private fun findLastResponseId(chatId: String): String? =
-        chatSessionRepository.findActive(chatId).map { it.lastResponseId }.orElse(null)
+        chatSessionRepository.findActive(chatId)?.lastResponseId
 
     private fun findMemoryText(chatId: String): String? =
-        chatMemoryRepository.find(chatId).map { it.memoryText }.orElse(null)
+        chatMemoryRepository.find(chatId)?.memoryText
 
     private fun refreshMemory(chatId: String, userMessage: String?, assistantReply: String) {
         if (userMessage.isNullOrBlank()) {
@@ -135,7 +125,7 @@ class ReplyGenerationService(
     }
 
     private fun persistMemory(chatId: String, userMessage: String, assistantReply: String) {
-        val existingMemory = chatMemoryRepository.find(chatId).map { it.memoryText }.orElse("")
+        val existingMemory = chatMemoryRepository.find(chatId)?.memoryText ?: ""
         val mergedMemory = memoryClient.merge(existingMemory, userMessage, assistantReply)
         if (mergedMemory != existingMemory) {
             chatMemoryRepository.persist(chatId, mergedMemory)

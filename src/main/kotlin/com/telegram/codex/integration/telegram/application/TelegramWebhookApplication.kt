@@ -13,7 +13,6 @@ import com.telegram.codex.shared.AppProperties
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.time.Duration
-import java.util.*
 import java.util.regex.Pattern
 
 @Component
@@ -25,22 +24,22 @@ class CompactCommandExecutor(
     fun execute(message: InboundMessage) {
         val snapshot = sessionService.snapshot(message.chatId)
         val immediateResult = validate(snapshot)
-        if (immediateResult.isPresent) {
-            responder.sendCompactResult(message, immediateResult.get())
+        if (immediateResult != null) {
+            responder.sendCompactResult(message, immediateResult)
             return
         }
         jobSchedulerService.enqueueSessionCompact(message.chatId)
         responder.reply(message, MessageConstants.COMPACT_QUEUED_MESSAGE)
     }
 
-    private fun validate(snapshot: SessionService.SessionSnapshot): Optional<SessionService.SessionCompactResult> {
+    private fun validate(snapshot: SessionService.SessionSnapshot): SessionService.SessionCompactResult? {
         if (!snapshot.active) {
-            return Optional.of(SessionService.SessionCompactResult.missingSession())
+            return SessionService.SessionCompactResult.missingSession()
         }
         if (snapshot.messageCount < ConversationConstants.MIN_TRANSCRIPT_SIZE_FOR_COMPACT) {
-            return Optional.of(SessionService.SessionCompactResult.tooShort(snapshot.messageCount))
+            return SessionService.SessionCompactResult.tooShort(snapshot.messageCount)
         }
-        return Optional.empty()
+        return null
     }
 }
 
@@ -55,8 +54,9 @@ class DuplicateUpdateHandler(
             LOGGER.info("Ignored duplicate update update_id={}", message.updateId)
             return true
         }
-        if (processedUpdateService.replayable(processedUpdate)) {
-            processedUpdateService.resendPendingReply(message, processedUpdate.orElseThrow(), telegramClient)
+        val replayableUpdate = processedUpdate?.takeIf(processedUpdateService::replayable)
+        if (replayableUpdate != null) {
+            processedUpdateService.resendPendingReply(message, replayableUpdate, telegramClient)
             return true
         }
         return false
@@ -233,11 +233,8 @@ class TelegramCommandHandler(
     private val compactCommandExecutor: CompactCommandExecutor,
 ) {
     fun handle(message: InboundMessage): Boolean {
-        val command = commandRegistry.resolve(message)
-        if (command.isEmpty) {
-            return false
-        }
-        execute(command.get(), message)
+        val command = commandRegistry.resolve(message) ?: return false
+        execute(command, message)
         return true
     }
 
@@ -266,8 +263,8 @@ class TelegramCommandHandler(
 
 @Component
 class TelegramCommandRegistry {
-    fun resolve(message: InboundMessage): Optional<TelegramCommand> =
-        COMMANDS.firstOrNull { it.matches(message.textOrEmpty()) }?.let { Optional.of(it.command) } ?: Optional.empty()
+    fun resolve(message: InboundMessage): TelegramCommand? =
+        COMMANDS.firstOrNull { it.matches(message.textOrEmpty()) }?.command
 
     enum class TelegramCommand {
         START,
@@ -383,14 +380,15 @@ class TelegramWebhookRouter(
     private val inboundMessageProcessor: InboundMessageProcessor,
 ) {
     fun route(message: InboundMessage?, update: TelegramUpdate?) {
-        if (shouldDeferMediaGroup(message)) {
-            inboundMessageProcessor.deferMediaGroup(message!!, Duration.ofMillis(properties.mediaGroupWaitMs.toLong()))
+        val inboundMessage = message
+        if (inboundMessage != null && shouldDeferMediaGroup(inboundMessage)) {
+            inboundMessageProcessor.deferMediaGroup(inboundMessage, Duration.ofMillis(properties.mediaGroupWaitMs.toLong()))
             return
         }
         inboundMessageProcessor.process(message, update)
     }
 
-    private fun shouldDeferMediaGroup(message: InboundMessage?): Boolean = message != null && message.mediaGroup()
+    private fun shouldDeferMediaGroup(message: InboundMessage): Boolean = message.mediaGroup()
 }
 
 @Component

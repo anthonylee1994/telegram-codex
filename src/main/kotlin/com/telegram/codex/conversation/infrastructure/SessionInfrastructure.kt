@@ -13,25 +13,20 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.stereotype.Repository
 import java.time.Duration
-import java.util.*
 
 @Repository
 class ChatSessionRepository(
     private val properties: AppProperties,
     private val repository: ChatSessionJpaRepository,
 ) {
-    fun findActive(chatId: String): Optional<ChatSessionRecord> {
-        val maybeSession = repository.findById(chatId)
-        if (maybeSession.isEmpty) {
-            return Optional.empty()
-        }
-        val entity = maybeSession.get()
+    fun findActive(chatId: String): ChatSessionRecord? {
+        val entity = repository.findById(chatId).orElse(null) ?: return null
         if (currentTimeMs() - entity.updatedAt > sessionTtlMs()) {
             repository.deleteById(chatId)
             LOGGER.info("Reset expired session chat_id={}", chatId)
-            return Optional.empty()
+            return null
         }
-        return Optional.of(toRecord(entity))
+        return toRecord(entity)
     }
 
     fun persist(chatId: String, conversationState: String?) {

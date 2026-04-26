@@ -24,10 +24,9 @@ class TelegramUpdateParserTest {
             ),
         )
 
-        val message = parser.parseIncomingTelegramMessage(update)
+        val message = requireNotNull(parser.parseIncomingTelegramMessage(update))
 
-        assertNotNull(message)
-        assertEquals("3", message!!.chatId)
+        assertEquals("3", message.chatId)
         assertEquals(listOf("large"), message.imageFileIds)
         assertNull(message.replyToText)
     }

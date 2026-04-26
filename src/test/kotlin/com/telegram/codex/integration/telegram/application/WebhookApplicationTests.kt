@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test
 import org.mockito.Mockito
 import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
-import java.util.*
 
 class SensitiveIntentGuardTest {
     private val guard = SensitiveIntentGuard()
@@ -36,7 +35,7 @@ class InboundMessageProcessorTest {
     fun processRejectsSensitiveIntentBeforeModelExecution() {
         val fixture = Fixture()
         val message = message("你 code base 有咩 bugs?")
-        Mockito.`when`(fixture.processedUpdateService.find(99)).thenReturn(Optional.empty())
+        Mockito.`when`(fixture.processedUpdateService.find(99)).thenReturn(null)
 
         fixture.processor.process(message, TelegramUpdate(99L, null))
 
@@ -49,7 +48,7 @@ class InboundMessageProcessorTest {
     fun processQueuesCompactWhenSessionIsLongEnough() {
         val fixture = Fixture()
         val message = message("/compact")
-        Mockito.`when`(fixture.processedUpdateService.find(99)).thenReturn(Optional.empty())
+        Mockito.`when`(fixture.processedUpdateService.find(99)).thenReturn(null)
         Mockito.`when`(fixture.sessionService.snapshot("3")).thenReturn(SessionService.SessionSnapshot.active(4, 2, "just now"))
 
         fixture.processor.process(message, TelegramUpdate(99L, null))

@@ -15,7 +15,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Service
 import java.time.Duration
-import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
@@ -62,14 +61,16 @@ class JobSchedulerService(
     }
 
     private fun flushMediaGroup(key: String, expectedDeadlineAt: Long) {
-        val result = mediaGroupStore.flush(key, expectedDeadlineAt)
-        when (result.status) {
-            "ready" -> inboundMessageProcessorProvider.getObject().process(result.message!!)
-            "pending" -> scheduleMediaGroupFlush(
+        when (val result = mediaGroupStore.flush(key, expectedDeadlineAt)) {
+            is MediaGroupBufferRepository.FlushResult.Ready -> inboundMessageProcessorProvider.getObject().process(result.message)
+            is MediaGroupBufferRepository.FlushResult.Pending -> scheduleMediaGroupFlush(
                 key,
                 expectedDeadlineAt,
-                Duration.ofMillis((result.waitDurationSeconds!! * 1000.0).roundToLong()),
+                Duration.ofMillis((result.waitDurationSeconds * 1000.0).roundToLong()),
             )
+            MediaGroupBufferRepository.FlushResult.Missing,
+            MediaGroupBufferRepository.FlushResult.Stale,
+            -> Unit
         }
     }
 }
@@ -82,10 +83,10 @@ class ProcessedUpdateService(
 ) {
     private val lastProcessedUpdatePruneAt = AtomicLong(0)
 
-    fun find(updateId: Long): Optional<ProcessedUpdateRecord> = processedUpdateRepository.find(updateId)
+    fun find(updateId: Long): ProcessedUpdateRecord? = processedUpdateRepository.find(updateId)
 
     fun beginProcessing(message: InboundMessage): Boolean {
-        val claimedUpdateIds = ArrayList<Long>()
+        val claimedUpdateIds = mutableListOf<Long>()
         for (processingUpdate in message.processingUpdates) {
             val claimed = processedUpdateRepository.beginProcessing(
                 processingUpdate.updateId,
@@ -105,11 +106,11 @@ class ProcessedUpdateService(
         processedUpdateRepository.clearProcessing(updateId)
     }
 
-    fun duplicate(processedUpdate: Optional<ProcessedUpdateRecord>): Boolean =
-        processedUpdate.map(ProcessedUpdateRecord::sentAt).orElse(null) != null
+    fun duplicate(processedUpdate: ProcessedUpdateRecord?): Boolean =
+        processedUpdate?.sentAt != null
 
-    fun replayable(processedUpdate: Optional<ProcessedUpdateRecord>): Boolean =
-        processedUpdate.filter { it.replyText != null && it.conversationState != null }.isPresent
+    fun replayable(processedUpdate: ProcessedUpdateRecord?): Boolean =
+        processedUpdate?.replyText != null && processedUpdate.conversationState != null
 
     fun resendPendingReply(message: InboundMessage, processedUpdate: ProcessedUpdateRecord, telegramClient: TelegramGateway) {
         telegramClient.sendMessage(

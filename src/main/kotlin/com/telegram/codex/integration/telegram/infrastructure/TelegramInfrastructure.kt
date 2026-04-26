@@ -22,9 +22,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-import java.util.function.Consumer
-import java.util.function.Function
-import java.util.function.Supplier
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 
@@ -54,7 +51,7 @@ class TelegramApiClient(
         }
     }
 
-    fun <T> withTypingStatus(chatId: String, action: Supplier<T>): T =
+    fun <T> withTypingStatus(chatId: String, action: () -> T): T =
         typingStatusManager.withTypingStatus(chatId, { id -> sendChatAction(id, "typing") }, action)
 
     fun sendChatAction(chatId: String, action: String) {
@@ -92,16 +89,15 @@ class TelegramApiClient(
         val parseMode: String,
         val replyMarkup: String?,
     ) : TelegramFormRequest {
-        override fun toFormFields(): List<FormField> {
-            val fields = ArrayList<FormField>()
-            fields.add(FormField("chat_id", chatId))
-            fields.add(FormField("text", text ?: ""))
-            fields.add(FormField("parse_mode", parseMode))
-            if (!replyMarkup.isNullOrBlank()) {
-                fields.add(FormField("reply_markup", replyMarkup))
+        override fun toFormFields(): List<FormField> =
+            buildList {
+                add(FormField("chat_id", chatId))
+                add(FormField("text", text ?: ""))
+                add(FormField("parse_mode", parseMode))
+                if (!replyMarkup.isNullOrBlank()) {
+                    add(FormField("reply_markup", replyMarkup))
+                }
             }
-            return fields.toList()
-        }
     }
 
     data class SendChatActionRequest(val chatId: String, val action: String) : TelegramFormRequest {
@@ -128,23 +124,23 @@ class TypingStatusManager {
         Thread(runnable).apply { isDaemon = true }
     }
 
-    fun <T> withTypingStatus(chatId: String, sendTypingAction: Consumer<String>, action: Supplier<T>): T {
+    fun <T> withTypingStatus(chatId: String, sendTypingAction: (String) -> Unit, action: () -> T): T {
         try {
-            sendTypingAction.accept(chatId)
+            sendTypingAction(chatId)
         } catch (error: Exception) {
             LOGGER.debug("Failed to send initial typing status for chat_id={}", chatId, error)
         }
 
         val typingTask = scheduler.scheduleAtFixedRate({
             try {
-                sendTypingAction.accept(chatId)
+                sendTypingAction(chatId)
             } catch (error: Exception) {
                 LOGGER.debug("Failed to send periodic typing status for chat_id={}", chatId, error)
             }
         }, 4, 4, TimeUnit.SECONDS)
 
         try {
-            return action.get()
+            return action()
         } finally {
             typingTask.cancel(true)
         }
@@ -252,7 +248,7 @@ class TelegramClient(
         )
     }
 
-    override fun <T> withTypingStatus(chatId: String, action: Supplier<T>): T = apiClient.withTypingStatus(chatId, action)
+    override fun <T> withTypingStatus(chatId: String, action: () -> T): T = apiClient.withTypingStatus(chatId, action)
 
     override fun setWebhook(url: String, secretToken: String) {
         apiClient.postForm("setWebhook", TelegramApiClient.SetWebhookRequest(url, secretToken))
@@ -283,15 +279,16 @@ class TelegramUpdateParser : TelegramMessageParser {
         if (!isValidUpdate(update, message)) {
             return null
         }
-        val extractor = MessageExtractor.from(message!!)
+        val updateId = update?.updateId ?: return null
+        val extractor = MessageExtractor.from(message ?: return null)
         if (!extractor.isSupported()) {
             return null
         }
-        return buildInboundMessage(update!!, extractor)
+        return buildInboundMessage(updateId, extractor)
     }
 
-    private fun buildInboundMessage(update: TelegramUpdate, extractor: MessageExtractor): InboundMessage {
-        val replyToMessage = extractor.getReplyToMessage().orElse(null)
+    private fun buildInboundMessage(updateId: Long, extractor: MessageExtractor): InboundMessage {
+        val replyToMessage = extractor.getReplyToMessage()
         return InboundMessage(
             extractor.getChatId(),
             extractor.getImageFileIds(),
@@ -299,10 +296,10 @@ class TelegramUpdateParser : TelegramMessageParser {
             extractor.getMessageId(),
             emptyList(),
             replyToMessage?.getImageFileIds() ?: emptyList(),
-            extractor.getReplyToText().orElse(null),
+            extractor.getReplyToText(),
             extractor.getText(),
             extractor.getUserId(),
-            update.updateId!!,
+            updateId,
         )
     }
 
@@ -352,20 +349,12 @@ class TelegramMessageFormatter(
     }
 
     private fun cleanReplies(replies: List<String>): List<String> {
-        val cleaned = ArrayList<String>()
-        for (reply in replies) {
-            if (reply.isBlank()) {
-                continue
-            }
-            val normalized = reply.trim()
-            if (!cleaned.contains(normalized)) {
-                cleaned.add(normalized)
-            }
-            if (cleaned.size == TelegramConstants.MAX_SUGGESTED_REPLIES) {
-                break
-            }
-        }
-        return cleaned.toList()
+        return replies.asSequence()
+            .filter { it.isNotBlank() }
+            .map { it.trim() }
+            .distinct()
+            .take(TelegramConstants.MAX_SUGGESTED_REPLIES)
+            .toList()
     }
 
     fun normalizeReply(text: String?, suggestedReplies: List<String>?): NormalizedReply {
@@ -395,7 +384,7 @@ class TelegramMessageFormatter(
 
     private data class InlineRule(
         val pattern: Pattern,
-        val replacement: Function<Matcher, String>,
+        val replacement: (Matcher) -> String,
     )
 
     companion object {
@@ -410,7 +399,7 @@ class TelegramMessageFormatter(
             InlineRule(BOLD_PATTERN) { match -> wrap("b", match.group(1)) },
             InlineRule(SPOILER_PATTERN) { match -> wrap("tg-spoiler", match.group(1)) },
             InlineRule(STRIKETHROUGH_PATTERN) { match -> wrap("s", match.group(1)) },
-            InlineRule(ITALIC_PATTERN, Function(::formatItalicMatch)),
+            InlineRule(ITALIC_PATTERN, ::formatItalicMatch),
         )
 
         private fun stripSingleLeadingNewline(text: String?): String {
@@ -449,7 +438,7 @@ class TelegramMessageFormatter(
             var cursor = 0
             while (matcher.find()) {
                 formatted.append(applyRules(text.substring(cursor, matcher.start()), ruleIndex + 1))
-                formatted.append(rule.replacement.apply(matcher))
+                formatted.append(rule.replacement(matcher))
                 cursor = matcher.end()
             }
             formatted.append(applyRules(text.substring(cursor), ruleIndex + 1))

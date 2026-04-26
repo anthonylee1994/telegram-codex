@@ -1,28 +1,28 @@
 package com.telegram.codex.conversation.infrastructure
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.telegram.codex.conversation.domain.ChatMemoryRecord
 import com.telegram.codex.integration.codex.CodexOutputSchema
 import com.telegram.codex.integration.codex.ExecRunner
 import com.telegram.codex.integration.codex.ExecutionException
+import com.telegram.codex.integration.codex.JsonPayloadParser
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.stereotype.Repository
-import java.util.*
 
 @Component
 class CodexMemoryClient(
     private val execRunner: ExecRunner,
     private val objectMapper: ObjectMapper,
+    private val jsonPayloadParser: JsonPayloadParser,
 ) {
     fun merge(existingMemory: String?, userMessage: String?, assistantReply: String?): String {
         val rawReply = execRunner.run(buildPrompt(existingMemory, userMessage, assistantReply), emptyList(), memoryOutputSchema())
         return try {
-            val payload = objectMapper.readValue(rawReply, MemoryPayload::class.java)
+            val payload = objectMapper.treeToValue(jsonPayloadParser.parsePayload(rawReply), MemoryPayload::class.java)
             payload.memory.trim()
-        } catch (error: JsonProcessingException) {
+        } catch (error: Exception) {
             throw ExecutionException("memory merge returned invalid JSON", error)
         }
     }
@@ -86,8 +86,10 @@ class CodexMemoryClient(
 class ChatMemoryRepository(
     private val repository: ChatMemoryJpaRepository,
 ) {
-    fun find(chatId: String): Optional<ChatMemoryRecord> =
-        repository.findById(chatId).map { ChatMemoryRecord(it.chatId, it.memoryText, it.updatedAt) }
+    fun find(chatId: String): ChatMemoryRecord? =
+        repository.findById(chatId)
+            .map { ChatMemoryRecord(it.chatId, it.memoryText, it.updatedAt) }
+            .orElse(null)
 
     fun persist(chatId: String, memoryText: String?) {
         val normalized = memoryText?.trim().orEmpty()

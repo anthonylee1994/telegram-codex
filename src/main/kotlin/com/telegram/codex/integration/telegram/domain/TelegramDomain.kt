@@ -2,7 +2,6 @@ package com.telegram.codex.integration.telegram.domain
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.telegram.codex.conversation.domain.MessageConstants
-import java.util.*
 
 data class TelegramBotCommand(
     val command: String,
@@ -79,19 +78,10 @@ class InboundMessage(
             primary.updateId,
         )
 
-        @JvmStatic
         fun normalizeStrings(values: List<String>?): List<String> {
-            if (values == null) {
-                return emptyList()
-            }
-            val seen = LinkedHashSet<String>()
-            for (value in values) {
-                val normalized = normalizeNullableString(value)
-                if (normalized != null) {
-                    seen.add(normalized)
-                }
-            }
-            return seen.toList()
+            return values.orEmpty()
+                .mapNotNull(::normalizeNullableString)
+                .distinct()
         }
 
         private fun normalizeNullableString(value: String?): String? =
@@ -117,12 +107,12 @@ class MessageExtractor(
     private val message: TelegramMessage,
 ) {
     fun getChatId(): String =
-        TelegramPayloadValueReader.stringValue(getChat().map(TelegramChat::id).orElse(null))
+        TelegramPayloadValueReader.stringValue(getChat()?.id)
 
     fun getMessageId(): Long = message.messageId ?: 0L
 
     fun getUserId(): String =
-        TelegramPayloadValueReader.stringValue(getFrom().map(TelegramUser::id).orElse(null))
+        TelegramPayloadValueReader.stringValue(getFrom()?.id)
 
     fun getMediaGroupId(): String? =
         TelegramPayloadValueReader.blankToNull(TelegramPayloadValueReader.stringValue(message.mediaGroupId))
@@ -136,22 +126,22 @@ class MessageExtractor(
     }
 
     fun getImageFileIds(): List<String> =
-        imageDocumentFileId().map { listOf(it) }
-            .orElseGet { getPhotoFileId().map { listOf(it) }.orElse(emptyList()) }
+        imageDocumentFileId()?.let { listOf(it) }
+            ?: getPhotoFileId()?.let { listOf(it) }
+            ?: emptyList()
 
-    fun getReplyToMessage(): Optional<MessageExtractor> =
-        Optional.ofNullable(message.replyToMessage).map(::MessageExtractor)
+    fun getReplyToMessage(): MessageExtractor? = message.replyToMessage?.let(::MessageExtractor)
 
-    fun getReplyToText(): Optional<String> = getReplyToMessage().flatMap(::resolveReplyToText)
+    fun getReplyToText(): String? = getReplyToMessage()?.let(::resolveReplyToText)
 
     fun hasPhoto(): Boolean = getPhotos().isNotEmpty()
 
     fun isSupported(): Boolean =
-        message.text != null || hasPhoto() || imageDocumentFileId().isPresent
+        message.text != null || hasPhoto() || imageDocumentFileId() != null
 
-    private fun getChat(): Optional<TelegramChat> = Optional.ofNullable(message.chat)
-    private fun getFrom(): Optional<TelegramUser> = Optional.ofNullable(message.from)
-    private fun getDocument(): Optional<TelegramDocument> = Optional.ofNullable(message.document)
+    private fun getChat(): TelegramChat? = message.chat
+    private fun getFrom(): TelegramUser? = message.from
+    private fun getDocument(): TelegramDocument? = message.document
     private fun getPhotos(): List<TelegramPhotoSize> = message.photo ?: emptyList()
 
     private fun textValue(key: String): String =
@@ -161,28 +151,28 @@ class MessageExtractor(
             else -> ""
         }
 
-    private fun imageDocumentFileId(): Optional<String> =
+    private fun imageDocumentFileId(): String? =
         getDocument()
-            .filter(::isImageDocument)
-            .map { TelegramPayloadValueReader.stringValue(it.fileId) }
+            ?.takeIf(::isImageDocument)
+            ?.let { TelegramPayloadValueReader.stringValue(it.fileId) }
 
-    private fun resolveReplyToText(reply: MessageExtractor): Optional<String> {
-        val text = Optional.ofNullable(reply.getText())
-        if (text.isPresent) {
+    private fun resolveReplyToText(reply: MessageExtractor): String? {
+        val text = reply.getText()
+        if (text != null) {
             return text
         }
         if (reply.hasPhoto()) {
-            return Optional.of(MessageConstants.REPLY_TO_IMAGE)
+            return MessageConstants.REPLY_TO_IMAGE
         }
-        if (reply.imageDocumentFileId().isPresent) {
-            return Optional.of(MessageConstants.REPLY_TO_IMAGE_DOCUMENT)
+        if (reply.imageDocumentFileId() != null) {
+            return MessageConstants.REPLY_TO_IMAGE_DOCUMENT
         }
-        return Optional.empty()
+        return null
     }
 
-    private fun getPhotoFileId(): Optional<String> =
+    private fun getPhotoFileId(): String? =
         getPhotos().maxByOrNull { it.fileSize ?: 0L }
-            .let { Optional.ofNullable(it).map { photo -> TelegramPayloadValueReader.stringValue(photo.fileId) } }
+            ?.let { photo -> TelegramPayloadValueReader.stringValue(photo.fileId) }
 
     private fun isImageDocument(document: TelegramDocument?): Boolean {
         if (document?.fileId == null) {
@@ -197,7 +187,6 @@ class MessageExtractor(
     }
 
     companion object {
-        @JvmStatic
         fun from(message: TelegramMessage): MessageExtractor = MessageExtractor(message)
     }
 }

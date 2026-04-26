@@ -7,14 +7,13 @@ import com.telegram.codex.conversation.domain.ProcessedUpdateRecord
 import jakarta.transaction.Transactional
 import org.springframework.stereotype.Repository
 import java.time.Duration
-import java.util.*
 
 @Repository
 class ProcessedUpdateRepository(
     private val objectMapper: ObjectMapper,
     private val repository: ProcessedUpdateJpaRepository,
 ) {
-    fun find(updateId: Long): Optional<ProcessedUpdateRecord> = repository.findById(updateId).map(::toRecord)
+    fun find(updateId: Long): ProcessedUpdateRecord? = repository.findById(updateId).map(::toRecord).orElse(null)
 
     @Transactional
     fun beginProcessing(updateId: Long, chatId: String, messageId: Long): Boolean {

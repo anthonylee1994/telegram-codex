@@ -37,22 +37,22 @@ class MediaGroupBufferRepository(
 
     @Transactional
     fun flush(key: String, expectedDeadlineAt: Long): FlushResult {
-        val buffer = bufferRepository.findById(key).orElse(null) ?: return FlushResult.missing()
+        val buffer = bufferRepository.findById(key).orElse(null) ?: return FlushResult.Missing
         if (buffer.deadlineAt != expectedDeadlineAt) {
-            return FlushResult.stale()
+            return FlushResult.Stale
         }
         val waitDurationMs = buffer.deadlineAt - System.currentTimeMillis()
         if (waitDurationMs > 0) {
-            return FlushResult.pending(waitDurationMs / 1000.0)
+            return FlushResult.Pending(waitDurationMs / 1000.0)
         }
         val rows = messageRepository.findByMediaGroupKeyOrderByMessageIdAscUpdateIdAsc(key)
         messageRepository.deleteByMediaGroupKey(key)
         bufferRepository.delete(buffer)
         if (rows.isEmpty()) {
-            return FlushResult.missing()
+            return FlushResult.Missing
         }
         val messages = rows.map(::readMessage)
-        return FlushResult.ready(mediaGroupMerger.merge(messages))
+        return FlushResult.Ready(mediaGroupMerger.merge(messages))
     }
 
     private fun writeMessage(message: InboundMessage): String =
@@ -76,16 +76,10 @@ class MediaGroupBufferRepository(
         val key: String,
     )
 
-    data class FlushResult(
-        val status: String,
-        val message: InboundMessage?,
-        val waitDurationSeconds: Double?,
-    ) {
-        companion object {
-            fun missing(): FlushResult = FlushResult("missing", null, null)
-            fun stale(): FlushResult = FlushResult("stale", null, null)
-            fun pending(waitDurationSeconds: Double): FlushResult = FlushResult("pending", null, waitDurationSeconds)
-            fun ready(message: InboundMessage): FlushResult = FlushResult("ready", message, null)
-        }
+    sealed interface FlushResult {
+        data object Missing : FlushResult
+        data object Stale : FlushResult
+        data class Pending(val waitDurationSeconds: Double) : FlushResult
+        data class Ready(val message: InboundMessage) : FlushResult
     }
 }

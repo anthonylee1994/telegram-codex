@@ -15,22 +15,19 @@ class Transcript private constructor(messages: List<Entry>) {
     private val messages: List<Entry> = trim(messages)
 
     fun append(role: String?, content: String?): Transcript {
-        val next = ArrayList(messages)
-        next.add(Entry(role ?: "", content ?: ""))
-        return Transcript(next)
+        return Transcript(messages + Entry(role ?: "", content ?: ""))
     }
 
     fun size(): Int = messages.size
 
     fun toTaggedPromptLines(): List<String> {
-        val lines = ArrayList<String>()
-        for (index in messages.indices) {
-            val message = messages[index]
-            lines.add("<message index=\"${index + 1}\" role=\"${message.role}\">")
-            lines.add(message.content)
-            lines.add("</message>")
+        return messages.flatMapIndexed { index, message ->
+            listOf(
+                "<message index=\"${index + 1}\" role=\"${message.role}\">",
+                message.content,
+                "</message>",
+            )
         }
-        return lines.toList()
     }
 
     fun toConversationState(objectMapper: ObjectMapper): String =

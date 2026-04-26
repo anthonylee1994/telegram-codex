@@ -23,11 +23,7 @@ class SessionService(
     }
 
     fun snapshot(chatId: String): SessionSnapshot {
-        val maybeSession = chatSessionRepository.findActive(chatId)
-        if (maybeSession.isEmpty) {
-            return SessionSnapshot.inactive()
-        }
-        val session = maybeSession.get()
+        val session = chatSessionRepository.findActive(chatId) ?: return SessionSnapshot.inactive()
         val transcript = readTranscript(session)
         return SessionSnapshot.active(
             transcript.size(),
@@ -37,11 +33,8 @@ class SessionService(
     }
 
     fun compact(chatId: String): SessionCompactResult {
-        val maybeSession = chatSessionRepository.findActive(chatId)
-        if (maybeSession.isEmpty) {
-            return SessionCompactResult.missingSession()
-        }
-        val transcript = readTranscript(maybeSession.get())
+        val session = chatSessionRepository.findActive(chatId) ?: return SessionCompactResult.missingSession()
+        val transcript = readTranscript(session)
         if (transcript.size() < ConversationConstants.MIN_TRANSCRIPT_SIZE_FOR_COMPACT) {
             return SessionCompactResult.tooShort(transcript.size())
         }
@@ -51,11 +44,7 @@ class SessionService(
     }
 
     fun memorySnapshot(chatId: String): MemorySnapshot {
-        val maybeMemory = chatMemoryRepository.find(chatId)
-        if (maybeMemory.isEmpty) {
-            return MemorySnapshot.inactive()
-        }
-        val memory = maybeMemory.get()
+        val memory = chatMemoryRepository.find(chatId) ?: return MemorySnapshot.inactive()
         if (memory.memoryText.isNullOrBlank()) {
             return MemorySnapshot.inactive()
         }
