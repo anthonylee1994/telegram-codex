@@ -22,7 +22,7 @@ class CodexMemoryClient(
             val payload = objectMapper.treeToValue(jsonPayloadParser.parsePayload(rawReply), MemoryPayload::class.java)
             payload.memory.trim()
         } catch (error: Exception) {
-            LOGGER.debug("Ignored invalid memory merge reply error={}", error.message)
+            LOGGER.warn("Ignored invalid memory merge reply error={}", error.message)
             existingMemory?.trim().orEmpty()
         }
     }
