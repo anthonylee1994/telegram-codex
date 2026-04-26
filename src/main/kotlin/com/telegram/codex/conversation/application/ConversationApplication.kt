@@ -2,23 +2,20 @@ package com.telegram.codex.conversation.application
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.telegram.codex.conversation.application.reply.ReplyGenerationService
-import com.telegram.codex.conversation.application.reply.ReplyResult
-import com.telegram.codex.conversation.application.session.SessionService
 import com.telegram.codex.conversation.domain.ConversationConstants
-import com.telegram.codex.conversation.domain.update.ProcessedUpdateRecord
+import com.telegram.codex.conversation.domain.ProcessedUpdateRecord
 import com.telegram.codex.conversation.infrastructure.MediaGroupBufferRepository
-import com.telegram.codex.conversation.infrastructure.update.ProcessedUpdateRepository
+import com.telegram.codex.conversation.infrastructure.ProcessedUpdateRepository
 import com.telegram.codex.integration.telegram.application.CompactResultSender
-import com.telegram.codex.integration.telegram.application.port.out.TelegramGateway
-import com.telegram.codex.integration.telegram.application.webhook.InboundMessageProcessor
+import com.telegram.codex.integration.telegram.application.InboundMessageProcessor
+import com.telegram.codex.integration.telegram.application.TelegramGateway
 import com.telegram.codex.integration.telegram.domain.InboundMessage
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Service
 import java.time.Duration
-import java.util.Optional
+import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
@@ -163,7 +160,7 @@ class ProcessedUpdateService(
         }
         return try {
             val replies = objectMapper.readValue(rawSuggestedReplies, STRING_LIST)
-            replies?.filter { !it.isNullOrBlank() }?.map { it.trim() } ?: emptyList()
+            replies?.filter { it.isNotBlank() }?.map { it.trim() } ?: emptyList()
         } catch (error: Exception) {
             emptyList()
         }

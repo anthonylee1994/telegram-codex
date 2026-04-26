@@ -2,13 +2,7 @@ package com.telegram.codex.integration.telegram.domain
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.telegram.codex.conversation.domain.MessageConstants
-import com.telegram.codex.integration.telegram.domain.document.DocumentConstants
-import com.telegram.codex.integration.telegram.domain.webhook.TelegramChat
-import com.telegram.codex.integration.telegram.domain.webhook.TelegramDocument
-import com.telegram.codex.integration.telegram.domain.webhook.TelegramMessage
-import com.telegram.codex.integration.telegram.domain.webhook.TelegramPhotoSize
-import com.telegram.codex.integration.telegram.domain.webhook.TelegramUser
-import java.util.Optional
+import java.util.*
 
 data class TelegramBotCommand(
     val command: String,
@@ -41,7 +35,6 @@ class InboundMessage(
     @param:JsonProperty("message_id") val messageId: Long,
     @JsonProperty("processing_updates") processingUpdates: List<ProcessingUpdate>?,
     @JsonProperty("reply_to_image_file_ids") replyToImageFileIds: List<String>?,
-    @param:JsonProperty("reply_to_message_id") val replyToMessageId: Long?,
     @JsonProperty("reply_to_text") replyToText: String?,
     @JsonProperty("text") text: String?,
     @param:JsonProperty("user_id") val userId: String,
@@ -60,7 +53,7 @@ class InboundMessage(
     fun imageCount(): Int = imageFileIds.size
     fun textOrEmpty(): String = text ?: ""
     fun effectiveImageFileIds(): List<String> =
-        if (imageFileIds.isEmpty()) replyToImageFileIds else imageFileIds
+        imageFileIds.ifEmpty { replyToImageFileIds }
 
     data class ProcessingUpdate(
         @param:JsonProperty("update_id") val updateId: Long,
@@ -80,7 +73,6 @@ class InboundMessage(
             primary.messageId,
             processingUpdates,
             emptyList(),
-            null,
             null,
             text,
             primary.userId,
@@ -115,7 +107,7 @@ class InboundMessage(
             } else {
                 updates
             }
-            return source.filterNotNull()
+            return source
                 .sortedWith(compareBy<ProcessingUpdate> { it.messageId }.thenBy { it.updateId })
         }
     }

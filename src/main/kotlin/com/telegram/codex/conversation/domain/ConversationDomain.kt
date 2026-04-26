@@ -1,7 +1,7 @@
 package com.telegram.codex.conversation.domain
 
 import com.telegram.codex.integration.telegram.domain.InboundMessage
-import com.telegram.codex.shared.config.AppProperties
+import com.telegram.codex.shared.AppProperties
 import org.springframework.stereotype.Component
 import java.time.Instant
 import java.time.ZoneId

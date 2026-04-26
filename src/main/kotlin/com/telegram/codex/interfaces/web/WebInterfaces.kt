@@ -1,16 +1,12 @@
 package com.telegram.codex.interfaces.web
 
-import com.telegram.codex.integration.telegram.application.webhook.TelegramWebhookHandler
-import com.telegram.codex.integration.telegram.domain.webhook.TelegramUpdate
-import com.telegram.codex.shared.config.AppProperties
+import com.telegram.codex.integration.telegram.application.TelegramWebhookHandler
+import com.telegram.codex.integration.telegram.domain.TelegramUpdate
+import com.telegram.codex.shared.AppProperties
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestHeader
-import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.bind.annotation.*
 
 data class ApiStatusResponse(
     val ok: Boolean,

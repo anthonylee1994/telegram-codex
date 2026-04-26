@@ -1,11 +1,8 @@
 package com.telegram.codex.integration.codex
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.telegram.codex.integration.codex.schema.CodexOutputSchema
-import com.telegram.codex.shared.config.AppProperties
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotEquals
-import org.junit.jupiter.api.Assertions.assertTrue
+import com.telegram.codex.shared.AppProperties
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
 import java.nio.file.Path

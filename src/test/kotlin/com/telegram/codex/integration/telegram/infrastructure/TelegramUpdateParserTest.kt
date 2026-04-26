@@ -1,14 +1,7 @@
 package com.telegram.codex.integration.telegram.infrastructure
 
-import com.telegram.codex.integration.telegram.domain.webhook.TelegramChat
-import com.telegram.codex.integration.telegram.domain.webhook.TelegramDocument
-import com.telegram.codex.integration.telegram.domain.webhook.TelegramMessage
-import com.telegram.codex.integration.telegram.domain.webhook.TelegramPhotoSize
-import com.telegram.codex.integration.telegram.domain.webhook.TelegramUpdate
-import com.telegram.codex.integration.telegram.domain.webhook.TelegramUser
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertNull
+import com.telegram.codex.integration.telegram.domain.*
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class TelegramUpdateParserTest {

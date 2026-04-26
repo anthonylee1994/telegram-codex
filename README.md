@@ -61,9 +61,9 @@ Demo：https://t.me/On99AppBot
 
 ### `conversation`
 
-- `application/reply/ReplyGenerationService`
+- `application/ReplyGenerationService`
   reply use case 主入口。
-- `application/session/SessionService`
+- `application/SessionService`
   session / memory / compact 管理。
 - `application/ProcessedUpdateService`
   duplicate claim / replay / pending reply lifecycle。
@@ -81,7 +81,7 @@ Demo：https://t.me/On99AppBot
 
 ### `integration/telegram`
 
-- `application/webhook`
+- `application`
   inbound flow：parse 後 routing、command、guard、enqueue。
 - `application/CompactResultSender`
   `/compact` 完成後主動 send 結果。
@@ -121,13 +121,13 @@ Demo：https://t.me/On99AppBot
 1. [`interfaces/web/WebInterfaces.kt`](./src/main/kotlin/com/telegram/codex/interfaces/web/WebInterfaces.kt)
    Telegram webhook HTTP 入口，只做驗 secret 同 handoff。
 
-2. [`integration/telegram/application/webhook/TelegramWebhookApplication.kt`](./src/main/kotlin/com/telegram/codex/integration/telegram/application/webhook/TelegramWebhookApplication.kt)
+2. [`integration/telegram/application/TelegramWebhookApplication.kt`](./src/main/kotlin/com/telegram/codex/integration/telegram/application/TelegramWebhookApplication.kt)
    將 raw update parse 成 `InboundMessage`，再交俾 router。
 
-3. [`integration/telegram/application/webhook/TelegramWebhookApplication.kt`](./src/main/kotlin/com/telegram/codex/integration/telegram/application/webhook/TelegramWebhookApplication.kt)
+3. [`integration/telegram/application/TelegramWebhookApplication.kt`](./src/main/kotlin/com/telegram/codex/integration/telegram/application/TelegramWebhookApplication.kt)
    入 reply flow 前嘅四關：unsupported、duplicate/replay、command、guard。
 
-4. [`conversation/application/reply/ReplyApplication.kt`](./src/main/kotlin/com/telegram/codex/conversation/application/reply/ReplyApplication.kt)
+4. [`conversation/application/ReplyApplication.kt`](./src/main/kotlin/com/telegram/codex/conversation/application/ReplyApplication.kt)
    真正 reply use case 主入口：整 context、call model、send reply、persist session、refresh memory。
 
 5. [`integration/codex/CodexIntegration.kt`](./src/main/kotlin/com/telegram/codex/integration/codex/CodexIntegration.kt)

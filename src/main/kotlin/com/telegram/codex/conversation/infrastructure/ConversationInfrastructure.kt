@@ -2,10 +2,6 @@ package com.telegram.codex.conversation.infrastructure
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.telegram.codex.conversation.domain.MediaGroupMerger
-import com.telegram.codex.conversation.infrastructure.persistence.MediaGroupBufferEntity
-import com.telegram.codex.conversation.infrastructure.persistence.MediaGroupBufferJpaRepository
-import com.telegram.codex.conversation.infrastructure.persistence.MediaGroupMessageEntity
-import com.telegram.codex.conversation.infrastructure.persistence.MediaGroupMessageJpaRepository
 import com.telegram.codex.integration.telegram.domain.InboundMessage
 import jakarta.transaction.Transactional
 import org.springframework.stereotype.Service

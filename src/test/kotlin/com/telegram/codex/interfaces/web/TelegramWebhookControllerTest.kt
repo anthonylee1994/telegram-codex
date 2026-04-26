@@ -1,8 +1,8 @@
 package com.telegram.codex.interfaces.web
 
-import com.telegram.codex.integration.telegram.application.webhook.TelegramWebhookHandler
-import com.telegram.codex.integration.telegram.domain.webhook.TelegramUpdate
-import com.telegram.codex.shared.config.AppProperties
+import com.telegram.codex.integration.telegram.application.TelegramWebhookHandler
+import com.telegram.codex.integration.telegram.domain.TelegramUpdate
+import com.telegram.codex.shared.AppProperties
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito

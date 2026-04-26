@@ -5,14 +5,10 @@ import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.telegram.codex.integration.codex.ReplyParser
-import com.telegram.codex.integration.telegram.application.port.`in`.TelegramMessageParser
-import com.telegram.codex.integration.telegram.application.port.out.TelegramGateway
-import com.telegram.codex.integration.telegram.domain.InboundMessage
-import com.telegram.codex.integration.telegram.domain.MessageExtractor
-import com.telegram.codex.integration.telegram.domain.TelegramBotCommand
-import com.telegram.codex.integration.telegram.domain.TelegramConstants
-import com.telegram.codex.integration.telegram.domain.webhook.TelegramUpdate
-import com.telegram.codex.shared.config.AppProperties
+import com.telegram.codex.integration.telegram.application.TelegramGateway
+import com.telegram.codex.integration.telegram.application.TelegramMessageParser
+import com.telegram.codex.integration.telegram.domain.*
+import com.telegram.codex.shared.AppProperties
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.io.IOException
@@ -59,7 +55,7 @@ class TelegramApiClient(
     }
 
     fun <T> withTypingStatus(chatId: String, action: Supplier<T>): T =
-        typingStatusManager.withTypingStatus(chatId, Consumer { id -> sendChatAction(id, "typing") }, action)
+        typingStatusManager.withTypingStatus(chatId, { id -> sendChatAction(id, "typing") }, action)
 
     fun sendChatAction(chatId: String, action: String) {
         postForm("sendChatAction", SendChatActionRequest(chatId, action))
@@ -303,7 +299,6 @@ class TelegramUpdateParser : TelegramMessageParser {
             extractor.getMessageId(),
             emptyList(),
             replyToMessage?.getImageFileIds() ?: emptyList(),
-            replyToMessage?.getMessageId(),
             extractor.getReplyToText().orElse(null),
             extractor.getText(),
             extractor.getUserId(),
@@ -313,7 +308,7 @@ class TelegramUpdateParser : TelegramMessageParser {
 
     private fun extractMessage(update: TelegramUpdate?) = update?.message
 
-    private fun isValidUpdate(update: TelegramUpdate?, message: com.telegram.codex.integration.telegram.domain.webhook.TelegramMessage?): Boolean {
+    private fun isValidUpdate(update: TelegramUpdate?, message: TelegramMessage?): Boolean {
         if (update?.updateId == null) {
             return false
         }
@@ -353,7 +348,7 @@ class TelegramMessageFormatter(
             return null
         }
         val keyboard = cleanedReplies.map { reply -> listOf(KeyboardButton(reply)) }
-        return ReplyKeyboardMarkup(keyboard, true, true)
+        return ReplyKeyboardMarkup(keyboard, resizeKeyboard = true, oneTimeKeyboard = true)
     }
 
     private fun cleanReplies(replies: List<String>): List<String> {
@@ -375,7 +370,7 @@ class TelegramMessageFormatter(
 
     fun normalizeReply(text: String?, suggestedReplies: List<String>?): NormalizedReply {
         val payload = replyParser?.parseReply(text) ?: ReplyParser.ParsedReply(text.orEmpty(), emptyList())
-        val normalizedText = if (payload.text.isBlank()) text.orEmpty() else payload.text
+        val normalizedText = payload.text.ifBlank { text.orEmpty() }
         val normalizedSuggestedReplies = if (suggestedReplies.isNullOrEmpty()) payload.suggestedReplies else suggestedReplies
         return NormalizedReply(normalizedText, normalizedSuggestedReplies)
     }
@@ -411,10 +406,10 @@ class TelegramMessageFormatter(
         private val BOLD_PATTERN = Pattern.compile("\\*\\*([^*\\n]+)\\*\\*")
         private val ITALIC_PATTERN = Pattern.compile("(?<!_)__([^_\\n]+)__(?!_)")
         private val INLINE_RULES = listOf(
-            InlineRule(INLINE_CODE_PATTERN, Function { match -> wrap("code", match.group(1)) }),
-            InlineRule(BOLD_PATTERN, Function { match -> wrap("b", match.group(1)) }),
-            InlineRule(SPOILER_PATTERN, Function { match -> wrap("tg-spoiler", match.group(1)) }),
-            InlineRule(STRIKETHROUGH_PATTERN, Function { match -> wrap("s", match.group(1)) }),
+            InlineRule(INLINE_CODE_PATTERN) { match -> wrap("code", match.group(1)) },
+            InlineRule(BOLD_PATTERN) { match -> wrap("b", match.group(1)) },
+            InlineRule(SPOILER_PATTERN) { match -> wrap("tg-spoiler", match.group(1)) },
+            InlineRule(STRIKETHROUGH_PATTERN) { match -> wrap("s", match.group(1)) },
             InlineRule(ITALIC_PATTERN, Function(::formatItalicMatch)),
         )
 

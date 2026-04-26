@@ -1,7 +1,6 @@
 package com.telegram.codex.integration.telegram.application
 
-import com.telegram.codex.conversation.application.session.SessionService
-import com.telegram.codex.integration.telegram.application.port.out.TelegramGateway
+import com.telegram.codex.conversation.application.SessionService
 import org.springframework.stereotype.Component
 
 @Component

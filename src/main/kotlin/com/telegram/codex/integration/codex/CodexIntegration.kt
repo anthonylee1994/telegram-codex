@@ -4,13 +4,12 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.telegram.codex.conversation.application.gateway.ReplyGenerationGateway
-import com.telegram.codex.conversation.application.reply.ReplyResult
+import com.telegram.codex.conversation.application.ReplyGenerationGateway
+import com.telegram.codex.conversation.application.ReplyResult
 import com.telegram.codex.conversation.domain.MessageConstants
-import com.telegram.codex.conversation.domain.session.Transcript
-import com.telegram.codex.integration.codex.schema.CodexOutputSchema
+import com.telegram.codex.conversation.domain.Transcript
 import com.telegram.codex.integration.telegram.domain.TelegramConstants
-import com.telegram.codex.shared.config.AppProperties
+import com.telegram.codex.shared.AppProperties
 import org.springframework.stereotype.Component
 import java.io.BufferedReader
 import java.io.IOException
@@ -173,7 +172,7 @@ open class ExecRunner(
     }
 
     @Throws(IOException::class, InterruptedException::class)
-    protected open fun executeCommand(command: List<String>, workingDirectory: Path?, prompt: String?, timeoutSeconds: Long): ProcessExecutor.ProcessResult =
+    protected fun executeCommand(command: List<String>, workingDirectory: Path?, prompt: String?, timeoutSeconds: Long): ProcessExecutor.ProcessResult =
         ProcessExecutor.executeWithInput(command, workingDirectory, prompt, StandardCharsets.UTF_8, timeoutSeconds)
 
     private fun cleanupTempDir(tempDir: Path?) {
@@ -289,7 +288,7 @@ class JsonPayloadParser(
     private fun extractJsonObject(text: String): String? {
         val start = text.indexOf('{')
         val end = text.lastIndexOf('}')
-        if (start < 0 || end <= start) {
+        if (start !in 0..<end) {
             return null
         }
         return text.substring(start, end + 1)
@@ -333,7 +332,7 @@ class JsonPayloadParser(
 
     companion object {
         private val TEXT_PATTERN = Pattern.compile("\"text\"\\s*:\\s*\"(?<value>[\\s\\S]*?)\"\\s*,\\s*\"suggested_replies\"\\s*:")
-        private val REPLIES_PATTERN = Pattern.compile("\"suggested_replies\"\\s*:\\s*\\[(?<value>[\\s\\S]*?)\\]")
+        private val REPLIES_PATTERN = Pattern.compile("\"suggested_replies\"\\s*:\\s*\\[(?<value>[\\s\\S]*?)]")
     }
 }
 
@@ -500,7 +499,7 @@ class CodexReplyClient(
         return listOf(
             "你而家係回覆緊之前一則訊息。",
             "被引用訊息：$replyToText",
-            "你今次嘅新訊息：${if (baseText.isBlank()) "（冇文字）" else baseText}",
+            "你今次嘅新訊息：${baseText.ifBlank { "（冇文字）" }}",
         ).joinToString("\n")
     }
 

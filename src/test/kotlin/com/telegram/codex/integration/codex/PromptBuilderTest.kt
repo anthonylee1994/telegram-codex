@@ -1,6 +1,6 @@
 package com.telegram.codex.integration.codex
 
-import com.telegram.codex.conversation.domain.session.Transcript
+import com.telegram.codex.conversation.domain.Transcript
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
