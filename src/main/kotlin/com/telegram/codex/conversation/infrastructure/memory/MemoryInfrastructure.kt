@@ -12,6 +12,7 @@ import com.telegram.codex.integration.codex.schema.CodexOutputSchema
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.stereotype.Repository
+import java.util.Optional
 
 @Component
 class CodexMemoryClient(
@@ -87,7 +88,7 @@ class CodexMemoryClient(
 class ChatMemoryRepository(
     private val repository: ChatMemoryJpaRepository,
 ) {
-    fun find(chatId: String): java.util.Optional<ChatMemoryRecord> =
+    fun find(chatId: String): Optional<ChatMemoryRecord> =
         repository.findById(chatId).map { ChatMemoryRecord(it.chatId, it.memoryText, it.updatedAt) }
 
     fun persist(chatId: String, memoryText: String?) {
