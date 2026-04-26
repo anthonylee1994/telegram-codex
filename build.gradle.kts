@@ -1,9 +1,14 @@
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.testing.Test
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     java
-    id("org.springframework.boot") version "3.5.0"
+    kotlin("jvm") version "2.3.20"
+    kotlin("plugin.spring") version "2.3.20"
+    kotlin("plugin.jpa") version "2.3.20"
+    id("org.springframework.boot") version "4.0.5"
     id("io.spring.dependency-management") version "1.1.7"
 }
 
@@ -28,6 +33,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.flywaydb:flyway-core")
     implementation("org.hibernate.orm:hibernate-community-dialects")
     implementation("org.xerial:sqlite-jdbc:3.50.3.0")
@@ -47,6 +53,12 @@ tasks.withType<Test>().configureEach {
 
 tasks.withType<JavaExec>().configureEach {
     jvmArgs(sqliteNativeAccessArg)
+}
+
+tasks.withType<KotlinCompile>().configureEach {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_25)
+    }
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {

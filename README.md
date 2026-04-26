@@ -36,8 +36,9 @@ Demo：https://t.me/On99AppBot
 
 ## 技術棧
 
+- Kotlin
 - Java 25
-- Spring Boot 3.5
+- Spring Boot 4.0
 - Spring Web
 - Spring Data JPA
 - Flyway
@@ -117,22 +118,22 @@ Demo：https://t.me/On99AppBot
 
 如果只想最快明主 flow，可以直接睇呢幾個 class：
 
-1. [`interfaces/web/TelegramWebhookController.java`](./src/main/java/com/telegram/codex/interfaces/web/TelegramWebhookController.java)
+1. [`interfaces/web/WebInterfaces.kt`](./src/main/kotlin/com/telegram/codex/interfaces/web/WebInterfaces.kt)
    Telegram webhook HTTP 入口，只做驗 secret 同 handoff。
 
-2. [`integration/telegram/application/webhook/TelegramWebhookHandler.java`](./src/main/java/com/telegram/codex/integration/telegram/application/webhook/TelegramWebhookHandler.java)
+2. [`integration/telegram/application/webhook/TelegramWebhookApplication.kt`](./src/main/kotlin/com/telegram/codex/integration/telegram/application/webhook/TelegramWebhookApplication.kt)
    將 raw update parse 成 `InboundMessage`，再交俾 router。
 
-3. [`integration/telegram/application/webhook/InboundMessageProcessor.java`](./src/main/java/com/telegram/codex/integration/telegram/application/webhook/InboundMessageProcessor.java)
+3. [`integration/telegram/application/webhook/TelegramWebhookApplication.kt`](./src/main/kotlin/com/telegram/codex/integration/telegram/application/webhook/TelegramWebhookApplication.kt)
    入 reply flow 前嘅四關：unsupported、duplicate/replay、command、guard。
 
-4. [`conversation/application/reply/ReplyGenerationService.java`](./src/main/java/com/telegram/codex/conversation/application/reply/ReplyGenerationService.java)
+4. [`conversation/application/reply/ReplyApplication.kt`](./src/main/kotlin/com/telegram/codex/conversation/application/reply/ReplyApplication.kt)
    真正 reply use case 主入口：整 context、call model、send reply、persist session、refresh memory。
 
-5. [`integration/codex/CodexReplyClient.java`](./src/main/java/com/telegram/codex/integration/codex/CodexReplyClient.java)
+5. [`integration/codex/CodexIntegration.kt`](./src/main/kotlin/com/telegram/codex/integration/codex/CodexIntegration.kt)
    將 transcript 同 prompt 組好，再 call `codex exec`。
 
-6. [`integration/telegram/infrastructure/TelegramClient.java`](./src/main/java/com/telegram/codex/integration/telegram/infrastructure/TelegramClient.java)
+6. [`integration/telegram/infrastructure/TelegramInfrastructure.kt`](./src/main/kotlin/com/telegram/codex/integration/telegram/infrastructure/TelegramInfrastructure.kt)
    將 reply 轉成 Telegram HTML / keyboard markup，再 call Telegram API。
 
 ## 命名同架構規範
@@ -146,7 +147,7 @@ Demo：https://t.me/On99AppBot
 - `interfaces` layer 唔可以直接 import `infrastructure` implementation
 - `integration/telegram/application` 唔可以直接依賴 `integration/telegram/infrastructure`
 
-對應檢查喺 `src/test/java/com/telegram/codex/architecture/ArchitectureTest.java`。因為 ArchUnit 喺 Java 25 有 class file version 問題，所以呢度用 source-based architecture test 直接掃 import 同 type declaration。
+對應檢查喺 [`src/test/kotlin/com/telegram/codex/architecture/ArchitectureTest.kt`](./src/test/kotlin/com/telegram/codex/architecture/ArchitectureTest.kt)。因為 ArchUnit 喺 Java 25 有 class file version 問題，所以呢度用 source-based architecture test 直接掃 import 同 type declaration。
 
 ## 資料儲存
 
@@ -176,6 +177,7 @@ Lifecycle 大致係：
 
 ## 環境需求
 
+- Kotlin 由 Gradle plugin 處理，唔需要另外手動裝 Kotlin compiler
 - Java 25
 - Gradle 9.x
 - SQLite 3
@@ -391,9 +393,15 @@ dokku logs telegram-codex -t
 ./gradlew test
 ```
 
+打 production jar：
+
+```bash
+./gradlew bootJar
+```
+
 如果你改咗架構分層、命名或者 package dependency，記得至少睇埋：
 
-- `src/test/java/com/telegram/codex/architecture/ArchitectureTest.java`
+- [`src/test/kotlin/com/telegram/codex/architecture/ArchitectureTest.kt`](./src/test/kotlin/com/telegram/codex/architecture/ArchitectureTest.kt)
 
 ## Debug
 
