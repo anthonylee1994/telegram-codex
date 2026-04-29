@@ -134,13 +134,11 @@ class ReplyRequestGuard(
     private val properties: AppProperties,
     private val rateLimiter: ChatRateLimiter,
     private val processedUpdateService: ProcessedUpdateService,
-    private val sensitiveIntentGuard: SensitiveIntentGuard,
     private val telegramClient: TelegramGateway,
 ) {
     fun allow(message: InboundMessage): Boolean =
         allowAuthorizedUser(message) &&
             allowSupportedMediaGroupSize(message) &&
-            allowSafeIntent(message) &&
             allowChatRate(message) &&
             beginProcessing(message)
 
@@ -166,14 +164,6 @@ class ReplyRequestGuard(
         return false
     }
 
-    private fun allowSafeIntent(message: InboundMessage): Boolean {
-        if (!sensitiveIntentGuard.shouldBlock(message)) {
-            return true
-        }
-        sendAndMarkProcessed(message, MessageConstants.SENSITIVE_INTENT_MESSAGE)
-        return false
-    }
-
     private fun allowChatRate(message: InboundMessage): Boolean {
         if (rateLimiter.allow(message.chatId)) {
             return true
@@ -192,35 +182,6 @@ class ReplyRequestGuard(
 
     companion object {
         private val LOGGER = LoggerFactory.getLogger(ReplyRequestGuard::class.java)
-    }
-}
-
-@Component
-class SensitiveIntentGuard {
-    fun shouldBlock(message: InboundMessage?): Boolean {
-        if (message == null) {
-            return false
-        }
-        return containsSensitivePattern(message.text) || containsSensitivePattern(message.replyToText)
-    }
-
-    private fun containsSensitivePattern(value: String?): Boolean {
-        if (value.isNullOrBlank()) {
-            return false
-        }
-        val normalized = value.lowercase()
-        return SENSITIVE_PATTERNS.any { normalized.contains(it) }
-    }
-
-    companion object {
-        private val SENSITIVE_PATTERNS = listOf(
-            "code base", "codebase", "repo", "repository", "source code", "project files",
-            "local files", "internal files", "system prompt", "hidden prompt", "hidden instructions",
-            "scan the project", "scan project", "inspect the repo", "read the repo", "review the repo",
-            "find bugs in your code", "bugs in your code", "look through the codebase",
-            "睇下你個 code base", "睇下你 code base", "你 code base", "你個 repo", "你 repo",
-            "內部檔案", "本機檔案", "source code 有咩 bugs", "程式碼有咩 bugs", "系統提示", "隱藏指示",
-        )
     }
 }
 
