@@ -1,8 +1,10 @@
 # syntax=docker/dockerfile:1
 
-FROM node:24-bookworm-slim AS build
+FROM node:24-alpine AS build
 
 WORKDIR /app
+
+RUN apk add --no-cache g++ make python3
 
 COPY package.json pnpm-lock.yaml ./
 RUN corepack enable && pnpm install --frozen-lockfile
@@ -12,18 +14,17 @@ COPY src src
 
 RUN pnpm run build
 
-FROM node:24-bookworm-slim AS runtime
+FROM node:24-alpine AS runtime
 
 WORKDIR /app
 
 COPY .codex-version /tmp/.codex-version
 
-RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y ca-certificates curl git make g++ python3 sqlite3 && \
+RUN apk add --no-cache ca-certificates curl g++ git make python3 sqlite && \
     npm install -g @openai/codex@"$(cat /tmp/.codex-version)" && \
     corepack enable && \
     mkdir -p /app/data /root/.codex && \
-    rm -rf /var/lib/apt/lists/* /tmp/.codex-version
+    rm -f /tmp/.codex-version
 
 COPY package.json pnpm-lock.yaml ./
 RUN npm_config_build_from_source=true pnpm install --prod --frozen-lockfile
