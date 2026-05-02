@@ -1,24 +1,18 @@
 # syntax=docker/dockerfile:1
 
-FROM gradle:9.3.0-jdk25 AS build
+FROM oven/bun:1.3.4 AS build
 
 WORKDIR /app
 
-COPY .codex-version /tmp/.codex-version
+COPY package.json bun.lock* ./
+RUN bun install --frozen-lockfile
 
-RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y ca-certificates curl git sqlite3 nodejs npm && \
-    npm install -g @openai/codex@"$(cat /tmp/.codex-version)" && \
-    rm -rf /var/lib/apt/lists/* /tmp/.codex-version
-
-COPY build.gradle.kts settings.gradle.kts gradle.properties gradlew ./
-COPY gradle gradle
+COPY tsconfig.json nest-cli.json jest.config.ts .prettierrc ./
 COPY src src
-COPY bin bin
 
-RUN gradle bootJar --no-daemon
+RUN bun run build
 
-FROM eclipse-temurin:25-jre AS runtime
+FROM oven/bun:1.3.4 AS runtime
 
 WORKDIR /app
 
@@ -30,11 +24,11 @@ RUN apt-get update -qq && \
     mkdir -p /app/data /root/.codex && \
     rm -rf /var/lib/apt/lists/* /tmp/.codex-version
 
-COPY --from=build /app/build/libs/telegram-codex.jar /app/telegram-codex.jar
-COPY --from=build /app/bin /app/bin
+COPY package.json bun.lock* ./
+RUN bun install --production --frozen-lockfile
 
-RUN chmod +x /app/bin/telegram-codex
+COPY --from=build /app/dist ./dist
 
 EXPOSE 3000
 
-CMD ["java", "--enable-native-access=ALL-UNNAMED", "-jar", "/app/telegram-codex.jar"]
+CMD ["bun", "run", "start:prod"]
