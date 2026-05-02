@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:24-alpine AS build
+FROM node:24-bookworm-slim AS build
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ COPY src src
 
 RUN pnpm run build
 
-FROM node:24-alpine AS runtime
+FROM node:24-bookworm-slim AS runtime
 
 WORKDIR /app
 
@@ -26,7 +26,7 @@ RUN apt-get update -qq && \
     rm -rf /var/lib/apt/lists/* /tmp/.codex-version
 
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --prod --frozen-lockfile
+RUN npm_config_build_from_source=true pnpm install --prod --frozen-lockfile
 
 COPY --from=build /app/dist ./dist
 
