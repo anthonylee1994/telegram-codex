@@ -1,6 +1,6 @@
 # telegram-codex
 
-Telegram bot backend，用 Bun + NestJS 跑 webhook、session、長期記憶、rate limit，同埋 call `codex exec` 生成回覆。
+Telegram bot backend，用 pnpm + NestJS 跑 webhook、session、長期記憶、rate limit，同埋 call `codex exec` 生成回覆。
 
 ## 功能
 
@@ -25,8 +25,8 @@ Telegram bot backend，用 Bun + NestJS 跑 webhook、session、長期記憶、r
 ## 本地開發
 
 ```bash
-bun install
-bun run dev
+pnpm install
+pnpm run dev
 ```
 
 常用 endpoint：
@@ -37,17 +37,17 @@ bun run dev
 手動 task：
 
 ```bash
-bun run task telegram:set-webhook
-bun run task telegram:update-commands
+pnpm run task telegram:set-webhook
+pnpm run task telegram:update-commands
 ```
 
 ## 驗證
 
 ```bash
-bun run typecheck
-bun run test
-bun run prettier:check
-bun run build
+pnpm run typecheck
+pnpm run test
+pnpm run prettier:check
+pnpm run build
 ```
 
 ## Dokku

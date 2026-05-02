@@ -3,7 +3,8 @@ import {ProcessedUpdateService} from "../conversation/processed-update.service";
 import {SessionCompactResult} from "../conversation/session.service";
 import {InboundMessage} from "./inbound-message";
 import {CompactResultSenderService} from "./compact-result-sender.service";
-import {TelegramGateway, TELEGRAM_GATEWAY} from "./telegram.types";
+import {TELEGRAM_GATEWAY} from "./telegram.types";
+import type {TelegramGateway} from "./telegram.types";
 
 @Injectable()
 export class TelegramCommandResponderService {

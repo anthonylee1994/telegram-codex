@@ -2,7 +2,8 @@ import {Inject, Injectable} from "@nestjs/common";
 import {TelegramUpdate} from "./telegram.types";
 import {InboundMessage} from "./inbound-message";
 import {MESSAGE_CONSTANTS} from "./message-constants";
-import {TelegramGateway, TELEGRAM_GATEWAY} from "./telegram.types";
+import {TELEGRAM_GATEWAY} from "./telegram.types";
+import type {TelegramGateway} from "./telegram.types";
 
 @Injectable()
 export class UnsupportedMessageHandlerService {

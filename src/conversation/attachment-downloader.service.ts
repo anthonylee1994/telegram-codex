@@ -1,7 +1,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import {Inject, Injectable, Logger} from "@nestjs/common";
-import {TelegramGateway, TELEGRAM_GATEWAY} from "../telegram/telegram.types";
+import {TELEGRAM_GATEWAY} from "../telegram/telegram.types";
+import type {TelegramGateway} from "../telegram/telegram.types";
 
 @Injectable()
 export class AttachmentDownloaderService {

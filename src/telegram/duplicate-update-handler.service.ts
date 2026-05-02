@@ -1,7 +1,8 @@
 import {Inject, Injectable, Logger} from "@nestjs/common";
 import {ProcessedUpdateService} from "../conversation/processed-update.service";
 import {InboundMessage} from "./inbound-message";
-import {TelegramGateway, TELEGRAM_GATEWAY} from "./telegram.types";
+import {TELEGRAM_GATEWAY} from "./telegram.types";
+import type {TelegramGateway} from "./telegram.types";
 
 @Injectable()
 export class DuplicateUpdateHandlerService {

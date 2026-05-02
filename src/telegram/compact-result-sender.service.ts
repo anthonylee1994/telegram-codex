@@ -1,6 +1,7 @@
 import {Inject, Injectable} from "@nestjs/common";
 import {SessionCompactResult} from "../conversation/session.service";
-import {TelegramGateway, TELEGRAM_GATEWAY} from "./telegram.types";
+import {TELEGRAM_GATEWAY} from "./telegram.types";
+import type {TelegramGateway} from "./telegram.types";
 
 @Injectable()
 export class CompactResultSenderService {

@@ -1,1 +1,1 @@
-web: bun run start:prod
+web: pnpm run start:prod

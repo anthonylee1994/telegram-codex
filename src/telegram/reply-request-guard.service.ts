@@ -4,7 +4,8 @@ import {ChatRateLimiterService} from "../conversation/chat-rate-limiter.service"
 import {ProcessedUpdateService} from "../conversation/processed-update.service";
 import {InboundMessage} from "./inbound-message";
 import {MESSAGE_CONSTANTS} from "./message-constants";
-import {TelegramGateway, TELEGRAM_GATEWAY} from "./telegram.types";
+import {TELEGRAM_GATEWAY} from "./telegram.types";
+import type {TelegramGateway} from "./telegram.types";
 
 @Injectable()
 export class ReplyRequestGuardService {

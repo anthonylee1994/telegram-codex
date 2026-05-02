@@ -46,11 +46,6 @@ import {UnsupportedMessageHandlerService} from "./unsupported-message-handler.se
         TypingStatusService,
         UnsupportedMessageHandlerService,
     ],
-  exports: [
-    CompactResultSenderService,
-    inboundMessageProcessorProvider,
-    TELEGRAM_GATEWAY,
-    TelegramMessageFormatterService,
-  ],
+    exports: [CompactResultSenderService, inboundMessageProcessorProvider, TELEGRAM_GATEWAY, TelegramMessageFormatterService],
 })
 export class TelegramModule {}

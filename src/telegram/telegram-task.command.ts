@@ -1,7 +1,8 @@
 import {Inject} from "@nestjs/common";
 import {Command, CommandRunner} from "nest-commander";
 import {AppConfigService} from "../config/app-config.service";
-import {TelegramGateway, TELEGRAM_GATEWAY} from "./telegram.types";
+import {TELEGRAM_GATEWAY} from "./telegram.types";
+import type {TelegramGateway} from "./telegram.types";
 
 const BOT_COMMANDS = [
     {command: "status", description: "Bot 狀態"},
