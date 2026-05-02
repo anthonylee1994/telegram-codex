@@ -1,16 +1,12 @@
 import {Module} from "@nestjs/common";
-import {AppConfigModule} from "../config/config.module";
-import {CodexMemoryClientService} from "./codex-memory-client.service";
-import {CodexReplyClientService} from "./codex-reply-client.service";
-import {CodexSessionCompactClientService} from "./codex-session-compact-client.service";
-import {ExecRunnerService} from "./exec-runner.service";
-import {JsonPayloadParserService} from "./json-payload-parser.service";
-import {PromptBuilderService} from "./prompt-builder.service";
-import {ReplyParserService} from "./reply-parser.service";
+import {CodexExecutionModule} from "./execution/codex-execution.module";
+import {CodexMemoryModule} from "./memory/codex-memory.module";
+import {CodexParsingModule} from "./parsing/codex-parsing.module";
+import {CodexReplyModule} from "./reply/codex-reply.module";
+import {CodexSessionModule} from "./session/codex-session.module";
 
 @Module({
-    imports: [AppConfigModule],
-    providers: [CodexMemoryClientService, CodexReplyClientService, CodexSessionCompactClientService, ExecRunnerService, JsonPayloadParserService, PromptBuilderService, ReplyParserService],
-    exports: [CodexMemoryClientService, CodexReplyClientService, CodexSessionCompactClientService, ExecRunnerService, JsonPayloadParserService, PromptBuilderService, ReplyParserService],
+    imports: [CodexExecutionModule, CodexMemoryModule, CodexParsingModule, CodexReplyModule, CodexSessionModule],
+    exports: [CodexExecutionModule, CodexMemoryModule, CodexParsingModule, CodexReplyModule, CodexSessionModule],
 })
 export class CodexModule {}
