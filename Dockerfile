@@ -27,7 +27,7 @@ RUN apk add --no-cache ca-certificates curl g++ git make python3 sqlite && \
     rm -f /tmp/.codex-version
 
 COPY package.json pnpm-lock.yaml ./
-RUN npm_config_build_from_source=true pnpm install --prod --frozen-lockfile
+RUN pnpm install --prod --frozen-lockfile
 
 COPY --from=build /app/dist ./dist
 
