@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package.json bun.lock* ./
 RUN bun install --frozen-lockfile
 
-COPY tsconfig.json nest-cli.json jest.config.ts .prettierrc ./
+COPY tsconfig.json nest-cli.json jest.config.js .prettierrc ./
 COPY src src
 
 RUN bun run build
