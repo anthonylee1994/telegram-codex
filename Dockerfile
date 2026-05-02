@@ -19,7 +19,7 @@ WORKDIR /app
 COPY .codex-version /tmp/.codex-version
 
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y ca-certificates curl git sqlite3 && \
+    apt-get install --no-install-recommends -y ca-certificates curl git make g++ python3 sqlite3 && \
     npm install -g @openai/codex@"$(cat /tmp/.codex-version)" && \
     corepack enable && \
     mkdir -p /app/data /root/.codex && \
