@@ -1,6 +1,6 @@
 # telegram-codex
 
-一個用 NestJS 跑嘅 Telegram bot backend。Telegram 負責收用戶輸入，server 負責 webhook、session、長期記憶、rate limit，同埋 call `codex exec` 生成回覆。
+一個用 Rust（axum + tokio）跑嘅 Telegram bot backend。Telegram 負責收用戶輸入，server 負責 webhook、session、長期記憶、rate limit，同埋 call `codex exec` 生成回覆。
 
 Demo：https://t.me/On99AppBot
 
@@ -36,11 +36,13 @@ Demo：https://t.me/On99AppBot
 
 ## 技術棧
 
-- TypeScript
-- Node.js
-- NestJS
-- TypeORM
-- SQLite
+- Rust（edition 2024）
+- tokio（async runtime）
+- axum（HTTP server）
+- sqlx（SQLite）
+- reqwest（Telegram API client）
+- clap（CLI tasks）
+- tracing（logging）
 - Telegram Bot API
 - Codex CLI
 
@@ -54,110 +56,117 @@ Demo：https://t.me/On99AppBot
 - `conversation` 管 session、memory、reply、processed update 呢啲 bot 內部業務
 - `codex` 管 Codex CLI 整合（execution、parsing、reply、session、memory）
 - `telegram` 管 Telegram API 整合（webhook、inbound、api、commands）
-- `config` 管環境變數同配置，`database` 管 entities 同 migrations
+- `config` 管環境變數同配置，`database` 管 migrations
+
+冇 DI container。所有 service 都係普通 struct，喺 [`app.rs`](./src/app.rs) 按依賴次序用 `Arc` 手動裝好。
 
 ## 主要 module map
 
 ### `conversation`
 
-- `reply/reply-generation.service.ts`
+- `reply/reply_generation.rs`
   reply use case 主入口。
-- `session/session.service.ts`
+- `session/session_service.rs`
   session / memory / compact 管理。
-- `reply/processed-update.service.ts`
+- `reply/processed_update_service.rs`
   duplicate claim / replay / pending reply lifecycle。
 - `storage/`
-  repositories：chat-session、chat-memory、processed-update、media-group-buffer。
-- `scheduler/job-scheduler.service.ts`
-  reply generation job queue。
+  repositories：chat_session、chat_memory、processed_update、media_group_buffer。
+- `scheduler/job_scheduler.rs`
+  background job（reply generation、相簿 flush、session compact）。
 
 ### `codex`
 
-- `reply/codex-reply-client.service.ts`
+- `reply/codex_reply_client.rs`
   組 transcript / prompt，再 call `codex exec`。
-- `execution/exec-runner.service.ts`
-  process execution 包裝。
-- `reply/prompt-builder.service.ts`
+- `execution/exec_runner.rs`
+  process execution 包裝（temp workspace、output schema、stdin prompt）。
+- `reply/prompt_builder.rs`
   組 system prompt 同 user prompt。
-- `parsing/reply-parser.service.ts`
+- `parsing/reply_parser.rs`
   parse `codex exec` output。
-- `session/codex-session-compact-client.service.ts`
+- `session/codex_session_compact_client.rs`
   call `codex exec` 做 session compaction。
-- `memory/codex-memory-client.service.ts`
+- `memory/codex_memory_client.rs`
   call `codex exec` 做長期記憶 merge。
 
 ### `telegram`
 
-- `webhook/telegram-webhook.controller.ts`
+- `webhook/telegram_webhook_controller.rs`
   `POST /telegram/webhook` 入口。
-- `webhook/telegram-webhook.service.ts`
+- `webhook/telegram_webhook_service.rs`
   inbound flow：parse 後 routing、command、guard、enqueue。
 - `inbound/`
-  parse Telegram update、route、handle commands、guard。
-- `api/telegram-api.service.ts`
+  route Telegram update、handle commands、guard。
+- `api/telegram_api.rs`
   Telegram API adapter（send message、download file、typing status）。
 - `commands/`
   各種 command handlers（start、help、status、session、memory、compact、forget、new）。
 
 ### `config` / `database` / `health`
 
-- `config/app-config.service.ts`
+- `config/app_config.rs`
   環境變數 wrapper。
-- `database/entities.ts`
-  TypeORM entities。
-- `health/health.controller.ts`
+- `database/migrations.rs`
+  SQLite schema migrations。
+- `health/health_controller.rs`
   `GET /health`。
 
 ## Runtime Flow
 
 由 Telegram 打入嚟到 bot 回覆，大致係：
 
-1. `POST /telegram/webhook` 打入 `TelegramWebhookController`
+1. `POST /telegram/webhook` 打入 `telegram_webhook_controller::create`
 2. controller 驗 `X-Telegram-Bot-Api-Secret-Token`
 3. `TelegramWebhookService` 接手處理 Telegram update
-4. `TelegramUpdateParserService` 將 payload 轉成 `InboundMessage`
-5. `InboundMessageRouterService` 判斷係直接處理，定係先 defer media group
-6. `InboundMessageProcessorService` 依次交畀 unsupported / duplicate / command / guard steps 處理
-7. 如果四關都過，`JobSchedulerService` 先 enqueue reply generation
-8. `ReplyGenerationService` download 圖片、讀 session / memory，再經 `CodexReplyClientService` 走去 call `codex exec`
-9. `CodexReplyClientService` 將 transcript + prompt 組好，經 `ExecRunnerService` call `codex exec`
-10. reply send 成功後先更新 session、processed update 同長期記憶；`/compact` 就走另一條 async path，完成後由 `CompactResultSenderService` 主動 send 返 Telegram
+4. `TelegramUpdateParser` 將 payload 轉成 `InboundMessage`
+5. `TelegramWebhookRouter` 判斷係直接處理，定係先 defer media group
+6. `InboundMessageProcessor` 依次交畀 unsupported / duplicate / command / guard steps 處理
+7. 如果四關都過，`JobScheduler` 先 enqueue reply generation
+8. `ReplyGenerationService` download 圖片、讀 session / memory，再經 `CodexReplyClient` 走去 call `codex exec`
+9. `CodexReplyClient` 將 transcript + prompt 組好，經 `ExecRunner` call `codex exec`
+10. reply send 成功後先更新 session、processed update 同長期記憶；`/compact` 就走另一條 async path，完成後由 `CompactResultSender` 主動 send 返 Telegram
 
 ## 超短 Codebase Map
 
 如果只想最快明主 flow，可以直接睇呢幾個 file：
 
-1. [telegram/webhook/telegram-webhook.controller.ts](./src/telegram/webhook/telegram-webhook.controller.ts)
+1. [telegram/webhook/telegram_webhook_controller.rs](./src/telegram/webhook/telegram_webhook_controller.rs)
    Telegram webhook HTTP 入口，只做驗 secret 同 handoff。
 
-2. [telegram/webhook/telegram-webhook.service.ts](./src/telegram/webhook/telegram-webhook.service.ts)
+2. [telegram/webhook/telegram_webhook_service.rs](./src/telegram/webhook/telegram_webhook_service.rs)
    將 raw update parse 成 `InboundMessage`，再交俾 router。
 
-3. [telegram/inbound/inbound-message-processor.service.ts](./src/telegram/inbound/inbound-message-processor.service.ts)
+3. [telegram/inbound/inbound_message_processor.rs](./src/telegram/inbound/inbound_message_processor.rs)
    入 reply flow 前嘅四關：unsupported、duplicate/replay、command、guard。
 
-4. [conversation/reply/reply-generation.service.ts](./src/conversation/reply/reply-generation.service.ts)
+4. [conversation/reply/reply_generation.rs](./src/conversation/reply/reply_generation.rs)
    真正 reply use case 主入口：整 context、call model、send reply、persist session、refresh memory。
 
-5. [codex/reply/codex-reply-client.service.ts](./src/codex/reply/codex-reply-client.service.ts)
+5. [codex/reply/codex_reply_client.rs](./src/codex/reply/codex_reply_client.rs)
    將 transcript 同 prompt 組好，再 call `codex exec`。
 
-6. [telegram/api/telegram-api.service.ts](./src/telegram/api/telegram-api.service.ts)
+6. [telegram/api/telegram_api.rs](./src/telegram/api/telegram_api.rs)
    將 reply 轉成 Telegram HTML / keyboard markup，再 call Telegram API。
+
+7. [app.rs](./src/app.rs)
+   全部 service 嘅 wiring 同 HTTP route 定義。
 
 ## 命名同架構規範
 
 而家 repo 有幾條明確規矩：
 
-- 真正跨外部邊界嘅 dependency 用 `*Gateway` interface + injection token（例如 `TelegramGateway` + `TELEGRAM_GATEWAY`）
+- 真正跨外部邊界嘅 dependency 用 trait（例如 `TelegramGateway`、`ProcessSpawner`、`InboundMessageProcessorPort`），用 `Arc<dyn Trait>` 注入
 - persistence / adapter implementation 用 `*Repository`、`*Service`、`*Client` 呢類有語意嘅名
-- NestJS modules 用 `@Module()` 組織 providers 同 exports
-- 主要 business logic 放 `@Injectable()` services
-- HTTP controllers 只做 routing 同 validation，唔應該有 business logic
+- 一個 module 一個 concern，module tree 對應 domain 分域
+- 主要 business logic 放 service struct，HTTP handler 只做 routing 同 validation
+- 唔用 global mutable state；shared state 用 `Arc` + 明確嘅 interior mutability（`Mutex`、`AtomicI64`、`OnceLock`）
+
+`JobScheduler` 同 `InboundMessageProcessor` 互相依賴，用 `OnceLock<Weak<dyn InboundMessageProcessorPort>>` 打斷 cycle，功能上等同原本 NestJS 嘅 `forwardRef`。
 
 ## 資料儲存
 
-SQLite 主要有幾張表：
+SQLite 主要有幾張表（schema 同原本 TypeORM 版本完全一樣，舊 database 可以直接繼續用）：
 
 - `chat_sessions`
   每個 chat 一條 session context。
@@ -183,8 +192,7 @@ Lifecycle 大致係：
 
 ## 環境需求
 
-- Node.js 18+
-- pnpm 9+
+- Rust 1.85+（要 edition 2024）
 - SQLite 3
 - 本機或 server 可以直接跑 `codex exec`
 - `~/.codex/config.toml` 同 `~/.codex/auth.json` 已配置好
@@ -200,11 +208,13 @@ Lifecycle 大致係：
 | `ALLOWED_TELEGRAM_USER_IDS` | 限定可用 Telegram user id，逗號分隔 | 空 |
 | `SQLITE_DB_PATH` | SQLite database path | `./data/app.db` |
 | `CODEX_EXEC_TIMEOUT_SECONDS` | `codex exec` timeout 秒數 | `300` |
+| `CODEX_SANDBOX_MODE` | `codex exec --sandbox` 模式 | `danger-full-access` |
 | `MAX_MEDIA_GROUP_IMAGES` | Telegram 相簿最多接受幾多張圖 | `10` |
 | `SESSION_TTL_DAYS` | session TTL 日數 | `7` |
 | `MEDIA_GROUP_WAIT_MS` | 相簿聚合等待時間 | `1200` |
 | `RATE_LIMIT_WINDOW_MS` | rate limit window | `10000` |
 | `RATE_LIMIT_MAX_MESSAGES` | window 內最多訊息數 | `5` |
+| `RUST_LOG` | tracing log level | `info` |
 
 ## 本地開發
 
@@ -219,28 +229,22 @@ Lifecycle 大致係：
 npm install -g @openai/codex@"$(cat .codex-version)"
 ```
 
-4. 安裝 dependencies
+4. 啟動 app
 
 ```bash
-pnpm install
+cargo run
 ```
 
-5. 啟動 app
+5. 註冊 webhook
 
 ```bash
-pnpm run dev
+cargo run --bin task -- telegram:set-webhook
 ```
 
-6. 註冊 webhook
+6. 更新 Telegram command menu
 
 ```bash
-pnpm run task telegram:set-webhook
-```
-
-7. 更新 Telegram command menu
-
-```bash
-pnpm run task telegram:update-commands
+cargo run --bin task -- telegram:update-commands
 ```
 
 常用 endpoint：
@@ -335,13 +339,13 @@ git push dokku main
 deploy 完之後，喺 server 跑：
 
 ```bash
-dokku run telegram-codex node dist/task.js telegram:set-webhook
+dokku run telegram-codex task telegram:set-webhook
 ```
 
 如要同步 Telegram command menu：
 
 ```bash
-dokku run telegram-codex node dist/task.js telegram:update-commands
+dokku run telegram-codex task telegram:update-commands
 ```
 
 ### 8. 檢查
@@ -360,7 +364,7 @@ dokku logs telegram-codex -t
 
 ## CLI Tasks
 
-`task.ts` 而家支持：
+`task` binary 而家支持：
 
 - `telegram:set-webhook`
 - `telegram:update-commands`
@@ -368,13 +372,13 @@ dokku logs telegram-codex -t
 用法：
 
 ```bash
-pnpm run task <task-name>
+cargo run --bin task -- <task-name>
 ```
 
 或者喺 production：
 
 ```bash
-node dist/task.js <task-name>
+task <task-name>
 ```
 
 ## Telegram Commands
@@ -410,25 +414,20 @@ node dist/task.js <task-name>
 跑全部測試：
 
 ```bash
-pnpm run test
+cargo test
 ```
 
-Type check：
+Format：
 
 ```bash
-pnpm run typecheck
-```
-
-Prettier check：
-
-```bash
-pnpm run prettier:check
+cargo fmt
+cargo fmt --check
 ```
 
 Build production：
 
 ```bash
-pnpm run build
+cargo build --release
 ```
 
 ## Debug

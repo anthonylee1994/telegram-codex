@@ -1,13 +1,10 @@
 /.env*
+/target
 /log/*
 /tmp/*
 /tmp/pids/*
 /storage/*
 /tmp/storage/*
-/node_modules
-/dist
-/build
-/.gradle
 /data/*.db
 /data/*.db-*
 /data/*.sqlite3
@@ -20,3 +17,4 @@
 .claude
 .idea
 .DS_Store
+.target

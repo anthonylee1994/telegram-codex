@@ -1,4 +1,5 @@
 /.env*
+/target
 /.git
 /.gitignore
 /log/*
@@ -6,10 +7,6 @@
 /tmp/pids/*
 /storage/*
 /tmp/storage/*
-/node_modules
-/dist
-/build
-/.gradle
 /data/*.db
 /data/*.db-*
 !/log/.keep
