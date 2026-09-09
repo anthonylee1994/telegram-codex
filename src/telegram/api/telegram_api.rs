@@ -1,10 +1,12 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::{Context, Result, bail};
 use async_trait::async_trait;
+use futures_util::StreamExt;
 use serde::Deserialize;
+use tokio::io::{AsyncWriteExt, BufWriter};
 use tracing::info;
 
 use crate::config::AppConfig;
@@ -51,6 +53,22 @@ impl TelegramApi {
         }
     }
 
+    /// Streams the body straight to disk. Telegram allows bot downloads up to
+    /// 20MB, which must never sit on the heap in one piece.
+    async fn stream_to_file(&self, url: &str, output_path: &Path) -> Result<()> {
+        let response = self.client.get(url).send().await.context("Failed to download Telegram file")?;
+        if !response.status().is_success() {
+            bail!("Failed to download Telegram file: HTTP {}", response.status().as_u16());
+        }
+        let mut body = response.bytes_stream();
+        let mut writer = BufWriter::new(tokio::fs::File::create(output_path).await?);
+        while let Some(chunk) = body.next().await {
+            writer.write_all(&chunk.context("Failed to download Telegram file")?).await?;
+        }
+        writer.flush().await?;
+        Ok(())
+    }
+
     async fn post_form(&self, method_name: &str, params: &HashMap<&str, String>) -> Result<()> {
         let url = format!("{API_BASE}{}/{method_name}", self.config.telegram_bot_token);
         let response = self.client.post(&url).form(params).send().await.with_context(|| format!("Failed to call Telegram {method_name}"))?;
@@ -72,18 +90,16 @@ impl TelegramGateway for TelegramApi {
         let Some(file_path) = file.file_path.filter(|file_path| !file_path.is_empty()) else {
             bail!("Telegram getFile did not include a file path");
         };
-        // The caller removes the whole directory afterwards, so the temp
-        // directory is intentionally leaked from the guard here.
-        let temp_dir = tempfile::Builder::new().prefix("telegram-codex-file-").tempdir()?.keep();
+        let temp_dir = tempfile::Builder::new().prefix("telegram-codex-file-").tempdir()?;
         let file_name = PathBuf::from(&file_path).file_name().map(PathBuf::from).unwrap_or_else(|| PathBuf::from("download"));
-        let output_path = temp_dir.join(file_name);
+        let output_path = temp_dir.path().join(file_name);
 
         let url = format!("{FILE_API_BASE}{}/{file_path}", self.config.telegram_bot_token);
-        let response = self.client.get(&url).send().await.context("Failed to download Telegram file")?;
-        if !response.status().is_success() {
-            bail!("Failed to download Telegram file: HTTP {}", response.status().as_u16());
-        }
-        tokio::fs::write(&output_path, response.bytes().await?).await?;
+        self.stream_to_file(&url, &output_path).await?;
+        // The caller removes the whole directory afterwards, so the guard is
+        // only leaked once the download succeeded. A failure drops the
+        // directory and takes any partially written file with it.
+        let _ = temp_dir.keep();
         Ok(output_path)
     }
 

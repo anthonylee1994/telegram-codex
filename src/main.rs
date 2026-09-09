@@ -6,8 +6,23 @@ use telegram_codex::{app, bootstrap_environment};
 use tokio::signal;
 use tracing::info;
 
-#[tokio::main]
-async fn main() -> Result<()> {
+/// A webhook bot is almost entirely waiting on `codex exec`, Telegram, and
+/// sqlite, so the default runtime (one worker per core, 512 blocking threads)
+/// reserves far more thread stack than the workload ever uses.
+const WORKER_THREADS: usize = 2;
+const MAX_BLOCKING_THREADS: usize = 8;
+
+fn main() -> Result<()> {
+    tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(WORKER_THREADS)
+        .max_blocking_threads(MAX_BLOCKING_THREADS)
+        .enable_all()
+        .build()
+        .context("Failed to build the tokio runtime")?
+        .block_on(run())
+}
+
+async fn run() -> Result<()> {
     bootstrap_environment()?;
 
     let config = Arc::new(AppConfig::from_env()?);

@@ -19,10 +19,14 @@ pub enum ExecutionError {
     TimedOut(String),
 }
 
+/// `codex exec` writes its reply to `--output-last-message`, so its stdout is
+/// discarded instead of buffered. Only the tail of stderr is kept, which is all
+/// the failure message needs.
+const MAX_CAPTURED_STDERR_BYTES: usize = 8 * 1024;
+
 #[derive(Clone, Debug)]
 pub struct ProcessResult {
     pub exit_code: i32,
-    pub stdout: String,
     pub stderr: String,
     pub timed_out: bool,
 }
@@ -42,7 +46,7 @@ impl ProcessSpawner for TokioProcessSpawner {
             .args(&command[1..])
             .current_dir(working_directory)
             .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
+            .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .kill_on_drop(true)
             .spawn()?;
@@ -59,18 +63,30 @@ impl ProcessSpawner for TokioProcessSpawner {
                 let output = output?;
                 Ok(ProcessResult {
                     exit_code: output.status.code().unwrap_or(-1),
-                    stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
-                    stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+                    stderr: into_captured_stderr(output.stderr),
                     timed_out: false,
                 })
             }
             Err(_) => Ok(ProcessResult {
                 exit_code: -1,
-                stdout: String::new(),
                 stderr: String::new(),
                 timed_out: true,
             }),
         }
+    }
+}
+
+/// Keeps only the tail of stderr and reuses the captured buffer, so a chatty
+/// failure cannot pull megabytes of log text onto the heap.
+fn into_captured_stderr(bytes: Vec<u8>) -> String {
+    let mut bytes = bytes;
+    if bytes.len() > MAX_CAPTURED_STDERR_BYTES {
+        bytes = bytes.split_off(bytes.len() - MAX_CAPTURED_STDERR_BYTES);
+    }
+    match String::from_utf8(bytes) {
+        Ok(text) => text,
+        // Splitting the tail can land inside a multi byte character.
+        Err(error) => String::from_utf8_lossy(error.as_bytes()).into_owned(),
     }
 }
 
@@ -219,7 +235,6 @@ mod tests {
             });
             Ok(ProcessResult {
                 exit_code: 0,
-                stdout: String::new(),
                 stderr: String::new(),
                 timed_out: false,
             })
@@ -242,6 +257,24 @@ mod tests {
             rate_limit_max_messages: 5,
             codex_sandbox_mode: "danger-full-access".to_owned(),
         })
+    }
+
+    #[test]
+    fn keeps_only_the_stderr_tail() {
+        assert_eq!(into_captured_stderr(b"short".to_vec()), "short");
+
+        let mut noisy = vec![b'a'; MAX_CAPTURED_STDERR_BYTES];
+        noisy.extend_from_slice(b"the real error");
+        let captured = into_captured_stderr(noisy);
+        assert_eq!(captured.len(), MAX_CAPTURED_STDERR_BYTES);
+        assert!(captured.ends_with("the real error"));
+    }
+
+    #[test]
+    fn tolerates_a_split_multi_byte_character() {
+        let mut noisy = "屌".repeat(MAX_CAPTURED_STDERR_BYTES).into_bytes();
+        noisy.extend_from_slice(b"tail");
+        assert!(into_captured_stderr(noisy).ends_with("tail"));
     }
 
     #[tokio::test]

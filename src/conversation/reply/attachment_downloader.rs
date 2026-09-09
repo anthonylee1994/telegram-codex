@@ -3,28 +3,42 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::{Result, anyhow};
+use tokio::sync::Semaphore;
 use tracing::warn;
 
 use crate::telegram::shared::telegram_types::TelegramGateway;
 
+/// Caps how many transfers are in flight at once, process wide, so a ten image
+/// album cannot multiply the per download buffers by ten.
+const MAX_CONCURRENT_DOWNLOADS: usize = 3;
+
 pub struct AttachmentDownloader {
     telegram_client: Arc<dyn TelegramGateway>,
+    download_slots: Arc<Semaphore>,
 }
 
 impl AttachmentDownloader {
     pub fn new(telegram_client: Arc<dyn TelegramGateway>) -> Self {
-        Self { telegram_client }
+        Self {
+            telegram_client,
+            download_slots: Arc::new(Semaphore::new(MAX_CONCURRENT_DOWNLOADS)),
+        }
     }
 
-    /// Downloads every image concurrently while preserving album order, which
-    /// the prompts rely on ("圖 1", "圖 2", …).
+    /// Downloads images concurrently while preserving album order, which the
+    /// prompts rely on ("圖 1", "圖 2", …). Every task is spawned up front but
+    /// only `MAX_CONCURRENT_DOWNLOADS` of them hold a slot at a time.
     pub async fn download_images(&self, image_file_ids: &[String]) -> Result<Vec<PathBuf>> {
         let handles: Vec<_> = image_file_ids
             .iter()
             .map(|file_id| {
                 let telegram_client = self.telegram_client.clone();
+                let download_slots = self.download_slots.clone();
                 let file_id = file_id.clone();
-                tokio::spawn(async move { telegram_client.download_file_to_temp(&file_id).await })
+                tokio::spawn(async move {
+                    let _permit = download_slots.acquire().await?;
+                    telegram_client.download_file_to_temp(&file_id).await
+                })
             })
             .collect();
 

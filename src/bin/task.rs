@@ -24,7 +24,8 @@ enum Task {
     TelegramUpdateCommands,
 }
 
-#[tokio::main]
+/// One HTTP call and exit, so the CLI has no use for a worker pool.
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
     bootstrap_environment()?;
 
